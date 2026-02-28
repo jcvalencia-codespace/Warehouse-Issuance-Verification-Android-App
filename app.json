@@ -1,25 +1,34 @@
 {
   "expo": {
-    "name": "WhseConfirmation",
+    "name": "Santeh Feeds Corporation - App",
     "slug": "WhseConfirmation",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "orientation": "default",
+    "icon": "./assets/images/appLogo.png",
     "scheme": "whseconfirmation",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIStatusBarHidden": true,
+        "UIViewControllerBasedStatusBarAppearance": false,
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.jcvbrowsing.WhseConfirmation"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/images/appLogo.png",
+        "backgroundImage": "./assets/images/bg.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "statusBar": {
+        "hidden": true
+      },
+      "package": "com.jcvbrowsing.WhseConfirmation"
     },
     "web": {
       "output": "static",
@@ -30,12 +39,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/appLogo.png",
+          "imageWidth": 250,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#1a1a1a"
           }
         }
       ]
@@ -43,6 +52,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "72358411-d038-45ca-8baf-fbb578451af6"
+      }
     }
   }
 }

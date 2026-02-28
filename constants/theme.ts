@@ -1,29 +1,61 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Enterprise warehouse confirmation theme colors
+ * Professional, clean design optimized for warehouse operators
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Enterprise color palette for warehouse operations
+const primary = '#1e40af'; // Professional blue
+const secondary = '#0ea5e9'; // Accent blue
+const success = '#10b981'; // Green for completed operations
+const warning = '#f59e0b'; // Amber for pending items
+const error = '#ef4444'; // Red for failures
+const neutral = '#f8fafc'; // Off-white background
+const darkNeutral = '#1e293b'; // Dark text
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: darkNeutral,
+    background: '#ffffff',
+    tint: primary,
+    icon: '#64748b',
+    tabIconDefault: '#64748b',
+    tabIconSelected: primary,
+    // Additional enterprise colors
+    primary,
+    secondary,
+    success,
+    warning,
+    error,
+    neutral,
+    cardBackground: '#f8fafc',
+    cardBorder: '#e2e8f0',
+    divider: '#e2e8f0',
+    textSecondary: '#64748b',
+    textTertiary: '#94a3b8',
+    shadowColor: '#000000',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#f1f5f9',
+    background: '#0f172a',
+    tint: secondary,
+    icon: '#cbd5e1',
+    tabIconDefault: '#cbd5e1',
+    tabIconSelected: secondary,
+    // Additional enterprise colors
+    primary: '#3b82f6',
+    secondary: '#38bdf8',
+    success: '#34d399',
+    warning: '#fbbf24',
+    error: '#f87171',
+    neutral: '#1e293b',
+    cardBackground: '#1e293b',
+    cardBorder: '#334155',
+    divider: '#334155',
+    textSecondary: '#cbd5e1',
+    textTertiary: '#94a3b8',
+    shadowColor: '#000000',
   },
 };
 

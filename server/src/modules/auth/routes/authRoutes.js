@@ -1,0 +1,13 @@
+// server/src/modules/auth/routes/authRoutes.js
+const express = require('express');
+const AuthController = require('../controllers/authController');
+
+const router = express.Router();
+
+/**
+ * POST /auth/login
+ * Authenticate user with username and password
+ */
+router.post('/login', AuthController.login);
+
+module.exports = router;
