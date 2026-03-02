@@ -7,8 +7,12 @@ export interface IssuanceVerificationFormData {
   transactionRefNumber: string;
   area: string;
   itemNumber: string;
+  lotNumber: string;
   numberOfBags: number | null;
   weightInKg: number | null;
+  forkliftOperator: string;
+  floorScale: string;
+  transType: string;
 }
 
 export interface IssuanceVerificationFormProps {
@@ -22,19 +26,8 @@ export interface IssuanceVerificationFormProps {
 export interface AreaOption {
   label: string;
   value: string;
+  itemNumber?: string;
 }
-
-// Predefined area options for dropdown
-export const AREA_OPTIONS: AreaOption[] = [
-  { label: 'Warehouse A - Main Storage', value: 'WAREHOUSE_A' },
-  { label: 'Warehouse B - Secondary Storage', value: 'WAREHOUSE_B' },
-  { label: 'Loading Dock 1', value: 'LOADING_DOCK_1' },
-  { label: 'Loading Dock 2', value: 'LOADING_DOCK_2' },
-  { label: 'Cold Storage Area', value: 'COLD_STORAGE' },
-  { label: 'Bulk Storage Zone', value: 'BULK_STORAGE' },
-  { label: 'Quarantine Area', value: 'QUARANTINE' },
-  { label: 'Dispatch Area', value: 'DISPATCH' },
-];
 
 export type FormStatus = 'idle' | 'saving' | 'posting' | 'saved' | 'posted' | 'error';
 
@@ -42,8 +35,11 @@ export interface FormErrors {
   transactionRefNumber?: string;
   area?: string;
   itemNumber?: string;
+  lotNumber?: string;
   numberOfBags?: string;
   weightInKg?: string;
+  forkliftOperator?: string;
+  floorScale?: string;
 }
 
 // Bag Allocation Types

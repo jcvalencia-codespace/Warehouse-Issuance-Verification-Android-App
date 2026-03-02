@@ -4,4 +4,5 @@
  */
 
 export { IssuanceVerificationScreen } from './screens/IssuanceVerificationScreen';
-export { AREA_OPTIONS, AreaOption, FormErrors, FormStatus, IssuanceVerificationFormData, IssuanceVerificationFormProps } from './types/issuance.types';
+export { AreaOption, FormErrors, FormStatus, IssuanceVerificationFormData, IssuanceVerificationFormProps } from './types/issuance.types';
+

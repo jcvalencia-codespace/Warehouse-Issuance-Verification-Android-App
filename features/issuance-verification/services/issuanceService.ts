@@ -4,6 +4,7 @@ import { BagAllocationResponse } from '../types/issuance.types';
 export interface AreaOption {
   label: string;
   value: string;
+  itemNumber?: string;
 }
 
 export class IssuanceService {
@@ -42,6 +43,28 @@ export class IssuanceService {
   }
 
   /**
+   * Get the next transaction reference number
+   */
+  async getTransactionReferenceNumber(): Promise<string> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+
+      const response = await axios.get(`${this.baseUrl}/issuance/transaction-reference`);
+      
+      if (response.data.success) {
+        return response.data.nextReferenceNumber;
+      }
+      
+      return '';
+    } catch (error) {
+      console.error('Error fetching transaction reference number:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get list of item numbers by area
    */
   async getItemsByArea(area: string): Promise<AreaOption[]> {
@@ -59,6 +82,51 @@ export class IssuanceService {
       return [];
     } catch (error) {
       console.error('Error fetching items by area:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get list of lot numbers by area and optionally by item number
+   */
+  async getLotsByArea(area: string, itemNumber?: string): Promise<AreaOption[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+
+      let url = `${this.baseUrl}/issuance/areas/${encodeURIComponent(area)}/lots`;
+      if (itemNumber) {
+        url += `?itemNumber=${encodeURIComponent(itemNumber)}`;
+      }
+
+      const response = await axios.get(url);
+      
+      if (response.data.success) {
+        return response.data.data as AreaOption[];
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error fetching lots by area:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all available lots for an area (without allocation)
+   */
+  async getAvailableLots(area: string): Promise<any> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+
+      const response = await axios.get(`${this.baseUrl}/issuance/areas/${encodeURIComponent(area)}/available-lots`);
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching available lots:', error);
       throw error;
     }
   }
@@ -110,6 +178,10 @@ export class IssuanceService {
     numberOfBags: number;
     weightInKg: number;
     allocations?: BagAllocationResponse['data'];
+    username?: string;
+    forkliftOperator?: string;
+    floorScale?: string;
+    transType?: string;
   }): Promise<{ success: boolean; message?: string }> {
     try {
       if (!this.baseUrl) {

@@ -5,7 +5,7 @@
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BagAllocationItem } from '../types/issuance.types';
 
 interface AllocationTableProps {
@@ -17,6 +17,10 @@ interface AllocationTableProps {
   totalItems: number;
   itemsPerPage: number;
   onPageChange: (page: number) => void;
+  selectedItemNumber?: string;
+  selectedArea?: string;
+  onItemSelect?: (itemNumber: string) => void;
+  showItemColumn?: boolean;
 }
 
 export function AllocationTable({
@@ -28,9 +32,26 @@ export function AllocationTable({
   totalItems,
   itemsPerPage,
   onPageChange,
+  selectedItemNumber,
+  selectedArea,
+  onItemSelect,
+  showItemColumn = true,
 }: AllocationTableProps) {
+  // Filter items when an item number or area is selected
+  const filteredItems = items.filter(item => {
+    const matchesItem = !selectedItemNumber || item.ITEMNMBR?.trim() === selectedItemNumber.trim();
+    const matchesArea = !selectedArea || item.AREA?.trim() === selectedArea.trim();
+    return matchesItem && matchesArea;
+  });
+  
+  // Calculate pagination based on filtered items
+  const filteredTotalItems = filteredItems.length;
+  const filteredTotalPages = Math.ceil(filteredTotalItems / itemsPerPage) || 1;
   const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+  const endItem = Math.min(currentPage * itemsPerPage, filteredTotalItems);
+
+  // Get items for current page from filtered list
+  const paginatedItems = filteredItems.slice(startItem - 1, endItem);
 
   return (
     <View style={styles.container}>
@@ -39,6 +60,9 @@ export function AllocationTable({
         <View style={styles.tableContainer}>
           {/* Table Header */}
           <View style={[styles.tableHeader, { backgroundColor: colors.primary + '10', borderBottomColor: colors.cardBorder }]}>
+            {showItemColumn && (
+              <Text style={[styles.tableHeaderTextItem, { color: colors.primary }]}>ITEM #</Text>
+            )}
             <Text style={[styles.tableHeaderTextLot, { color: colors.primary }]}>LOT #</Text>
             <Text style={[styles.tableHeaderText, { color: colors.primary }]}>Area</Text>
             <Text style={[styles.tableHeaderText, { color: colors.primary }]}>Avail Bags</Text>
@@ -49,11 +73,19 @@ export function AllocationTable({
           </View>
 
           {/* Table Rows */}
-          {items.map((item, index) => (
-            <View
+          {paginatedItems.map((item, index) => (
+            <TouchableOpacity
               key={`${item.QM_IDNUMBER}-${index}`}
               style={[styles.tableRow, { backgroundColor: index % 2 === 0 ? colors.background : colors.cardBackground, borderBottomColor: colors.cardBorder }]}
+              onPress={() => showItemColumn && onItemSelect?.(item.ITEMNMBR)}
+              disabled={!showItemColumn}
+              activeOpacity={0.7}
             >
+              {showItemColumn && (
+                <Text style={[styles.tableCellItem, { color: selectedItemNumber === item.ITEMNMBR ? colors.primary : colors.text, fontWeight: selectedItemNumber === item.ITEMNMBR ? '700' as const : '400' as const }]}>
+                  {String(item.ITEMNMBR || '-').trim()}
+                </Text>
+              )}
               <Text style={[styles.tableCellLot, { color: colors.text }]}>{String(item.LOTNUMBER || '-').trim()}</Text>
               <Text style={[styles.tableCell, { color: colors.text }]}>{String(item.AREA || '-').trim()}</Text>
               <Text style={[styles.tableCell, { color: colors.text }]}>{item['AVAILABLE BAGS']}</Text>
@@ -67,13 +99,13 @@ export function AllocationTable({
               <Text style={[styles.tableCell, { color: item.TAG === 'TRUE' ? colors.success : colors.error, fontWeight: '600' as const }]}>
                 {item.TAG === 'TRUE' ? '✓' : '✗'}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       ) : (
         // Card View for Phones
         <View style={styles.cardContainer}>
-          {items.map((item, index) => (
+          {paginatedItems.map((item, index) => (
             <View
               key={`${item.QM_IDNUMBER}-${index}`}
               style={[styles.allocationCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
@@ -87,6 +119,12 @@ export function AllocationTable({
               </View>
               
               <View style={styles.cardContent}>
+                {showItemColumn && (
+                  <View style={styles.cardRow}>
+                    <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>ITEM #</Text>
+                    <Text style={[styles.cardValue, { color: selectedItemNumber === item.ITEMNMBR ? colors.primary : colors.text }]}>{String(item.ITEMNMBR || '-').trim()}</Text>
+                  </View>
+                )}
                 <View style={styles.cardRow}>
                   <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>LOT #</Text>
                   <Text style={[styles.cardValue, { color: colors.text }]}>{String(item.LOTNUMBER || '-').trim()}</Text>
@@ -122,10 +160,10 @@ export function AllocationTable({
       )}
 
       {/* Pagination Controls */}
-      {totalItems > itemsPerPage && (
+      {filteredTotalItems > itemsPerPage && (
         <View style={[styles.paginationContainer, { backgroundColor: colors.primary + '08', borderTopColor: colors.cardBorder }]}>
           <Text style={[styles.paginationInfo, { color: colors.textSecondary }]}>
-            Showing {startItem}-{endItem} of {totalItems}
+            Showing {startItem}-{endItem} of {filteredTotalItems}
           </Text>
 
           <View style={styles.paginationControls}>
@@ -152,18 +190,18 @@ export function AllocationTable({
 
             <View style={[styles.pageIndicator, { backgroundColor: colors.primary + '15' }]}>
               <Text style={[styles.pageIndicatorText, { color: colors.primary }]}>
-                {currentPage} / {totalPages}
+                {currentPage} / {filteredTotalPages}
               </Text>
             </View>
 
             <View
               style={[styles.paginationNavButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-              onTouchEnd={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+              onTouchEnd={() => onPageChange(Math.min(filteredTotalPages, currentPage + 1))}
             >
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={18}
-                color={currentPage === totalPages ? colors.textTertiary : colors.primary}
+                color={currentPage === filteredTotalPages ? colors.textTertiary : colors.primary}
               />
             </View>
 
@@ -173,7 +211,7 @@ export function AllocationTable({
               <MaterialCommunityIcons
                 name="page-last"
                 size={18}
-                color={currentPage === totalPages ? colors.textTertiary : colors.primary}
+                color={currentPage === filteredTotalPages ? colors.textTertiary : colors.primary}
               />
             </View>
           </View>
@@ -209,6 +247,12 @@ const styles = StyleSheet.create({
     flex: 1.5,
     textAlign: 'center',
   },
+  tableHeaderTextItem: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1.5,
+    textAlign: 'center',
+  },
   tableRow: {
     flexDirection: 'row',
     paddingVertical: 14,
@@ -223,6 +267,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   tableCellLot: {
+    fontSize: 14,
+    flex: 1.5,
+    textAlign: 'center',
+    paddingHorizontal: 6,
+  },
+  tableCellItem: {
     fontSize: 14,
     flex: 1.5,
     textAlign: 'center',

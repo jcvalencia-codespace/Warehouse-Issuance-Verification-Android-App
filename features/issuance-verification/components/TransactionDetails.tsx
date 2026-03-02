@@ -6,9 +6,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { AllocationTable } from '.';
 import { issuanceService } from '../services/issuanceService';
 import { AreaOption, FormErrors, IssuanceVerificationFormData } from '../types/issuance.types';
+import { AllocationTable } from './AllocationTable';
 
 interface TransactionDetailsProps {
   colors: any;
@@ -18,16 +18,34 @@ interface TransactionDetailsProps {
   areaOptions: AreaOption[];
   filteredAreaOptions: AreaOption[];
   itemOptions: AreaOption[];
+  lotOptions: AreaOption[];
+  filteredLotOptions: AreaOption[];
   selectedAreaLabel: string | null;
   showAreaPicker: boolean;
+  showItemPicker: boolean;
+  showLotPicker: boolean;
   isLoadingItems: boolean;
+  isLoadingLots: boolean;
   areaSearchQuery: string;
+  itemSearchQuery: string;
+  lotSearchQuery: string;
   onFormDataChange: (data: Partial<IssuanceVerificationFormData>) => void;
   onErrorsChange: (errors: Partial<FormErrors>) => void;
   onShowAreaPickerChange: (show: boolean) => void;
+  onShowItemPickerChange: (show: boolean) => void;
+  onShowLotPickerChange: (show: boolean) => void;
   onAreaSearchQueryChange: (query: string) => void;
+  onItemSearchQueryChange: (query: string) => void;
+  onLotSearchQueryChange: (query: string) => void;
   onItemOptionsChange: (items: AreaOption[]) => void;
+  onLotOptionsChange: (items: AreaOption[]) => void;
+  onFilteredLotOptionsChange: (items: AreaOption[]) => void;
   onIsLoadingItemsChange: (loading: boolean) => void;
+  onIsLoadingLotsChange: (loading: boolean) => void;
+  onAvailableLotsLoaded: (lots: any[]) => void;
+  selectedItemNumber?: string;
+  onItemSelect?: (itemNumber: string) => void;
+  showItemColumn?: boolean;
   // Quantity props
   isAllocating: boolean;
   allocationResults: any[];
@@ -36,8 +54,10 @@ interface TransactionDetailsProps {
   paginatedResults: any[];
   onNumberOfBagsChange: (value: string) => void;
   onWeightChange: (value: string) => void;
+  weightInputRaw?: string;
   onCalculateAllocation: () => void;
   onPageChange: (page: number) => void;
+  isViewingAvailableLots?: boolean;
 }
 
 export function TransactionDetails({
@@ -48,16 +68,34 @@ export function TransactionDetails({
   areaOptions,
   filteredAreaOptions,
   itemOptions,
+  lotOptions,
+  filteredLotOptions,
   selectedAreaLabel,
   showAreaPicker,
+  showItemPicker,
+  showLotPicker,
   isLoadingItems,
+  isLoadingLots,
   areaSearchQuery,
+  itemSearchQuery,
+  lotSearchQuery,
   onFormDataChange,
   onErrorsChange,
   onShowAreaPickerChange,
+  onShowItemPickerChange,
+  onShowLotPickerChange,
   onAreaSearchQueryChange,
+  onItemSearchQueryChange,
+  onLotSearchQueryChange,
   onItemOptionsChange,
+  onLotOptionsChange,
+  onFilteredLotOptionsChange,
   onIsLoadingItemsChange,
+  onIsLoadingLotsChange,
+  onAvailableLotsLoaded,
+  selectedItemNumber,
+  onItemSelect,
+  showItemColumn = true,
   // Quantity props
   isAllocating,
   allocationResults,
@@ -66,19 +104,18 @@ export function TransactionDetails({
   paginatedResults,
   onNumberOfBagsChange,
   onWeightChange,
+  weightInputRaw = '',
   onCalculateAllocation,
   onPageChange,
+  isViewingAvailableLots = false,
 }: TransactionDetailsProps) {
   return (
     <>
       {/* Transaction Details Card */}
       <View style={[styles.formCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Transaction Details
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontStyle: 'italic', marginLeft: 4 }]}> (Enter the issuance verification information below)
-          </Text>
-        </Text>
-
+          Transaction Details</Text>
+        <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontStyle: 'italic', marginLeft: 4 }]}>(Enter the issuance verification information below) </Text>
         {/* Transaction Reference Number */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
@@ -102,9 +139,10 @@ export function TransactionDetails({
             />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="e.g., ISS-2024-001234"
+              placeholder="e.g., 123456789"
               placeholderTextColor={colors.textTertiary}
               value={formData.transactionRefNumber}
+              readOnly
               onChangeText={(text) => {
                 onFormDataChange({ transactionRefNumber: text });
                 if (errors.transactionRefNumber) {
@@ -128,6 +166,66 @@ export function TransactionDetails({
               <Text style={[styles.errorText, { color: colors.error }]}>
                 {errors.transactionRefNumber}
               </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Floor Scale */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Floor Scale
+            <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
+          </Text>
+          <View style={styles.radioGroup}>
+            <TouchableOpacity
+              style={[
+                styles.radioButton,
+                {
+                  backgroundColor: formData.floorScale === 'PAWHRM-FS1' ? colors.primary + '20' : colors.background,
+                  borderColor: errors.floorScale ? colors.error : (formData.floorScale === 'PAWHRM-FS1' ? colors.primary : colors.cardBorder),
+                },
+              ]}
+              onPress={() => {
+                onFormDataChange({ floorScale: 'PAWHRM-FS1', transType: 'RECV FROM WHSE - FS1 APP' });
+                if (errors.floorScale) {
+                  onErrorsChange({ floorScale: undefined });
+                }
+              }}
+            >
+              <MaterialCommunityIcons
+                name={formData.floorScale === 'PAWHRM-FS1' ? 'radiobox-marked' : 'radiobox-blank'}
+                size={22}
+                color={formData.floorScale === 'PAWHRM-FS1' ? colors.primary : colors.textSecondary}
+              />
+              <Text style={[styles.radioLabel, { color: colors.text }]}>Floor Scale 1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.radioButton,
+                {
+                  backgroundColor: formData.floorScale === 'PAWHRM-FS2' ? colors.primary + '20' : colors.background,
+                  borderColor: errors.floorScale ? colors.error : (formData.floorScale === 'PAWHRM-FS2' ? colors.primary : colors.cardBorder),
+                },
+              ]}
+              onPress={() => {
+                onFormDataChange({ floorScale: 'PAWHRM-FS2',  transType: 'RECV FROM WHSE - FS2 APP' });
+                if (errors.floorScale) {
+                  onErrorsChange({ floorScale: undefined });
+                }
+              }}
+            >
+              <MaterialCommunityIcons
+                name={formData.floorScale === 'PAWHRM-FS2' ? 'radiobox-marked' : 'radiobox-blank'}
+                size={22}
+                color={formData.floorScale === 'PAWHRM-FS2' ? colors.primary : colors.textSecondary}
+              />
+              <Text style={[styles.radioLabel, { color: colors.text }]}>Floor Scale 2</Text>
+            </TouchableOpacity>
+          </View>
+          {errors.floorScale && (
+            <View style={[styles.errorContainer, { marginTop: 8 }]}>
+              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>{errors.floorScale}</Text>
             </View>
           )}
         </View>
@@ -230,7 +328,7 @@ export function TransactionDetails({
                         },
                       ]}
                       onPress={() => {
-                        onFormDataChange({ area: option.value, itemNumber: '' });
+                        onFormDataChange({ area: option.value, itemNumber: '', lotNumber: '' });
                         onShowAreaPickerChange(false);
                         // Fetch items for the selected area
                         onIsLoadingItemsChange(true);
@@ -243,35 +341,48 @@ export function TransactionDetails({
                             console.error('Error fetching items:', err);
                             onIsLoadingItemsChange(false);
                           });
+                        // Fetch available lots for the selected area
+                        onIsLoadingLotsChange(true);
+                        issuanceService.getAvailableLots(option.value)
+                          .then(response => {
+                            if (response.success && response.data) {
+                              onAvailableLotsLoaded(response.data);
+                            }
+                            onIsLoadingLotsChange(false);
+                          })
+                          .catch(err => {
+                            console.error('Error fetching available lots:', err);
+                            onIsLoadingLotsChange(false);
+                          });
                         if (errors.area) {
                           onErrorsChange({ area: undefined });
                         }
                       }}
                     >
-                      <View style={styles.dropdownOptionContent}>
-                        <MaterialCommunityIcons
-                          name="warehouse"
-                          size={18}
-                          color={formData.area === option.value ? colors.primary : colors.textSecondary}
-                          style={styles.dropdownOptionIcon}
-                        />
-                        <Text
-                          style={[
-                            styles.dropdownOptionText,
-                            {
-                              color: formData.area === option.value ? colors.primary : colors.text,
-                              fontWeight: formData.area === option.value ? '600' : '400',
-                            },
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </View>
+                      <MaterialCommunityIcons
+                        name="warehouse"
+                        size={18}
+                        color={formData.area === option.value ? colors.primary : colors.textSecondary}
+                        style={styles.dropdownOptionIcon}
+                      />
+                      <Text
+                        style={[
+                          styles.dropdownOptionText,
+                          {
+                            color: formData.area === option.value ? colors.primary : colors.text,
+                            fontWeight: formData.area === option.value ? '600' : '400',
+                          },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {/* </View> */}
                       {formData.area === option.value && (
                         <MaterialCommunityIcons
                           name="check-circle"
                           size={20}
                           color={colors.primary}
+                          style={{ marginLeft: 'auto' }}
                         />
                       )}
                     </Pressable>
@@ -299,17 +410,29 @@ export function TransactionDetails({
           )}
         </View>
 
-        {/* Item Number Input - Read Only */}
+        {/* Item Number Dropdown */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Item Number</Text>
-          <View
+          <Text style={[styles.label, { color: colors.text }]}>
+            Item Number
+            <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
+          </Text>
+
+          <TouchableOpacity
             style={[
               styles.inputContainer,
+              styles.dropdownContainer,
               {
                 backgroundColor: colors.background,
-                borderColor: colors.cardBorder,
+                borderColor: errors.itemNumber ? colors.error : colors.cardBorder,
               },
             ]}
+            onPress={() => {
+              if (formData.area) {
+                onShowItemPickerChange(!showItemPicker);
+              }
+            }}
+            activeOpacity={0.7}
+            disabled={!formData.area}
           >
             <MaterialCommunityIcons
               name="package-variant"
@@ -317,10 +440,153 @@ export function TransactionDetails({
               color={colors.textTertiary}
               style={styles.inputIcon}
             />
-            <Text style={[styles.input, { color: colors.text }]}>
-              {itemOptions[0]?.label || 'N/A'}
+            <Text
+              style={[
+                styles.dropdownText,
+                { color: formData.itemNumber ? colors.text : colors.textTertiary },
+              ]}
+            >
+              {formData.itemNumber || 'Select item number'}
             </Text>
-          </View>
+            {formData.area && (
+              <MaterialCommunityIcons
+                name={showItemPicker ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={colors.textSecondary}
+              />
+            )}
+          </TouchableOpacity>
+
+          {showItemPicker && (
+            <View
+              style={[
+                styles.dropdown,
+                {
+                  backgroundColor: colors.cardBackground,
+                  borderColor: colors.cardBorder,
+                  shadowColor: colors.shadowColor,
+                },
+              ]}
+            >
+              {/* Search Input */}
+              <View style={[styles.searchInputContainer, { borderBottomColor: colors.divider }]}>
+                <MaterialCommunityIcons
+                  name="magnify"
+                  size={20}
+                  color={colors.textTertiary}
+                />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder="Search item..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={itemSearchQuery}
+                  onChangeText={onItemSearchQueryChange}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {itemSearchQuery ? (
+                  <Pressable onPress={() => onItemSearchQueryChange('')}>
+                    <MaterialCommunityIcons
+                      name="close-circle"
+                      size={18}
+                      color={colors.textTertiary}
+                    />
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {/* Scrollable Options List */}
+              <ScrollView
+                style={styles.dropdownScrollView}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+              >
+                {(() => {
+                  const filteredItems = itemSearchQuery
+                    ? itemOptions.filter(option =>
+                      option.label.toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
+                      option.value.toLowerCase().includes(itemSearchQuery.toLowerCase())
+                    )
+                    : itemOptions;
+
+                  return filteredItems.length > 0 ? (
+                    filteredItems.map((option, index) => (
+                      <Pressable
+                        key={option.value}
+                        style={[
+                          styles.dropdownOption,
+                          index !== filteredItems.length - 1 && {
+                            borderBottomWidth: 1,
+                            borderBottomColor: colors.divider,
+                          },
+                          formData.itemNumber === option.value && {
+                            backgroundColor: colors.primary + '10',
+                          },
+                        ]}
+                        onPress={() => {
+                          onFormDataChange({ itemNumber: option.value, lotNumber: '' });
+                          onShowItemPickerChange(false);
+                          // Filter lots by selected item
+                          const filteredLots = lotOptions.filter(
+                            lot => lot.itemNumber === option.value
+                          );
+                          onFilteredLotOptionsChange(filteredLots.length > 0 ? filteredLots : lotOptions);
+                          if (errors.itemNumber) {
+                            onErrorsChange({ itemNumber: undefined });
+                          }
+                        }}
+                      >
+                        <View style={styles.dropdownOptionContent}>
+                          <MaterialCommunityIcons
+                            name="package-variant"
+                            size={18}
+                            color={formData.itemNumber === option.value ? colors.primary : colors.textSecondary}
+                            style={styles.dropdownOptionIcon}
+                          />
+                          <Text
+                            style={[
+                              styles.dropdownOptionText,
+                              {
+                                color: formData.itemNumber === option.value ? colors.primary : colors.text,
+                                fontWeight: formData.itemNumber === option.value ? '600' : '400',
+                              },
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </View>
+                        {formData.itemNumber === option.value && (
+                          <MaterialCommunityIcons
+                            name="check-circle"
+                            size={20}
+                            color={colors.primary}
+                            style={{ marginLeft: 'auto' }}
+                          />
+                        )}
+                      </Pressable>
+                    ))
+                  ) : (
+                    <View style={styles.emptyDropdown}>
+                      <MaterialCommunityIcons
+                        name="magnify-close"
+                        size={32}
+                        color={colors.textTertiary}
+                      />
+                      <Text style={[styles.emptyDropdownText, { color: colors.textTertiary }]}>
+                        {itemSearchQuery ? 'No items match your search' : 'No items available'}
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </ScrollView>
+            </View>
+          )}
+          {errors.itemNumber && (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>{errors.itemNumber}</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -376,8 +642,9 @@ export function TransactionDetails({
 
           {/* Weight in KG */}
           <View style={[styles.inputGroup, styles.halfWidth]}>
-            <Text style={[styles.label, { color: colors.text }]}>Weight (kg)</Text>
-            <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
+            <Text style={[styles.label, { color: colors.text }]}>Weight (kg)
+              <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
+            </Text>
             <View
               style={[
                 styles.inputContainer,
@@ -397,9 +664,9 @@ export function TransactionDetails({
                 style={[styles.input, { color: colors.text }]}
                 placeholder="0.00"
                 placeholderTextColor={colors.textTertiary}
-                value={formData.weightInKg?.toString() || ''}
+                value={weightInputRaw || formData.weightInKg?.toString() || ''}
                 onChangeText={onWeightChange}
-                keyboardType="decimal-pad"
+                keyboardType="numeric"
               />
               <Text style={[styles.unitLabel, { color: colors.textTertiary }]}>kg</Text>
             </View>
@@ -412,6 +679,49 @@ export function TransactionDetails({
               </View>
             )}
           </View>
+        </View>
+
+        {/* Forklift Operator */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Forklift Operator
+            <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
+          </Text>
+          <View
+            style={[
+              styles.inputContainer,
+              {
+                backgroundColor: colors.background,
+                borderColor: errors.forkliftOperator ? colors.error : colors.cardBorder,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="account-hard-hat"
+              size={20}
+              color={colors.textTertiary}
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Enter forklift operator name"
+              placeholderTextColor={colors.textTertiary}
+              value={formData.forkliftOperator || ''}
+              onChangeText={(text) => {
+                onFormDataChange({ forkliftOperator: text });
+                if (errors.forkliftOperator) {
+                  onErrorsChange({ forkliftOperator: undefined });
+                }
+              }}
+              autoCapitalize="words"
+            />
+          </View>
+          {errors.forkliftOperator && (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>{errors.forkliftOperator}</Text>
+            </View>
+          )}
         </View>
 
         {/* Quick Summary */}
@@ -431,27 +741,10 @@ export function TransactionDetails({
           </View>
         )}
 
-        {/* Calculate Allocation Button
-        <TouchableOpacity
-          style={[styles.calculateButton, { backgroundColor: colors.secondary }]}
-          onPress={onCalculateAllocation}
-          disabled={isAllocating || !formData.numberOfBags}
-          activeOpacity={0.8}
-        >
-          {isAllocating ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <>
-              <MaterialCommunityIcons name="package-variant-closed-check" size={20} color="#ffffff" />
-              <Text style={styles.calculateButtonText}>Calculate Allocation</Text>
-            </>
-          )}
-        </TouchableOpacity> */}
-
         {/* Allocation Results */}
         <View style={[styles.allocationResults, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
           <Text style={[styles.allocationTitle, { color: colors.text }]}>
-            Bag Allocation Results
+            {isViewingAvailableLots ? 'Available Lots' : 'Bag Allocation Results'}
           </Text>
 
           {/* Summary */}
@@ -467,31 +760,50 @@ export function TransactionDetails({
                 <>
                   <View style={styles.summaryRow}>
                     <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Lot:</Text>
-                    <Text style={[styles.summaryValue2, { color: colors.text }]}>{allocatedItems.length} lot(s)</Text>
+                    <Text style={[styles.summaryValue2, { color: colors.text }]}>{allocationResults.length} lot(s)</Text>
                   </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Required:</Text>
-                    <Text style={[styles.summaryValue2, { color: colors.text }]}>{formData.numberOfBags ?? 0} bags</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Estimated Weight:</Text>
-                    <Text style={[styles.summaryValue2, { color: colors.success }]}>{Number(totalBags.toFixed(2)).toLocaleString()} bags ({totalKgs.toFixed(2)} kg)</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Available Bags:</Text>
-                    <Text style={[styles.summaryValue2, { color: colors.text }]}>{Number(totalAvailableBags.toFixed(2)).toLocaleString()} bags</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Available Kgs:</Text>
-                    <Text style={[styles.summaryValue2, { color: colors.text }]}>{Number(totalAvailableKgs.toFixed(2)).toLocaleString()} kg</Text>
-                  </View>
+                  {isViewingAvailableLots ? (
+                    <>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Available Bags:</Text>
+                        <Text style={[styles.summaryValue2, { color: colors.text }]}>{Number(totalAvailableBags.toFixed(2)).toLocaleString()} bags</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Available Kgs:</Text>
+                        <Text style={[styles.summaryValue2, { color: colors.text }]}>{Number(totalAvailableKgs.toFixed(2)).toLocaleString()} kg</Text>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Required:</Text>
+                        <Text style={[styles.summaryValue2, { color: colors.text }]}>{formData.numberOfBags ?? 0} bags</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Estimated Weight:</Text>
+                        <Text style={[styles.summaryValue2, { color: colors.success }]}>{Number(totalBags.toFixed(2)).toLocaleString()} bags ({totalKgs.toFixed(2)} kg)</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Actual Weight:</Text>
+                        <Text style={[styles.summaryValue2, { color: colors.text }]}>{formData.weightInKg?.toFixed(2) || 0} kg</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Available Bags:</Text>
+                        <Text style={[styles.summaryValue2, { color: colors.text }]}>{Number(totalAvailableBags.toFixed(2)).toLocaleString()} bags</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Available Kgs:</Text>
+                        <Text style={[styles.summaryValue2, { color: colors.text }]}>{Number(totalAvailableKgs.toFixed(2)).toLocaleString()} kg</Text>
+                      </View>
+                    </>
+                  )}
                 </>
               );
             })()}
           </View>
 
           {/* Allocation Table */}
-          {paginatedResults.length > 0 && (
+          {(paginatedResults.length > 0 || allocationResults.length > 0) && (
             <AllocationTable
               colors={colors}
               isTablet={isTablet}
@@ -501,6 +813,10 @@ export function TransactionDetails({
               totalItems={allocationResults.length}
               itemsPerPage={5}
               onPageChange={onPageChange}
+              selectedItemNumber={selectedItemNumber}
+              selectedArea={formData.area}
+              onItemSelect={onItemSelect}
+              showItemColumn={showItemColumn}
             />
           )}
 
@@ -608,7 +924,7 @@ const styles = StyleSheet.create({
   dropdownOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    // justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 18,
   },
@@ -820,5 +1136,25 @@ const styles = StyleSheet.create({
   cardValue: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  // Radio button styles
+  radioGroup: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+  },
+  radioButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 10,
+  },
+  radioLabel: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
