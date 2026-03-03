@@ -1,7 +1,7 @@
 // server/src/config/database.js
 const sql = require('mssql');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
 
 // Base config used for any database
 const baseConfig = {

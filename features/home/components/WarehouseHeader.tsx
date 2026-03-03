@@ -53,8 +53,8 @@ export function WarehouseHeader({
           />
         </View>
         <View>
-          <Text style={styles.appName}>Warehouse Confirmation</Text>
-          <Text style={styles.tagline}>Enterprise Logistics Management</Text>
+          <Text style={styles.appName}>Santeh Feeds Corporation - App</Text>
+          <Text style={styles.tagline}>Enterprise Resource Management</Text>
         </View>
       </View>
 
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appName: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: '#ffffff',
   },

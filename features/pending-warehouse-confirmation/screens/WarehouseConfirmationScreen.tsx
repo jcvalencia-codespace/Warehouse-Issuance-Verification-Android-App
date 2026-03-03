@@ -30,7 +30,7 @@ interface WarehouseConfirmationScreenProps {
   route?: any;
 }
 
-export function WarehouseConfirmationScreen({ navigation, route }: WarehouseConfirmationScreenProps) {
+export function PostedWarehouseConfirmationScreen({ navigation, route }: WarehouseConfirmationScreenProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
   const router = useRouter();
@@ -79,7 +79,7 @@ export function WarehouseConfirmationScreen({ navigation, route }: WarehouseConf
     try {
       setLoading(true);
       setError(null);
-      const result = await warehouseMetricsService.getPendingTransactions(0, 999999);
+      const result = await warehouseMetricsService.getPostedTransactions(0, 999999);
       
       if (result && result.success) {
         setPendingTransactions(result.data || []);
@@ -167,7 +167,7 @@ export function WarehouseConfirmationScreen({ navigation, route }: WarehouseConf
         activeOpacity={0.8}
       >
         {/* Status Indicator */}
-        <View style={[styles.statusIndicator, { backgroundColor: colors.warning }]} />
+        <View style={[styles.statusIndicator, { backgroundColor: colors.success }]} />
         
         {/* Card Content */}
         <View style={styles.transactionContent}>
@@ -249,9 +249,9 @@ export function WarehouseConfirmationScreen({ navigation, route }: WarehouseConf
               Transaction Details • {transactionDetails.length} items
             </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: colors.warning + '20' }]}>
-            <MaterialCommunityIcons name="clock-outline" size={14} color={colors.warning} />
-            <Text style={[styles.statusText, { color: colors.warning }]}>Pending</Text>
+          <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
+            <MaterialCommunityIcons name="check-circle-outline" size={14} color={colors.success} />
+            <Text style={[styles.statusText, { color: colors.success }]}>Posted</Text>
           </View>
         </View>
         
@@ -288,7 +288,7 @@ export function WarehouseConfirmationScreen({ navigation, route }: WarehouseConf
             <View style={styles.headerTitleRow}>
               <MaterialCommunityIcons name="clipboard-check-outline" size={IS_TABLET ? 32 : 28} color={colors.primary} />
               <Text style={[styles.headerTitle, { color: colors.text }]}>
-                Pending Confirmations
+                Issuance Verification Lists
               </Text>
             </View>
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
@@ -300,9 +300,9 @@ export function WarehouseConfirmationScreen({ navigation, route }: WarehouseConf
         {/* Stats Bar */}
         <View style={[styles.statsBar, { backgroundColor: colors.background }]}>
           <View style={styles.statItem}>
-            <MaterialCommunityIcons name="file-clock-outline" size={20} color={colors.warning} />
+            <MaterialCommunityIcons name="file-check-outline" size={20} color={colors.success} />
             <Text style={[styles.statValue, { color: colors.text }]}>{searchQuery ? filteredTransactions.length : pendingTransactions.length}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{searchQuery ? 'Results' : 'Pending'}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{searchQuery ? 'Results' : 'Results'}</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
           <View style={styles.statItem}>
@@ -781,4 +781,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default WarehouseConfirmationScreen;
+export default PostedWarehouseConfirmationScreen;

@@ -104,6 +104,32 @@ class WarehouseMetricsService {
     }
   }
 
+  async getPostedTransactions(skip = 0, take = 50) {
+    try {
+      if (!this.baseUrl) {
+        console.error('API URL not configured');
+        return null;
+      }
+
+      const response = await axios.get(
+        `${this.baseUrl}/warehouse/posted-transactions?skip=${skip}&take=${take}`,
+        {
+          timeout: 10000,
+        }
+      );
+
+      if (response.data.success) {
+        return response.data;
+      }
+
+      console.error('Failed to fetch posted transactions');
+      return null;
+    } catch (error: any) {
+      console.error('Error fetching posted transactions:', error.message);
+      return null;
+    }
+  }
+
   async getTransactionDetails(transRefNo: string) {
     try {
       if (!this.baseUrl) {

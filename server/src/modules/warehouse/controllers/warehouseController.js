@@ -38,12 +38,12 @@ class WarehouseController {
    * Returns paginated list of NOT POSTED transactions
    * Query params: skip, take (default 50)
    */
-  static async getPendingTransactions(req, res) {
+  static async getPostedTransactions(req, res) {
     try {
       const skip = parseInt(req.query.skip || '0');
       const take = parseInt(req.query.take || '50');
 
-      const result = await WarehouseService.getPendingTransactions(skip, take);
+      const result = await WarehouseService.getPostedTransactions(skip, take);
       
       if (result.success) {
         return res.json({
@@ -144,6 +144,41 @@ class WarehouseController {
       res.status(500).json({
         success: false,
         message: 'Failed to fetch transaction details',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /stock-balance
+   * Returns current stock balance from inventory
+   * Query params: locncode (optional, default 'PAWHRM')
+   */
+  static async getStockBalance(req, res) {
+    try {
+      const locncode = req.query.locncode || 'PAWHRM';
+
+      const result = await WarehouseService.getStockBalance(locncode);
+      
+      if (result.success) {
+        return res.json({
+          success: true,
+          data: result.data,
+          count: result.count,
+          locncode
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: result.error,
+          data: []
+        });
+      }
+    } catch (error) {
+      console.error('Error in getStockBalance:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch stock balance',
         error: error.message
       });
     }

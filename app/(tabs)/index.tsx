@@ -23,10 +23,19 @@ export default function HomeScreen() {
     // Navigate to the corresponding module screen
     switch (moduleId) {
       case 'receiving':
-        router.push('/warehouse-confirmation/warehouse-confirmation');
+        router.push('/posted-warehouse-confirmation/posted-warehouse-confirmation');
         break;
       case 'pending':
-        router.push('/warehouse-confirmation/warehouse-confirmation');
+        router.push('/pending-warehouse-confirmation/pending-warehouse-confirmation');
+        break;
+      case 'reports':
+        router.push('/reports/reports');
+        break;
+      case 'settings':
+        router.push('/settings/settings');
+        break;
+      case 'help':
+        router.push('/(tabs)/help' as any);
         break;
       default:
         console.log('Module not implemented:', moduleId);

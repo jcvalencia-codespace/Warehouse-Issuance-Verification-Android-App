@@ -11,7 +11,7 @@ import {
   useColorScheme,
   View
 } from 'react-native';
-import { TransactionDetail } from '../types/confirmation.types';
+import { TransactionDetail } from '../../posted-warehouse-confirmation copy/types/confirmation.types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_TABLET = SCREEN_WIDTH > 768;
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
   },
   // Quantity Section
   quantitySection: {
-    marginBottom: 4,
+    gap: 12,
   },
   quantityGrid: {
     flexDirection: 'row',

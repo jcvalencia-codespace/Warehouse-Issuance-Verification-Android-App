@@ -24,6 +24,7 @@ const authRoutes = require('./modules/auth/routes/authRoutes');
 const schemaRoutes = require('./modules/schema/routes/schemaRoutes');
 const warehouseRoutes = require('./modules/warehouse/routes/warehouseRoutes');
 const issuanceRoutes = require('./modules/issuance/routes/issuanceRoutes');
+const warehouseController = require('./modules/warehouse/controllers/warehouseController');
 const AuthController = require('./modules/auth/controllers/authController');
 
 const app = express();
@@ -39,6 +40,9 @@ app.use('/auth', authRoutes);
 app.use('/schema', schemaRoutes);
 app.use('/warehouse', warehouseRoutes);
 app.use('/issuance', issuanceRoutes);
+
+// Stock balance endpoint (direct route)
+app.get('/stock-balance', warehouseController.getStockBalance);
 
 // Test database connection endpoint
 app.get('/test-db', async (req, res) => {

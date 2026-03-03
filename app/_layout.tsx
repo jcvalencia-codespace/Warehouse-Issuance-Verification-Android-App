@@ -16,13 +16,22 @@ export default function RootLayout() {
       <AuthProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <ToastProvider>
-            <Stack>
-              <Stack.Screen name="auth/index" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="warehouse-confirmation/warehouse-confirmation" 
-                options={{ headerShown: false, title: 'Warehouse Confirmation' }} 
+            <Stack
+              screenOptions={{
+                animation: 'slide_from_right',
+                headerShown: false,
+              }}
+            >
+              <Stack.Screen name="auth/index" options={{ animation: 'fade' }} />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="posted-warehouse-confirmation/posted-warehouse-confirmation" 
+                options={{ title: 'Posted Warehouse Confirmation' }} 
               />
-              <Stack.Screen name="issuance-verification" options={{ headerShown: false, title: 'Issuance Verification' }} />
+              <Stack.Screen name="issuance-verification" options={{ title: 'Issuance Verification' }} />
+              <Stack.Screen name="pending-warehouse-confirmation/pending-warehouse-confirmation" options={{ title: 'Pending Warehouse Confirmation' }} />
+              <Stack.Screen name="reports/reports" options={{ title: 'Reports & Analytics' }} />
+              <Stack.Screen name="settings/settings" options={{ title: 'Settings' }} />
+              <Stack.Screen name="coming-soon" options={{ title: 'Coming Soon' }} />
             </Stack>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           </ToastProvider>

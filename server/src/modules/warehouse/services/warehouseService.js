@@ -13,12 +13,12 @@ class WarehouseService {
   static async getMetrics() {
     try {
       const pool = await getPool(process.env.DB_SFC);
-      
+
       // Get current date (start of day)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayString = today.toISOString().split('T')[0];
-      
+
       // Query for all metrics
       const query = `
         SELECT 
@@ -40,9 +40,9 @@ class WarehouseService {
       `;
 
       const result = await pool.request().query(query);
-      
+
       const metrics = result.recordset[0] || {};
-      
+
       return {
         success: true,
         data: {
@@ -67,19 +67,67 @@ class WarehouseService {
   }
 
   /**
-   * Get pending (not posted) transactions with pagination
+   * Get posted (posted) transactions with pagination
    */
-  static async getPendingTransactions(skip = 0, take = 50) {
+  static async getPostedTransactions(skip = 0, take = 50) {
     try {
       const pool = await getPool(process.env.DB_SFC);
-      
+
       const query = `
         SELECT 
-          POSTSTATUS, TRANSREFNO, REFERENCENO, ITEMNMBR, ISSUEDBY, 
+          QMH4ROWID, POSTSTATUS, TRANSREFNO, REFERENCENO, ITEMNMBR, ISSUEDBY, 
           DATETRANS, TRANSTYPE, UOFM, QUANTITY_TRANS, BAG_TRANS, 
           UNITCOST, FROMCOMPANY, FROMTRANSNO, FROMLOCNCODE
         FROM (
           SELECT 
+            IQMH.QMH4ROWID,  
+            CASE WHEN IQMH.POSTSTATUS = 0 THEN 'NOT POSTED'
+            ELSE 'POSTED'
+            END AS POSTSTATUS,
+            IQMD.TRANSREFNO, IQMD.REFERENCENO, IQMD.ITEMNMBR, IQMH.ISSUEDBY, 
+            IQMH.DATETRANS, IQMH.TRANSTYPE, IQMD.UOFM, IQMD.QUANTITY_TRANS, 
+            IQMD.BAG_TRANS, IQMD.UNITCOST, IQMH.FROMCOMPANY, IQMH.FROMTRANSNO, 
+            IQMH.FROMLOCNCODE,
+            ROW_NUMBER() OVER (PARTITION BY IQMD.TRANSREFNO ORDER BY IQMD.REFERENCENO) AS rn
+          FROM [INVENTORY.QUANTITYMASTER4.HEADER] AS IQMH 
+          INNER JOIN [INVENTORY.QUANTITYMASTER4.DETAILS] AS IQMD 
+            ON IQMH.TRANSREFNO = IQMD.TRANSREFNO
+        ) ranked
+        WHERE rn = 1 AND POSTSTATUS = 'POSTED'
+        ORDER BY QMH4ROWID DESC
+        OFFSET ${skip} ROWS
+        FETCH NEXT ${take} ROWS ONLY
+      `;
+
+      const result = await pool.request().query(query);
+
+      return {
+        success: true,
+        data: result.recordset || [],
+        count: result.recordset.length
+      };
+    } catch (error) {
+      console.error('Error fetching pending transactions:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to fetch pending transactions',
+        data: []
+      };
+    }
+  }
+
+  static async getPendingTransactions(skip = 0, take = 50) {
+    try {
+      const pool = await getPool(process.env.DB_SFC);
+
+      const query = `
+        SELECT 
+          QMH4ROWID, POSTSTATUS, TRANSREFNO, REFERENCENO, ITEMNMBR, ISSUEDBY, 
+          DATETRANS, TRANSTYPE, UOFM, QUANTITY_TRANS, BAG_TRANS, 
+          UNITCOST, FROMCOMPANY, FROMTRANSNO, FROMLOCNCODE
+        FROM (
+          SELECT 
+            IQMH.QMH4ROWID,  
             CASE WHEN IQMH.POSTSTATUS = 0 THEN 'NOT POSTED'
             ELSE 'POSTED'
             END AS POSTSTATUS,
@@ -93,13 +141,13 @@ class WarehouseService {
             ON IQMH.TRANSREFNO = IQMD.TRANSREFNO
         ) ranked
         WHERE rn = 1 AND POSTSTATUS = 'NOT POSTED'
-        ORDER BY DATETRANS DESC
+        ORDER BY QMH4ROWID DESC
         OFFSET ${skip} ROWS
         FETCH NEXT ${take} ROWS ONLY
       `;
 
       const result = await pool.request().query(query);
-      
+
       return {
         success: true,
         data: result.recordset || [],
@@ -121,11 +169,11 @@ class WarehouseService {
   static async getCompletedTransactionToday(skip = 0, take = 50) {
     try {
       const pool = await getPool(process.env.DB_SFC);
-      
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayString = today.toISOString().split('T')[0];
-      
+
       const query = `
         SELECT 
           POSTSTATUS, TRANSREFNO, REFERENCENO, ITEMNMBR, ISSUEDBY, 
@@ -152,7 +200,7 @@ class WarehouseService {
       `;
 
       const result = await pool.request().query(query);
-      
+
       return {
         success: true,
         data: result.recordset || [],
@@ -175,7 +223,7 @@ class WarehouseService {
   static async getTransactionDetails(transRefNo) {
     try {
       const pool = await getPool(process.env.DB_SFC);
-      
+
       const query = `
         SELECT 
           QM4DROWID, 
@@ -194,7 +242,7 @@ class WarehouseService {
       `;
 
       const result = await pool.request().query(query);
-      
+
       return {
         success: true,
         data: result.recordset || [],
@@ -205,6 +253,45 @@ class WarehouseService {
       return {
         success: false,
         error: error.message || 'Failed to fetch transaction details',
+        data: []
+      };
+    }
+  }
+
+  /**
+   * Get current stock balance
+   * Returns available bags and kgs from inventory
+   */
+  static async getStockBalance(locncode = 'PAWHRM') {
+    try {
+      const pool = await getPool(process.env.DB_SFC);
+
+      const query = `
+        SELECT  D.AREA, D.ITEMNMBR, D.REMARKS, D.LOTNUMBER, D.UOFM
+        , CONVERT(DECIMAL(18,3), (CAST(QUANTITY_RECV * 1.0 / BAGS_RECV AS DECIMAL(18,8)))) AS AVEWT
+		, ((BAGS_RECV + BAGS_RET) - (BAGS_ALLOC + BAGS_ISS + BAGS_SAL + BAGS_ADJ)) AS [AVAILABLE BAGS]
+		, CONVERT(DECIMAL(18,3), ((QUANTITY_RECV - QUANTITY_ALLOC - QUANTITY_ISS 
+         + QUANTITY_RET - QUANTITY_SAL - QUANTITY_ADJ))) AS [AVAILABLE KGS]
+    FROM [INVENTORY.QUANTITYMASTER3.HEADER] H 
+    INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] D 
+        ON H.QM_IDNUMBER = D.QM_IDNUMBER
+    WHERE H.LOCNCODE = '${locncode}' 
+      AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0 
+ORDER BY D.AREA, D.ITEMNMBR, H.DATETRANS, D.LINENUMBER
+      `;
+
+      const result = await pool.request().query(query);
+
+      return {
+        success: true,
+        data: result.recordset || [],
+        count: result.recordset.length
+      };
+    } catch (error) {
+      console.error('Error fetching stock balance:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to fetch stock balance',
         data: []
       };
     }

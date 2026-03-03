@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ModuleCardData, ModuleGrid } from '../home/components/ModuleCard';
 import { SummaryStatItem, SummaryStats } from '../home/components/SummaryStats';
 import { WarehouseHeader } from '../home/components/WarehouseHeader';
@@ -42,6 +42,13 @@ const WAREHOUSE_MODULES: ModuleCardData[] = [
     color: 'success',
   },
   {
+    id: 'stock-balance',
+    title: 'Stock Balance',
+    description: 'View current inventory balance',
+    icon: 'package-variant',
+    color: 'primary',
+  },
+  {
     id: 'reports',
     title: 'Reports & Analytics',
     description: 'View warehouse reports',
@@ -55,6 +62,13 @@ const WAREHOUSE_MODULES: ModuleCardData[] = [
     icon: 'cog-outline',
     color: 'textSecondary',
   },
+  // {
+  //   id: 'help',
+  //   title: 'Help & Support',
+  //   description: 'Get help and contact support',
+  //   icon: 'help-circle-outline',
+  //   color: 'secondary',
+  // },
 ];
 
 interface WarehouseHomeScreenProps {
@@ -74,6 +88,7 @@ export function WarehouseHomeScreen({
   const isTablet = width > 800;
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Statistics data with real values from API
   // Initialize with default values that will be updated after mount
@@ -167,6 +182,8 @@ export function WarehouseHomeScreen({
   const handleModulePressInternal = (moduleId: string) => {
     if (moduleId === 'issuance-verification') {
       router.push('/issuance-verification' as any);
+    } else if (moduleId === 'stock-balance') {
+      router.push('/stock-balance' as any);
     } else if (onModulePress) {
       onModulePress(moduleId);
     }
@@ -305,7 +322,7 @@ export function WarehouseHomeScreen({
           </View>
 
           {/* Bottom Padding */}
-          <View style={{ height: 16 }} />
+          <View style={{ height: 100 + insets.bottom }} />
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -14,8 +14,7 @@ import {
   Shield,
   Star,
   Sun,
-  User,
-  Wallet
+  User
 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -26,7 +25,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface MenuItem {
   id: string;
@@ -46,7 +45,8 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { toast } = useToast();
-  
+  const insets = useSafeAreaInsets();
+
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
 
@@ -100,14 +100,14 @@ export default function ProfileScreen() {
 
   const MenuItemComponent = ({ item, colors }: { item: MenuItem; colors: typeof Colors.light }) => {
     const Icon = item.icon;
-    const iconColor = item.variant === 'warning' 
-      ? colors.error 
-      : item.variant === 'info' 
-        ? colors.primary 
+    const iconColor = item.variant === 'warning'
+      ? colors.error
+      : item.variant === 'info'
+        ? colors.primary
         : colors.textSecondary;
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.menuItem, { backgroundColor: colors.cardBackground }]}
         onPress={item.onPress}
         activeOpacity={0.7}
@@ -134,21 +134,14 @@ export default function ProfileScreen() {
       icon: User,
       title: 'Personal Information',
       subtitle: 'Update your profile details',
-      onPress: () => toast({ title: "Coming Soon", description: "Profile editing feature", variant: "default" }),
-    },
-    {
-      id: 'wallet',
-      icon: Wallet,
-      title: 'Wallet & Payments',
-      subtitle: 'Manage payment methods',
-      onPress: () => toast({ title: "Coming Soon", description: "Wallet feature", variant: "default" }),
+      onPress: () => router.push('/coming-soon'),
     },
     {
       id: 'history',
       icon: History,
       title: 'Transaction History',
       subtitle: 'View past transactions',
-      onPress: () => toast({ title: "Coming Soon", description: "History feature", variant: "default" }),
+      onPress: () => router.push('/coming-soon'),
     },
   ];
 
@@ -175,14 +168,14 @@ export default function ProfileScreen() {
       icon: Lock,
       title: 'Security',
       subtitle: 'Password & authentication',
-      onPress: () => toast({ title: "Coming Soon", description: "Security settings", variant: "default" }),
+      onPress: () => router.push('/coming-soon'),
     },
     {
       id: 'privacy',
       icon: Shield,
       title: 'Privacy Policy',
       subtitle: 'How we handle your data',
-      onPress: () => toast({ title: "Coming Soon", description: "Privacy policy", variant: "default" }),
+      onPress: () => router.push('/coming-soon'),
     },
   ];
 
@@ -209,13 +202,9 @@ export default function ProfileScreen() {
     </Text>
   );
 
-  const renderMenuItem = ({ item }: { item: MenuItem }) => (
-    <MenuItemComponent item={item} colors={colors} />
-  );
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -241,7 +230,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Stats Row */}
-        <View style={styles.statsContainer}>
+        {/* <View style={styles.statsContainer}>
           <View style={[styles.statItem, { backgroundColor: colors.cardBackground }]}>
             <Text style={[styles.statValue, { color: colors.primary }]}>24</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Transactions</Text>
@@ -254,7 +243,7 @@ export default function ProfileScreen() {
             <Text style={[styles.statValue, { color: colors.warning }]}>6</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending</Text>
           </View>
-        </View>
+        </View> */}
 
         {/* Menu Sections */}
         <View style={styles.menuSection}>
@@ -266,14 +255,14 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.menuSection}>
+        {/* <View style={styles.menuSection}>
           {renderSectionHeader('PREFERENCES')}
           <View style={styles.menuGroup}>
             {preferenceMenuItems.map((item) => (
               <MenuItemComponent key={item.id} item={item} colors={colors} />
             ))}
           </View>
-        </View>
+        </View> */}
 
         <View style={styles.menuSection}>
           {renderSectionHeader('SECURITY')}
@@ -284,14 +273,14 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.menuSection}>
+        {/* <View style={styles.menuSection}>
           {renderSectionHeader('SUPPORT')}
           <View style={styles.menuGroup}>
             {supportMenuItems.map((item) => (
               <MenuItemComponent key={item.id} item={item} colors={colors} />
             ))}
           </View>
-        </View>
+        </View> */}
 
         {/* Logout Button */}
         <TouchableOpacity
@@ -313,12 +302,15 @@ export default function ProfileScreen() {
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={[styles.appVersion, { color: colors.textTertiary }]}>
-            WareTrack v1.0.0
+            Santeh Feeds Corporation - App v1.0.0
           </Text>
           <Text style={[styles.appCopyright, { color: colors.textTertiary }]}>
-            © 2024 Sante Feeds. All rights reserved.
+            © 2024 MIS-SOFTWARE. All rights reserved.
           </Text>
         </View>
+
+        {/* Bottom Padding */}
+        <View style={{ height: 50 + insets.bottom }} />
       </ScrollView>
     </SafeAreaView>
   );
