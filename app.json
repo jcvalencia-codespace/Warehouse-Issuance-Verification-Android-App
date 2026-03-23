@@ -20,15 +20,12 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/appLogo.png",
-        "backgroundImage": "./assets/images/bg.png"
+        "foregroundImage": "./assets/images/appLogo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "statusBar": {
-        "hidden": true
-      },
-      "package": "com.jcvbrowsing.WhseConfirmation"
+      "package": "com.jcvbrowsing.WhseConfirmation",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -42,9 +39,10 @@
           "image": "./assets/images/appLogo.png",
           "imageWidth": 250,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#1e40af",
           "dark": {
-            "backgroundColor": "#1a1a1a"
+            "backgroundColor": "#0f172a",
+            "image": "./assets/images/appLogo.png"
           }
         }
       ]
@@ -55,9 +53,8 @@
     },
     "extra": {
       "router": {},
-      "apiUrl": "http://192.168.10.85:3000",
       "eas": {
-        "projectId": "72358411-d038-45ca-8baf-fbb578451af6"
+        "projectId": "8fb1a521-1043-42e8-a1fa-7bc512079d5b"
       }
     }
   }

@@ -14,10 +14,45 @@ crypto.createSecureContext = function(options) {
 
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const path = require('path');
 
-// Set Node.js TLS options for older SQL Server compatibility
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+// Load .env from project root (3 levels up from server/src/)
+require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
+
+// Get the API URL from environment for CORS configuration
+const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://192.168.10.85:3000`;
+const ALLOWED_ORIGINS = [
+  API_URL,
+  'http://localhost:8081',
+  'http://localhost:19000',
+  'http://localhost:19006',
+];
+
+// CORS configuration - allow requests from the Expo app's origin
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in the allowed list
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      // For development, log and allow anyway (remove in production)
+      console.log(`CORS: Allowing request from origin: ${origin}`);
+      callback(null, true);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+const app = express();
+
+// Middleware
+app.use(cors(corsOptions));
+app.use(express.json());
 
 // Import routes and controllers from modules
 const authRoutes = require('./modules/auth/routes/authRoutes');
@@ -26,12 +61,6 @@ const warehouseRoutes = require('./modules/warehouse/routes/warehouseRoutes');
 const issuanceRoutes = require('./modules/issuance/routes/issuanceRoutes');
 const warehouseController = require('./modules/warehouse/controllers/warehouseController');
 const AuthController = require('./modules/auth/controllers/authController');
-
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
 
 // Routes
 app.get('/health', AuthController.healthCheck);
@@ -89,5 +118,5 @@ app.use((err, req, res, next) => {
     error: err.message
   });
 });
-
+console.log('API URL:', process.env.EXPO_PUBLIC_API_URL);
 module.exports = app;

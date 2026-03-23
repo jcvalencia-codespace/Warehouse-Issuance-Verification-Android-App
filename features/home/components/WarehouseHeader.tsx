@@ -53,8 +53,8 @@ export function WarehouseHeader({
           />
         </View>
         <View>
-          <Text style={styles.appName}>Santeh Feeds Corporation - App</Text>
-          <Text style={styles.tagline}>Enterprise Resource Management</Text>
+          <Text style={styles.appName}>Santeh Feeds Corporation</Text>
+          <Text style={styles.tagline}>Enterprise Resource Planning</Text>
         </View>
       </View>
 
@@ -63,7 +63,7 @@ export function WarehouseHeader({
         <View style={styles.userInfo}>
           <MaterialCommunityIcons
             name="account-circle"
-            size={24}
+            size={36}
             color="#ffffff"
           />
           <View style={styles.userTextContainer}>
@@ -77,7 +77,7 @@ export function WarehouseHeader({
           <View style={styles.dateTimeItem}>
             <MaterialCommunityIcons
               name="calendar-today"
-              size={16}
+              size={24}
               color="#ffffff"
             />
             <Text style={styles.dateTimeText}>{formatDate(currentTime)}</Text>
@@ -85,7 +85,7 @@ export function WarehouseHeader({
           <View style={styles.dateTimeItem}>
             <MaterialCommunityIcons
               name="clock-outline"
-              size={16}
+              size={24}
               color="#ffffff"
             />
             <Text style={styles.dateTimeText}>{formatTime(currentTime)}</Text>
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   tagline: {
-    fontSize: 12,
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
   },
@@ -140,18 +140,18 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   userLabel: {
-    fontSize: 11,
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'uppercase',
     fontWeight: '600',
   },
   userName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
   },
   userDepartment: {
-    fontSize: 11,
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 2,
   },

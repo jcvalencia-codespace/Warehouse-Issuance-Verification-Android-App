@@ -220,7 +220,8 @@ const moduleGridStyles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   tabletCard: {
-    width: '48%',
+    // width: '48%',
+    width: '100%',
     minHeight: 100,
   },
 });

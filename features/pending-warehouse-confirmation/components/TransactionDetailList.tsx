@@ -2,16 +2,16 @@ import { Colors } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  useColorScheme,
-  View
+    ActivityIndicator,
+    Dimensions,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    useColorScheme,
+    View
 } from 'react-native';
-import { TransactionDetail } from '../../posted-warehouse-confirmation copy/types/confirmation.types';
+import { TransactionDetail } from '../../posted-warehouse-confirmation-wireframe/types/confirmation.types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_TABLET = SCREEN_WIDTH > 768;

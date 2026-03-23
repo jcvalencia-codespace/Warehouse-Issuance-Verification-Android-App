@@ -1,6 +1,9 @@
 const app = require('./src/app');
 const { getPool, closePool } = require('./src/config/database');
-require('dotenv').config();
+const path = require('path');
+
+// Load .env from project root
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const PORT = process.env.PORT || 3000;
 const DEFAULT_DB = process.env.DB_GDB || 'GDB';

@@ -4,6 +4,7 @@
  */
 
 import axios from 'axios';
+import Constants from 'expo-constants';
 
 interface WarehouseMetrics {
   pendingCount: number;
@@ -20,7 +21,17 @@ interface ApiResponse<T> {
 }
 
 class WarehouseMetricsService {
-  private baseUrl = process.env.EXPO_PUBLIC_API_URL;
+  private baseUrl: string;
+
+  constructor() {
+    // Get API URL from environment or app.json config
+    this.baseUrl = process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl || '';
+    if (!this.baseUrl) {
+      console.warn('⚠️  API URL not configured! Set EXPO_PUBLIC_API_URL in .env or apiUrl in app.json');
+    } else {
+      console.log('📡 Warehouse API URL:', this.baseUrl);
+    }
+  }
 
   async getMetrics(): Promise<WarehouseMetrics | null> {
     try {
@@ -32,7 +43,7 @@ class WarehouseMetricsService {
       const response = await axios.get<ApiResponse<WarehouseMetrics>>(
         `${this.baseUrl}/warehouse/metrics`,
         {
-          timeout: 10000,
+          timeout: 100000,
         }
       );
 
@@ -43,11 +54,11 @@ class WarehouseMetricsService {
       console.error('Failed to fetch metrics:', response.data.error || response.data.message);
       return null;
     } catch (error: any) {
-      console.error('Error fetching warehouse metrics:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
+      // console.error('Error fetching warehouse metrics:', {
+      //   message: error.message,
+      //   status: error.response?.status,
+      //   data: error.response?.data,
+      // });
       return null;
     }
   }
@@ -104,7 +115,7 @@ class WarehouseMetricsService {
     }
   }
 
-  async getPostedTransactions(skip = 0, take = 50) {
+  async getPostedTransactions(skip = 0, take = 99999) {
     try {
       if (!this.baseUrl) {
         console.error('API URL not configured');
@@ -114,7 +125,7 @@ class WarehouseMetricsService {
       const response = await axios.get(
         `${this.baseUrl}/warehouse/posted-transactions?skip=${skip}&take=${take}`,
         {
-          timeout: 10000,
+          timeout: 100000,
         }
       );
 
@@ -125,7 +136,7 @@ class WarehouseMetricsService {
       console.error('Failed to fetch posted transactions');
       return null;
     } catch (error: any) {
-      console.error('Error fetching posted transactions:', error.message);
+      // console.error('Error fetching posted transactions:', error.message);
       return null;
     }
   }

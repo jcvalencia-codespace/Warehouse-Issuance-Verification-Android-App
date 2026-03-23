@@ -31,7 +31,6 @@ export interface TransactionHeader {
   FROMCOMPANY: string;
   FROMTRANSNO: string;
   FROMLOCNCODE: string;
-  RECEIVEDBY: string | null;
 }
 
 export interface ConfirmationState {

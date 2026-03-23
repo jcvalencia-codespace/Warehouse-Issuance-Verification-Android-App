@@ -42,6 +42,7 @@ export function HelpSupportScreen() {
       description: 'Request correction of erroneous data',
       icon: 'file-edit-outline',
       color: '#4A90D9',
+      action: () => router.push('/coming-soon'),
     },
     {
       id: 'system-support',
@@ -327,7 +328,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 12,
     marginBottom: 4,
-  },
+  }, 
   appVersion: {
     fontSize: 14,
     marginBottom: 8,

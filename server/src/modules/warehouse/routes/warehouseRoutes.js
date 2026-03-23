@@ -16,6 +16,9 @@ router.get('/metrics', WarehouseController.getMetrics);
 // Pending (not posted) transactions endpoint
 router.get('/posted-transactions', WarehouseController.getPostedTransactions);
 
+// Posted transaction details endpoint
+router.get('/posted-transaction-details', WarehouseController.getPostedTransactionDetails);
+
 // Completed today transactions endpoint
 router.get('/completed-today', WarehouseController.getCompletedToday);
 

@@ -25,6 +25,9 @@ export default function HomeScreen() {
       case 'receiving':
         router.push('/posted-warehouse-confirmation/posted-warehouse-confirmation');
         break;
+      case 'receiving-copy':
+        router.push('/posted-warehouse-confirmation-wireframe/posted-warehouse-confirmation-wireframe');
+        break;
       case 'pending':
         router.push('/pending-warehouse-confirmation/pending-warehouse-confirmation');
         break;

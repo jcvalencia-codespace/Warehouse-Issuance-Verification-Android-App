@@ -1,11 +1,20 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 import { StockBalanceParams, StockBalanceResponse } from '../types/stockBalance.types';
 
 export class StockBalanceService {
   private static instance: StockBalanceService;
-  private baseUrl = process.env.EXPO_PUBLIC_API_URL;
+  private baseUrl: string;
 
-  private constructor() {}
+  private constructor() {
+    // Get API URL from environment or app.json config
+    this.baseUrl = process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl || '';
+    if (!this.baseUrl) {
+      console.warn('⚠️  API URL not configured! Set EXPO_PUBLIC_API_URL in .env or apiUrl in app.json');
+    } else {
+      console.log('📡 Stock Balance API URL:', this.baseUrl);
+    }
+  }
 
   static getInstance(): StockBalanceService {
     if (!StockBalanceService.instance) {

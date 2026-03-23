@@ -15,7 +15,6 @@ interface TransactionDetailsProps {
   isTablet: boolean;
   formData: IssuanceVerificationFormData;
   errors: FormErrors;
-  areaOptions: AreaOption[];
   filteredAreaOptions: AreaOption[];
   itemOptions: AreaOption[];
   lotOptions: AreaOption[];
@@ -58,6 +57,7 @@ interface TransactionDetailsProps {
   onCalculateAllocation: () => void;
   onPageChange: (page: number) => void;
   isViewingAvailableLots?: boolean;
+  scrollToField?: (fieldName: string) => void;
 }
 
 export function TransactionDetails({
@@ -65,7 +65,6 @@ export function TransactionDetails({
   isTablet,
   formData,
   errors,
-  areaOptions,
   filteredAreaOptions,
   itemOptions,
   lotOptions,
@@ -108,6 +107,7 @@ export function TransactionDetails({
   onCalculateAllocation,
   onPageChange,
   isViewingAvailableLots = false,
+  scrollToField,
 }: TransactionDetailsProps) {
   return (
     <>

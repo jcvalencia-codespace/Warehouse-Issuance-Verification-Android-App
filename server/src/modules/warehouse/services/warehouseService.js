@@ -14,10 +14,13 @@ class WarehouseService {
     try {
       const pool = await getPool(process.env.DB_SFC);
 
-      // Get current date (start of day)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayString = today.toISOString().split('T')[0];
+      // Get current date (start of day) - use local time to match database
+      const now = new Date();
+      // Format as YYYY-MM-DD in local time (Taiwan timezone)
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayString = `${year}-${month}-${day}`;
 
       // Query for all metrics
       const query = `
@@ -53,48 +56,31 @@ class WarehouseService {
         }
       };
     } catch (error) {
-      console.error('Error fetching warehouse metrics:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to fetch metrics',
-        data: {
-          pendingCount: 0,
-          completedToday: 0,
-          totalTransactions: 0
-        }
-      };
+      // console.error('Error fetching warehouse metrics:', error);
+      // return {
+      //   success: false,
+      //   error: error.message || 'Failed to fetch metrics',
+      //   data: {
+      //     pendingCount: 0,
+      //     completedToday: 0,
+      //     totalTransactions: 0
+      //   }
+      // };
     }
   }
 
   /**
-   * Get posted (posted) transactions with pagination
+   * Get posted (completed) transaction headers with pagination
    */
   static async getPostedTransactions(skip = 0, take = 50) {
     try {
       const pool = await getPool(process.env.DB_SFC);
 
       const query = `
-        SELECT 
-          QMH4ROWID, POSTSTATUS, TRANSREFNO, REFERENCENO, ITEMNMBR, ISSUEDBY, 
-          DATETRANS, TRANSTYPE, UOFM, QUANTITY_TRANS, BAG_TRANS, 
-          UNITCOST, FROMCOMPANY, FROMTRANSNO, FROMLOCNCODE
-        FROM (
-          SELECT 
-            IQMH.QMH4ROWID,  
-            CASE WHEN IQMH.POSTSTATUS = 0 THEN 'NOT POSTED'
-            ELSE 'POSTED'
-            END AS POSTSTATUS,
-            IQMD.TRANSREFNO, IQMD.REFERENCENO, IQMD.ITEMNMBR, IQMH.ISSUEDBY, 
-            IQMH.DATETRANS, IQMH.TRANSTYPE, IQMD.UOFM, IQMD.QUANTITY_TRANS, 
-            IQMD.BAG_TRANS, IQMD.UNITCOST, IQMH.FROMCOMPANY, IQMH.FROMTRANSNO, 
-            IQMH.FROMLOCNCODE,
-            ROW_NUMBER() OVER (PARTITION BY IQMD.TRANSREFNO ORDER BY IQMD.REFERENCENO) AS rn
-          FROM [INVENTORY.QUANTITYMASTER4.HEADER] AS IQMH 
-          INNER JOIN [INVENTORY.QUANTITYMASTER4.DETAILS] AS IQMD 
-            ON IQMH.TRANSREFNO = IQMD.TRANSREFNO
-        ) ranked
-        WHERE rn = 1 AND POSTSTATUS = 'POSTED'
-        ORDER BY QMH4ROWID DESC
+        SELECT TRANSREFNO, ISSUEDBY, DATETRANS, TRANSTYPE,  FROMCOMPANY, FROMLOCNCODE, FROMTRANSNO, RECEIVEDBY
+        FROM [INVENTORY.QUANTITYMASTER4.HEADER]
+        WHERE LOCNCODE = 'OPPREP' AND FROMLOCNCODE = 'PAWHRM' AND POSTSTATUS = 1
+        ORDER BY DATETRANS DESC
         OFFSET ${skip} ROWS
         FETCH NEXT ${take} ROWS ONLY
       `;
@@ -107,10 +93,45 @@ class WarehouseService {
         count: result.recordset.length
       };
     } catch (error) {
-      console.error('Error fetching pending transactions:', error);
+      console.error('Error fetching posted transactions:', error);
       return {
         success: false,
-        error: error.message || 'Failed to fetch pending transactions',
+        error: error.message || 'Failed to fetch posted transactions',
+        data: []
+      };
+    }
+  }
+
+  /**
+   * Get posted transaction details by TRANSREFNO
+   */
+  static async getPostedTransactionDetails(transRefNo) {
+    try {
+      const pool = await getPool(process.env.DB_SFC);
+
+      const query = `
+        SELECT QH.TRANSREFNO, QH.FROMCOMPANY, QH.FROMLOCNCODE, QH.FROMTRANSNO, QH.DATETRANS, QH.TRANSTYPE, QD.REFERENCENO, QD.LOTNUMBER, QD.ITEMNMBR, QD.QUANTITY_TRANS, QD.BAG_TRANS, 
+        QD.QUANTITY_RECV, QD.BAGS_RECV
+        FROM [INVENTORY.QUANTITYMASTER4.HEADER] AS QH INNER JOIN
+        [INVENTORY.QUANTITYMASTER4.DETAILS] AS QD ON QH.TRANSREFNO = QD.TRANSREFNO
+        WHERE QH.TRANSREFNO = @transRefNo
+        ORDER BY QD.ITEMNMBR, QD.REFERENCENO, QD.QUANTITY_TRANS
+      `;
+
+      const result = await pool.request()
+        .input('transRefNo', transRefNo)
+        .query(query);
+
+      return {
+        success: true,
+        data: result.recordset || [],
+        count: result.recordset.length
+      };
+    } catch (error) {
+      console.error('Error fetching posted transaction details:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to fetch posted transaction details',
         data: []
       };
     }
@@ -154,12 +175,12 @@ class WarehouseService {
         count: result.recordset.length
       };
     } catch (error) {
-      console.error('Error fetching pending transactions:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to fetch pending transactions',
-        data: []
-      };
+      // console.error('Error fetching pending transactions:', error);
+      // return {
+      //   success: false,
+      //   error: error.message || 'Failed to fetch pending transactions',
+      //   data: []
+      // };
     }
   }
 
@@ -169,10 +190,6 @@ class WarehouseService {
   static async getCompletedTransactionToday(skip = 0, take = 50) {
     try {
       const pool = await getPool(process.env.DB_SFC);
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayString = today.toISOString().split('T')[0];
 
       const query = `
         SELECT 
@@ -193,7 +210,7 @@ class WarehouseService {
           INNER JOIN [INVENTORY.QUANTITYMASTER4.DETAILS] AS IQMD 
             ON IQMH.TRANSREFNO = IQMD.TRANSREFNO
         ) ranked
-        WHERE rn = 1 AND CAST(DATETRANS AS DATE) = CAST('${todayString}' AS DATE)
+        WHERE rn = 1 AND CAST(DATETRANS AS DATE) = CAST(GETDATE() AS DATE)
         ORDER BY DATETRANS DESC
         OFFSET ${skip} ROWS
         FETCH NEXT ${take} ROWS ONLY
@@ -210,7 +227,7 @@ class WarehouseService {
       console.error('Error fetching completed transactions today:', error);
       return {
         success: false,
-        error: error.message || 'Failed to fetch completed transactions',
+        error: error.message || 'Failed to fetch completed transactions today',
         data: []
       };
     }

@@ -11,7 +11,7 @@ class WarehouseController {
     try {
       const result = await WarehouseService.getMetrics();
       
-      if (result.success) {
+      if (result && result.success) {
         return res.json({
           success: true,
           data: result.data
@@ -19,23 +19,21 @@ class WarehouseController {
       } else {
         return res.status(500).json({
           success: false,
-          message: result.error,
-          data: result.data
+          message: result?.error || 'Failed to fetch metrics',
+          data: result?.data || {}
         });
       }
     } catch (error) {
-      console.error('Error in getMetrics:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch metrics',
-        error: error.message
+        message: 'Failed to fetch metrics'
       });
     }
   }
 
   /**
-   * GET /warehouse/pending-transactions
-   * Returns paginated list of NOT POSTED transactions
+   * GET /warehouse/posted-transactions
+   * Returns paginated list of POSTED transactions (headers only)
    * Query params: skip, take (default 50)
    */
   static async getPostedTransactions(req, res) {
@@ -45,7 +43,7 @@ class WarehouseController {
 
       const result = await WarehouseService.getPostedTransactions(skip, take);
       
-      if (result.success) {
+      if (result && result.success) {
         return res.json({
           success: true,
           data: result.data,
@@ -56,16 +54,53 @@ class WarehouseController {
       } else {
         return res.status(500).json({
           success: false,
-          message: result.error,
+          message: result?.error || 'Failed to fetch posted transactions',
           data: []
         });
       }
     } catch (error) {
-      console.error('Error in getPendingTransactions:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch pending transactions',
-        error: error.message
+        message: 'Failed to fetch posted transactions'
+      });
+    }
+  }
+
+  /**
+   * GET /warehouse/posted-transaction-details
+   * Returns details for a specific posted transaction
+   * Query params: transRefNo
+   */
+  static async getPostedTransactionDetails(req, res) {
+    try {
+      const { transRefNo } = req.query;
+
+      if (!transRefNo) {
+        return res.status(400).json({
+          success: false,
+          message: 'transRefNo is required'
+        });
+      }
+
+      const result = await WarehouseService.getPostedTransactionDetails(transRefNo);
+      
+      if (result && result.success) {
+        return res.json({
+          success: true,
+          data: result.data,
+          count: result.count
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: result?.error || 'Failed to fetch posted transaction details',
+          data: []
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch posted transaction details'
       });
     }
   }
@@ -82,7 +117,7 @@ class WarehouseController {
 
       const result = await WarehouseService.getCompletedTransactionToday(skip, take);
       
-      if (result.success) {
+      if (result && result.success) {
         return res.json({
           success: true,
           data: result.data,
@@ -93,16 +128,14 @@ class WarehouseController {
       } else {
         return res.status(500).json({
           success: false,
-          message: result.error,
+          message: result?.error || 'Failed to fetch completed transactions',
           data: []
         });
       }
     } catch (error) {
-      console.error('Error in getCompletedToday:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch completed transactions',
-        error: error.message
+        message: 'Failed to fetch completed transactions'
       });
     }
   }
@@ -125,7 +158,7 @@ class WarehouseController {
 
       const result = await WarehouseService.getTransactionDetails(transRefNo);
       
-      if (result.success) {
+      if (result && result.success) {
         return res.json({
           success: true,
           data: result.data,
@@ -135,16 +168,14 @@ class WarehouseController {
       } else {
         return res.status(500).json({
           success: false,
-          message: result.error,
+          message: result?.error || 'Failed to fetch transaction details',
           data: []
         });
       }
     } catch (error) {
-      console.error('Error in getTransactionDetails:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch transaction details',
-        error: error.message
+        message: 'Failed to fetch transaction details'
       });
     }
   }
@@ -160,7 +191,7 @@ class WarehouseController {
 
       const result = await WarehouseService.getStockBalance(locncode);
       
-      if (result.success) {
+      if (result && result.success) {
         return res.json({
           success: true,
           data: result.data,
@@ -170,16 +201,14 @@ class WarehouseController {
       } else {
         return res.status(500).json({
           success: false,
-          message: result.error,
+          message: result?.error || 'Failed to fetch stock balance',
           data: []
         });
       }
     } catch (error) {
-      console.error('Error in getStockBalance:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch stock balance',
-        error: error.message
+        message: 'Failed to fetch stock balance'
       });
     }
   }

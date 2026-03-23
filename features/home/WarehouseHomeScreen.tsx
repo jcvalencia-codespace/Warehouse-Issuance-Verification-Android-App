@@ -1,24 +1,29 @@
 import { Colors } from '@/constants/theme';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
   useColorScheme,
   useWindowDimensions,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ModuleCardData, ModuleGrid } from '../home/components/ModuleCard';
-import { SummaryStatItem, SummaryStats } from '../home/components/SummaryStats';
+import { SummaryStatItem } from '../home/components/SummaryStats';
 import { WarehouseHeader } from '../home/components/WarehouseHeader';
 import { warehouseMetricsService } from '../home/services/warehouseMetricsService';
 
 const WAREHOUSE_MODULES: ModuleCardData[] = [
+  {
+    id: 'stock-balance',
+    title: 'Current Balance',
+    description: 'View warehouse current stocks',
+    icon: 'package-variant',
+    color: 'warning',
+  },
   {
     id: 'issuance-verification',
     title: 'New Issuance Verification',
@@ -27,47 +32,41 @@ const WAREHOUSE_MODULES: ModuleCardData[] = [
     color: 'primary',
   },
   {
-    id: 'pending',
-    title: 'Pending Warehouse Issuance Confirmation',
-    description: 'Review pending operations',
-    icon: 'timer-sand',
-    color: 'warning',
-    badge: 12,
-  },
-  {
     id: 'receiving',
-    title: 'Posted Warehouse Issuance Confirmation',
-    description: 'Confirm incoming shipments',
+    title: 'Posted Issuance Verification',
+    description: 'View posted issuance verification transaction(s)',
     icon: 'package-variant-closed-check',
     color: 'success',
   },
-  {
-    id: 'stock-balance',
-    title: 'Stock Balance',
-    description: 'View current inventory balance',
-    icon: 'package-variant',
-    color: 'primary',
-  },
-  {
-    id: 'reports',
-    title: 'Reports & Analytics',
-    description: 'View warehouse reports',
-    icon: 'chart-line',
-    color: 'error',
-  },
-  {
-    id: 'settings',
-    title: 'Settings',
-    description: 'Configure preferences',
-    icon: 'cog-outline',
-    color: 'textSecondary',
+
+    {
+    id: 'receiving-copy',
+    title: 'Posted Issuance Verification (WIREFRAME)',
+    description: 'View posted issuance verification transaction(s)',
+    icon: 'package-variant-closed-check',
+    color: 'success',
   },
   // {
-  //   id: 'help',
-  //   title: 'Help & Support',
-  //   description: 'Get help and contact support',
-  //   icon: 'help-circle-outline',
-  //   color: 'secondary',
+  //   id: 'pending',
+  //   title: 'Pending Warehouse Issuance Confirmation',
+  //   description: 'Review pending operations',
+  //   icon: 'timer-sand',
+  //   color: 'warning',
+  //   badge: 12,
+  // },
+  // {
+  //   id: 'reports',
+  //   title: 'Reports & Analytics',
+  //   description: 'View warehouse reports',
+  //   icon: 'chart-line',
+  //   color: 'error',
+  // },
+  // {
+  //   id: 'settings',
+  //   title: 'Settings',
+  //   description: 'Configure preferences',
+  //   icon: 'cog-outline',
+  //   color: 'textSecondary',
   // },
 ];
 
@@ -86,7 +85,6 @@ export function WarehouseHomeScreen({
   const colors = Colors[scheme ?? 'light'];
   const { width, height } = useWindowDimensions();
   const isTablet = width > 800;
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -117,15 +115,18 @@ export function WarehouseHomeScreen({
   ];
 
   const [stats, setStats] = useState<SummaryStatItem[]>(() => getInitialStats(colors));
+  const [lastFetched, setLastFetched] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch metrics on component mount
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        setLoading(true);
+        setError(null);
         const metrics = await warehouseMetricsService.getMetrics();
         
         if (metrics) {
+          setLastFetched(new Date());
           setStats([
             {
               icon: 'clock-check',
@@ -149,18 +150,19 @@ export function WarehouseHomeScreen({
               color: colors.primary,
             },
           ]);
+        } else {
+          setError('Failed to fetch metrics');
         }
-      } catch (error) {
-        console.error('Error fetching metrics:', error);
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching metrics:', err);
+        setError('Connection error');
       }
     };
 
     fetchMetrics();
 
-    // Refresh metrics every 30 seconds
-    const interval = setInterval(fetchMetrics, 30000);
+    // Refresh metrics every 3 seconds for realtime updates
+    const interval = setInterval(fetchMetrics, 10000);
 
     return () => clearInterval(interval);
   }, [colors]);
@@ -184,6 +186,10 @@ export function WarehouseHomeScreen({
       router.push('/issuance-verification' as any);
     } else if (moduleId === 'stock-balance') {
       router.push('/stock-balance' as any);
+    } else if (moduleId === 'receiving') {
+      router.push('/posted-warehouse-confirmation/posted-warehouse-confirmation' as any);
+    } else if (moduleId === 'receiving-copy') {
+      router.push('/posted-warehouse-confirmation-wireframe/posted-warehouse-confirmation-wireframe' as any);
     } else if (onModulePress) {
       onModulePress(moduleId);
     }
@@ -215,7 +221,7 @@ export function WarehouseHomeScreen({
           ]}
         >
           {/* Statistics Section */}
-          <View style={styles.section}>
+          {/* <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text
                 style={[
@@ -234,25 +240,16 @@ export function WarehouseHomeScreen({
                 Real-time operations metrics
               </Text>
             </View>
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                  Loading metrics...
-                </Text>
-              </View>
-            ) : (
-              <SummaryStats stats={stats} isTablet={isTablet} />
-            )}
-          </View>
+            <SummaryStats stats={stats} isTablet={isTablet} />
+          </View> */}
 
           {/* Divider */}
-          <View
+          {/* <View
             style={[
               styles.divider,
               { backgroundColor: colors.cardBorder },
             ]}
-          />
+          /> */}
 
           {/* Quick Actions Section */}
           <View style={styles.section}>
@@ -285,7 +282,7 @@ export function WarehouseHomeScreen({
           </View>
 
           {/* Footer Info Card */}
-          <View
+          {/* <View
             style={[
               styles.footerInfoCard,
               {
@@ -294,11 +291,11 @@ export function WarehouseHomeScreen({
               },
             ]}
           >
-            <View style={[styles.footerIconContainer, { backgroundColor: colors.primary + '15' }]}>
+            <View style={[styles.footerIconContainer, { backgroundColor: error ? colors.error + '15' : colors.primary + '15' }]}>
               <MaterialCommunityIcons
-                name="information"
+                name={error ? 'alert-circle' : 'information'}
                 size={20}
-                color={colors.primary}
+                color={error ? colors.error : colors.primary}
               />
             </View>
             <View style={styles.footerTextContainer}>
@@ -308,7 +305,7 @@ export function WarehouseHomeScreen({
                   { color: colors.text },
                 ]}
               >
-                Synchronizing data from servers...
+                {error ? 'Unable to sync data' : 'Synchronizing data from servers...'}
               </Text>
               <Text
                 style={[
@@ -316,10 +313,12 @@ export function WarehouseHomeScreen({
                   { color: colors.textSecondary },
                 ]}
               >
-                Last updated: just now
+                {lastFetched 
+                  ? `Last updated: ${lastFetched.toLocaleTimeString()}` 
+                  : 'Waiting for data...'}
               </Text>
             </View>
-          </View>
+          </View> */}
 
           {/* Bottom Padding */}
           <View style={{ height: 100 + insets.bottom }} />
@@ -391,16 +390,6 @@ const styles = StyleSheet.create({
   footerSubtext: {
     fontSize: 11,
     marginTop: 2,
-  },
-  loadingContainer: {
-    paddingVertical: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    fontWeight: '500',
   },
 });
 

@@ -80,6 +80,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   const [currentPage, setCurrentPage] = useState(1);
   const [showItemColumn, setShowItemColumn] = useState(true);
   const [isViewingAvailableLots, setIsViewingAvailableLots] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
   const ITEMS_PER_PAGE = 5;
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -219,8 +220,37 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     }
 
     setErrors(newErrors);
+    
+    // If there are errors, scroll to the first one
+    if (Object.keys(newErrors).length > 0) {
+      const firstErrorField = Object.keys(newErrors)[0];
+      scrollToField(firstErrorField);
+      return false;
+    }
+    
     return Object.keys(newErrors).length === 0;
   }, [formData, allocationResults]);
+
+  // Function to scroll to a specific field
+  const scrollToField = useCallback((fieldName: string) => {
+    // Define scroll offsets for each field (approximate)
+    const fieldOffsets: Record<string, number> = {
+      transactionRefNumber: 0,
+      floorScale: 150,
+      area: 280,
+      itemNumber: 500,
+      numberOfBags: 700,
+      weightInKg: 700,
+      forkliftOperator: 900,
+    };
+    
+    const scrollOffset = fieldOffsets[fieldName] || 0;
+    
+    scrollViewRef.current?.scrollTo({
+      y: scrollOffset,
+      animated: true,
+    });
+  }, []);
 
   // Handle bag allocation calculation
   const handleCalculateAllocation = useCallback(async () => {
@@ -499,6 +529,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
 
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -510,7 +541,6 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
               isTablet={isTablet}
               formData={formData}
               errors={errors}
-              areaOptions={areaOptions}
               filteredAreaOptions={filteredAreaOptions}
               itemOptions={itemOptions}
               lotOptions={lotOptions}
@@ -567,6 +597,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
               onCalculateAllocation={handleCalculateAllocation}
               onPageChange={setCurrentPage}
               isViewingAvailableLots={isViewingAvailableLots}
+              scrollToField={scrollToField}
             />
 
             {/* Info Card */}

@@ -33,7 +33,7 @@ interface WarehouseConfirmationScreenProps {
   route?: any;
 }
 
-export function PostedWarehouseConfirmationScreen({ navigation, route }: WarehouseConfirmationScreenProps) {
+export function PostedWarehouseConfirmationScreenCopy({ navigation, route }: WarehouseConfirmationScreenProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
   const router = useRouter();
@@ -89,6 +89,23 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
         (transaction) =>
           transaction.TRANSREFNO.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (transaction.ITEMNMBR || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          // Format date for search comparison (e.g., "Sep 2 2026" or "Sep 2")
+          (() => {
+            try {
+              const date = new Date(transaction.DATETRANS);
+              if (!isNaN(date.getTime())) {
+                const formattedDate = date.toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                });
+                return formattedDate.toLowerCase().includes(searchQuery.toLowerCase());
+              }
+              return false;
+            } catch {
+              return false;
+            }
+          })() ||
           (transaction.TRANSTYPE || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (transaction.FROMLOCNCODE || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (transaction.ISSUEDBY || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -244,100 +261,101 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
     }
   };
 
+  // Table Header Component
+  const renderTableHeader = () => (
+    <View style={[styles.tableHeader, { backgroundColor: colors.primary + '12', borderBottomColor: colors.primary }]}>
+      <View style={[styles.tableHeaderCell, styles.tableStatusCell]}>
+        <MaterialCommunityIcons name="checkbox-marked-circle-outline" size={14} color={colors.primary} />
+      </View>
+      <View style={[styles.tableHeaderCell, styles.tableRefNoCell]}>
+        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>REF NO.</Text>
+      </View>
+      <View style={[styles.tableHeaderCell, styles.tableDateCell]}>
+        <MaterialCommunityIcons name="calendar" size={14} color={colors.primary} />
+        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>DATE</Text>
+      </View>
+      <View style={[styles.tableHeaderCell, styles.tableTypeCell]}>
+        <MaterialCommunityIcons name="tag-outline" size={14} color={colors.primary} />
+        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>TYPE</Text>
+      </View>
+      <View style={[styles.tableHeaderCell, styles.tableLocationCell]}>
+        <MaterialCommunityIcons name="map-marker-outline" size={14} color={colors.primary} />
+        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>LOCATION</Text>
+      </View>
+      <View style={[styles.tableHeaderCell, styles.tableIssuedByCell]}>
+        <MaterialCommunityIcons name="account-outline" size={14} color={colors.primary} />
+        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>ISSUED BY</Text>
+      </View>
+      <View style={[styles.tableHeaderCell, styles.tableActionCell]}>
+        <MaterialCommunityIcons name="eye" size={14} color={colors.primary} />
+      </View>
+    </View>
+  );
+
   const renderTransactionItem = ({ item, index }: { item: TransactionHeader; index: number }) => {
     const isSelected = selectedTransaction?.TRANSREFNO === item.TRANSREFNO;
+    const isEven = index % 2 === 0;
 
     return (
       <TouchableOpacity
         style={[
-          styles.transactionItem,
+          styles.tableRow,
           {
-            backgroundColor: colors.cardBackground,
-            borderColor: isSelected ? colors.primary : colors.cardBorder,
-            shadowColor: colors.shadowColor,
+            backgroundColor: isEven ? colors.cardBackground : colors.background,
+            borderBottomColor: colors.cardBorder,
           },
-          isSelected && styles.transactionItemSelected,
+          isSelected && { backgroundColor: colors.primary + '08' },
         ]}
         onPress={() => handleTransactionSelect(item)}
-        activeOpacity={0.8}
+        activeOpacity={0.7}
       >
         {/* Status Indicator */}
-        <View style={[styles.statusIndicator, { backgroundColor: colors.success }]} />
+        <View style={[styles.tableCell, styles.tableStatusCell]}>
+          <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
+        </View>
 
-        {/* Card Content */}
-        <View style={styles.transactionContent}>
-          {/* Header Section */}
-          <View style={styles.transactionHeader}>
-            <View style={[styles.transactionIconContainer, { backgroundColor: colors.primary + '15' }]}>
-              <MaterialCommunityIcons
-                name="file-document-outline"
-                size={IS_TABLET ? 24 : 22}
-                color={colors.primary}
-              />
-            </View>
-            <View style={[styles.transactionMainInfo, IS_PORTRAIT && styles.transactionMainInfoPortrait]}>
-              <Text style={[styles.transactionRefNo, { color: colors.text }]} numberOfLines={1}>
-              {item.TRANSREFNO}
-              </Text>
-            </View>
-            {/* Details Grid - Same row as ref no */}
-            {IS_PORTRAIT || IS_SMALL_SCREEN ? (
-              // Portrait/small screen: compact grid in same row with labels
-              <View style={styles.transactionDetailsGridPortrait}>
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="calendar" size={11} color={colors.textTertiary} />
-                  <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Date</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>{formatDate(item.DATETRANS)}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="tag-outline" size={11} color={colors.textTertiary} />
-                  <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Type</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>{item.TRANSTYPE || '-'}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="map-marker-outline" size={11} color={colors.textTertiary} />
-                  <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Location</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>{item.FROMLOCNCODE || '-'}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="account-outline" size={11} color={colors.textTertiary} />
-                  <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Issued By</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={1}>{item.ISSUEDBY || '-'}</Text>
-                </View>
-              </View>
-            ) : (
-              // Landscape/tablet: horizontal row layout
-              <View style={styles.transactionDetailsGrid}>
-                <View style={[styles.detailItem, { marginRight: IS_TABLET ? 16 : 12 }]}>
-                  <MaterialCommunityIcons name="calendar" size={11} color={colors.textTertiary} />
-                  <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Date</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]}>{formatDate(item.DATETRANS)}</Text>
-                </View>
-                <View style={[styles.detailItem, { marginRight: IS_TABLET ? 64 : 24 }]}>
-                  <MaterialCommunityIcons name="tag-outline" size={11} color={colors.textTertiary} />
-                  <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Type</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]}>{item.TRANSTYPE || '-'}</Text>
-                </View>
-                <View style={[styles.detailItem, { marginRight: IS_TABLET ? 16 : 16 }]}>
-                  <MaterialCommunityIcons name="map-marker-outline" size={11} color={colors.textTertiary} />
-                  <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Location</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]}>{item.FROMLOCNCODE || '-'}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="account-outline" size={11} color={colors.textTertiary} />
-                  <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Issued By</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]}>{item.ISSUEDBY || '-'}</Text>
-                </View>
-              </View>
-            )}
-            <View style={styles.chevronContainer}>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={IS_TABLET ? 20 : 18}
-                color={colors.textTertiary}
-              />
-            </View>
-          </View>
+        {/* Reference No */}
+        <View style={[styles.tableCell, styles.tableRefNoCell]}>
+          <Text style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
+            {item.TRANSREFNO}
+          </Text>
+        </View>
+
+        {/* Date */}
+        <View style={[styles.tableCell, styles.tableDateCell]}>
+          <Text style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
+            {formatDate(item.DATETRANS)}
+          </Text>
+        </View>
+
+        {/* Type */}
+        <View style={[styles.tableCell, styles.tableTypeCell]}>
+          <Text style={[styles.tableCellText, { color: colors.text }]} numberOfLines={2}>
+            {item.TRANSTYPE || '-'}
+          </Text>
+        </View>
+
+        {/* Location */}
+        <View style={[styles.tableCell, styles.tableLocationCell]}>
+          <Text style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
+            {item.FROMLOCNCODE || '-'}
+          </Text>
+        </View>
+
+        {/* Issued By */}
+        <View style={[styles.tableCell, styles.tableIssuedByCell]}>
+          <Text style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
+            {item.ISSUEDBY || '-'}
+          </Text>
+        </View>
+
+        {/* Action Chevron */}
+        <View style={[styles.tableCell, styles.tableActionCell]}>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={IS_TABLET ? 20 : 18}
+            color={colors.textTertiary}
+          />
         </View>
       </TouchableOpacity>
     );
@@ -358,7 +376,7 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
           </TouchableOpacity>
           <View style={styles.detailsTitleContainer}>
             <Text style={[styles.detailsTitle, { color: colors.text }]} numberOfLines={1}>
-              TRANSACTION DETAILS
+              {selectedTransaction.TRANSREFNO}
             </Text>
           </View>
         </View>
@@ -373,13 +391,7 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
             </View>
           </View>
         ) : (
-          <TransactionDetailList 
-            details={transactionDetails} 
-            transRefNo={selectedTransaction?.TRANSREFNO}
-            issuedBy={selectedTransaction?.ISSUEDBY}
-            transDate={selectedTransaction?.DATETRANS}
-            receivedBy={selectedTransaction?.RECEIVEDBY || undefined}
-          />
+          <TransactionDetailList details={transactionDetails} />
         )}
       </SafeAreaView>
     );
@@ -574,6 +586,7 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
           data={searchQuery || dateFilterVersion > 0 ? filteredTransactions : pendingTransactions}
           keyExtractor={(item) => item.TRANSREFNO}
           renderItem={renderTransactionItem}
+          ListHeaderComponent={renderTableHeader}
           contentContainerStyle={[
             styles.listContainer,
             IS_TABLET && styles.listContainerTablet,
@@ -661,9 +674,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerTitle: {
-    fontSize: IS_TABLET ? 28 : 24,
+    fontSize: IS_TABLET ? 26 : 22,
     fontWeight: '800',
-    letterSpacing: -0.6,
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: IS_TABLET ? 15 : 14,
@@ -673,24 +686,24 @@ const styles = StyleSheet.create({
   totalIssuanceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 10,
   },
   totalIssuanceContent: {
     alignItems: 'center',
   },
   totalIssuanceValue: {
-    fontSize: IS_TABLET ? 30 : 26,
+    fontSize: IS_TABLET ? 28 : 24,
     fontWeight: '800',
-    lineHeight: IS_TABLET ? 34 : 30,
+    lineHeight: IS_TABLET ? 32 : 28,
     textAlign: 'center',
   },
   totalIssuanceLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   statsBar: {
@@ -798,15 +811,15 @@ const styles = StyleSheet.create({
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 12,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     paddingVertical: 0,
   },
   searchHint: {
@@ -830,28 +843,26 @@ const styles = StyleSheet.create({
   },
   // Transaction item styles
   transactionItem: {
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowRadius: 12,
+    elevation: 3,
     width: '100%',
   },
   transactionItemSelected: {
     borderWidth: 2,
-    shadowOpacity: 0.18,
-    elevation: 6,
+    shadowOpacity: 0.15,
+    elevation: 5,
   },
   statusIndicator: {
-    width: 6,
+    width: 5,
     height: '100%',
     position: 'absolute',
     left: 0,
     top: 0,
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 20,
   },
   transactionContent: {
     marginLeft: 5,
@@ -873,9 +884,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   transactionIconContainer: {
-    width: IS_TABLET ? 44 : 40,
-    height: IS_TABLET ? 44 : 40,
-    borderRadius: 14,
+    width: IS_TABLET ? 36 : 32,
+    height: IS_TABLET ? 36 : 32,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -886,9 +897,9 @@ const styles = StyleSheet.create({
     flex: 1.2,
   },
   transactionRefNo: {
-    fontSize: IS_TABLET ? 17 : 16,
+    fontSize: IS_TABLET ? 16 : 15,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   transactionItemCode: {
     fontSize: IS_TABLET ? 11 : 10,
@@ -936,16 +947,16 @@ const styles = StyleSheet.create({
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     width: IS_TABLET ? 110 : (IS_PORTRAIT ? '45%' : 90),
     minWidth: IS_PORTRAIT ? 60 : undefined,
   },
   detailLabel: {
-    fontSize: IS_TABLET ? 10 : 9,
+    fontSize: IS_TABLET ? 11 : 10,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: IS_TABLET ? 12 : 11,
+    fontSize: IS_TABLET ? 11 : 10,
     fontWeight: '600',
   },
   quantitySection: {
@@ -1048,26 +1059,26 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyCard: {
-    padding: 48,
-    borderRadius: 28,
+    padding: 40,
+    borderRadius: 24,
     alignItems: 'center',
-    gap: 16,
-    maxWidth: 360,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 6,
+    gap: 12,
+    maxWidth: 340,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
   },
   emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   emptyTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
   },
   emptySubtitle: {
@@ -1195,4 +1206,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PostedWarehouseConfirmationScreen;
+export default PostedWarehouseConfirmationScreenCopy;

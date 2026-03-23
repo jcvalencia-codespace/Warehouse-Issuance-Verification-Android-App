@@ -1,11 +1,20 @@
 import { UserAccount } from '@/features/auth/types/auth.types';
 import axios from 'axios';
+import Constants from 'expo-constants';
 
 export class AuthService {
   private static instance: AuthService;
-  private baseUrl = process.env.EXPO_PUBLIC_API_URL;
+  private baseUrl: string;
 
-  private constructor() {}
+  private constructor() {
+    // Get API URL from environment or app.json config
+    this.baseUrl = process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl || '';
+    if (!this.baseUrl) {
+      console.warn('⚠️  API URL not configured! Set EXPO_PUBLIC_API_URL in .env or apiUrl in app.json');
+    } else {
+      console.log('📡 Auth API URL:', this.baseUrl);
+    }
+  }
 
   static getInstance(): AuthService {
     if (!AuthService.instance) {
