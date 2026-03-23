@@ -110,8 +110,13 @@ class WarehouseService {
       const pool = await getPool(process.env.DB_SFC);
 
       const query = `
-        SELECT QH.TRANSREFNO, QH.FROMCOMPANY, QH.FROMLOCNCODE, QH.FROMTRANSNO, QH.DATETRANS, QH.TRANSTYPE, QD.REFERENCENO, QD.LOTNUMBER, QD.ITEMNMBR, QD.QUANTITY_TRANS, QD.BAG_TRANS, 
-        QD.QUANTITY_RECV, QD.BAGS_RECV
+        SELECT QD.QM4DROWID, QD.REFERENCENO, QD.ITEMNMBR AS 'ITEM CODE', QD.LOTNUMBER AS 'LOT NUMBER', QD.UOFM, 
+          ROUND(QD.QUANTITY_TRANS, 3) AS 'QUANTITY ISS.', 
+          ROUND(QD.BAG_TRANS, 3) AS 'BAGS ISS.', 
+          ROUND(QD.UNITCOST, 3) AS UNITCOST, 
+          QD.QUANTITY_RECV AS 'QUANTITY RECEIVED', 
+          QD.BAGS_RECV AS 'BAGS RECEIVED',
+          QD.ACTUAL_UNITCOST
         FROM [INVENTORY.QUANTITYMASTER4.HEADER] AS QH INNER JOIN
         [INVENTORY.QUANTITYMASTER4.DETAILS] AS QD ON QH.TRANSREFNO = QD.TRANSREFNO
         WHERE QH.TRANSREFNO = @transRefNo
@@ -228,48 +233,6 @@ class WarehouseService {
       return {
         success: false,
         error: error.message || 'Failed to fetch completed transactions today',
-        data: []
-      };
-    }
-  }
-
-  /**
-   * Get transaction details for warehouse confirmation
-   * Returns item details for a specific TRANSREFNO
-   */
-  static async getTransactionDetails(transRefNo) {
-    try {
-      const pool = await getPool(process.env.DB_SFC);
-
-      const query = `
-        SELECT 
-          QM4DROWID, 
-          ITEMNMBR AS 'ITEM CODE', 
-          LOTNUMBER AS 'LOT NUMBER', 
-          UOFM, 
-          ROUND(QUANTITY_TRANS, 3) AS 'QUANTITY ISS.', 
-          ROUND(BAG_TRANS, 3) AS 'BAGS ISS.', 
-          ROUND(UNITCOST, 3) AS 'UNITCOST', 
-          QUANTITY_RECV AS 'QUANTITY RECEIVED', 
-          BAGS_RECV AS 'BAGS RECEIVED',
-          ACTUAL_UNITCOST
-        FROM [INVENTORY.QUANTITYMASTER4.DETAILS] 
-        WHERE TRANSREFNO = '${transRefNo}'
-        ORDER BY QM4DROWID
-      `;
-
-      const result = await pool.request().query(query);
-
-      return {
-        success: true,
-        data: result.recordset || [],
-        count: result.recordset.length
-      };
-    } catch (error) {
-      console.error('Error fetching transaction details:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to fetch transaction details',
         data: []
       };
     }

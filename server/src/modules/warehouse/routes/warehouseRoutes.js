@@ -22,9 +22,6 @@ router.get('/posted-transaction-details', WarehouseController.getPostedTransacti
 // Completed today transactions endpoint
 router.get('/completed-today', WarehouseController.getCompletedToday);
 
-// Transaction details for warehouse confirmation
-router.get('/transaction-details/:transRefNo', WarehouseController.getTransactionDetails);
-
 // Stock balance endpoint
 router.get('/stock-balance', WarehouseController.getStockBalance);
 

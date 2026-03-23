@@ -141,7 +141,7 @@ class WarehouseMetricsService {
     }
   }
 
-  async getTransactionDetails(transRefNo: string) {
+  async getPostedTransactionDetails(transRefNo: string) {
     try {
       if (!this.baseUrl) {
         console.error('API URL not configured');
@@ -149,7 +149,7 @@ class WarehouseMetricsService {
       }
 
       const response = await axios.get(
-        `${this.baseUrl}/warehouse/transaction-details/${transRefNo}`,
+        `${this.baseUrl}/warehouse/posted-transaction-details?transRefNo=${transRefNo}`,
         {
           timeout: 10000,
         }

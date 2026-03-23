@@ -1,12 +1,11 @@
 import { Colors } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -41,32 +40,62 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredData, setFilteredData] = useState<StockBalanceItem[]>([]);
   
+  // Filter type: 'all' | 'item' | 'area'
+  const [filterType, setFilterType] = useState<'all' | 'item' | 'area'>('all');
+  
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+
+  const scrollToTop = useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
   // Fetch stock balance on mount
   useEffect(() => {
     fetchStockBalance();
   }, []);
 
-  // Filter data when search query changes
+  // Filter data when search query or filter type changes
   useEffect(() => {
+    let filtered = stockData;
+    
+    // Apply search query filter
     if (searchQuery.trim()) {
-      const filtered = stockData.filter(
+      filtered = filtered.filter(
         (item) =>
           (item.AREA || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.ITEMNMBR || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.LOTNUMBER || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.REMARKS || '').toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setFilteredData(filtered);
-      setCurrentPage(1); // Reset to first page on search
-    } else {
-      setFilteredData(stockData);
     }
-    setTotalItems(searchQuery.trim() ? filteredData.length : stockData.length);
-  }, [searchQuery, stockData]);
+    
+    // Apply sorting based on filter type
+    if (filterType === 'item') {
+      // Sort by Item #
+      filtered = [...filtered].sort((a, b) => 
+        (a.ITEMNMBR || '').localeCompare(b.ITEMNMBR || '')
+      );
+    } else if (filterType === 'area') {
+      // Sort by Area
+      filtered = [...filtered].sort((a, b) => 
+        (a.AREA || '').localeCompare(b.AREA || '')
+      );
+    } else {
+      // Default: Sort by Area then Item #
+      filtered = [...filtered].sort((a, b) => {
+        const areaCompare = (a.AREA || '').localeCompare(b.AREA || '');
+        if (areaCompare !== 0) return areaCompare;
+        return (a.ITEMNMBR || '').localeCompare(b.ITEMNMBR || '');
+      });
+    }
+    
+    setFilteredData(filtered);
+    setCurrentPage(1); // Reset to first page on filter change
+    setTotalItems(filtered.length);
+  }, [searchQuery, stockData, filterType]);
 
   const fetchStockBalance = async () => {
     try {
@@ -115,103 +144,61 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
+      scrollToTop();
     }
   };
 
-  // Render table header
-  const renderTableHeader = () => (
-    <View style={[styles.tableHeader, { backgroundColor: colors.primary + '10', borderBottomColor: colors.cardBorder }]}>
-      <Text style={[styles.tableHeaderText, { color: colors.primary }]}>Area</Text>
-      <Text style={[styles.tableHeaderTextItem, { color: colors.primary }]}>Item #</Text>
-      <Text style={[styles.tableHeaderTextLot, { color: colors.primary }]}>Lot #</Text>
-      <Text style={[styles.tableHeaderTextUofm, { color: colors.primary }]}>UOFM</Text>
-      <Text style={[styles.tableHeaderTextWt, { color: colors.primary }]}>Ave Wt</Text>
-      <Text style={[styles.tableHeaderTextBags, { color: colors.primary }]}>Avail Bags</Text>
-      <Text style={[styles.tableHeaderTextKgs, { color: colors.primary }]}>Avail KGS</Text>
-    </View>
-  );
-
-  // Render table row
-  const renderTableRow = (item: StockBalanceItem, index: number) => (
-    <View
-      key={`${item.ITEMNMBR}-${item.LOTNUMBER}-${index}`}
-      style={[styles.tableRow, { backgroundColor: index % 2 === 0 ? colors.background : colors.cardBackground, borderBottomColor: colors.cardBorder }]}
-    >
-      <Text style={[styles.tableCell, { color: colors.text }]}>{String(item.AREA || '-').trim()}</Text>
-      <Text style={[styles.tableCellItem, { color: colors.text }]}>{String(item.ITEMNMBR || '-').trim()}</Text>
-      <Text style={[styles.tableCellLot, { color: colors.text }]}>{String(item.LOTNUMBER || '-').trim()}</Text>
-      <Text style={[styles.tableCell, { color: colors.text }]}>{String(item.UOFM || '-').trim()}</Text>
-      <Text style={[styles.tableCell, { color: colors.text }]}>{Number(item.AVEWT).toFixed(3)}</Text>
-      <Text style={[styles.tableCellNumber, { color: item['AVAILABLE BAGS'] > 0 ? colors.success : colors.error }]}>
-        {item['AVAILABLE BAGS']}
-      </Text>
-      <Text style={[styles.tableCellNumber, { color: item['AVAILABLE KGS'] > 0 ? colors.success : colors.error }]}>
-        {Number(item['AVAILABLE KGS']).toFixed(2)}
-      </Text>
-    </View>
-  );
-
-  // Render card for mobile
-  const renderCard = (item: StockBalanceItem, index: number) => (
-    <View
-      key={`${item.ITEMNMBR}-${item.LOTNUMBER}-${index}`}
-      style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-    >
-      <View style={styles.cardHeader}>
-        <View style={[styles.cardBadge, { backgroundColor: (item['AVAILABLE BAGS'] > 0 ? colors.success : colors.error) + '20' }]}>
-          <Text style={[styles.cardBadgeText, { color: item['AVAILABLE BAGS'] > 0 ? colors.success : colors.error }]}>
-            {item['AVAILABLE BAGS'] > 0 ? '✓ In Stock' : '✗ Empty'}
-          </Text>
-        </View>
+  // Render table
+  const renderTable = () => (
+    <View style={[styles.tableContainer, { borderColor: colors.cardBorder }]}>
+      {/* Table Header */}
+      <View style={[styles.tableRow, styles.tableHeaderRow, { backgroundColor: colors.primary + '10', borderBottomColor: colors.cardBorder }]}>
+        <View style={styles.colArea}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>Area</Text></View>
+        <View style={styles.colItem}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>Item #</Text></View>
+        <View style={styles.colLot}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>Lot #</Text></View>
+        {/* <View style={styles.colUofm}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>UOFM</Text></View> */}
+        <View style={styles.colWt}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>Ave Wt</Text></View>
+        <View style={styles.colBags}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>Avail Bags</Text></View>
+        <View style={styles.colKgs}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>Avail KGS</Text></View>
       </View>
       
-      <View style={styles.cardContent}>
-        <View style={styles.cardRow}>
-          <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Area</Text>
-          <Text style={[styles.cardValue, { color: colors.text }]}>{String(item.AREA || '-').trim()}</Text>
-        </View>
-        
-        <View style={styles.cardRow}>
-          <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Item #</Text>
-          <Text style={[styles.cardValue, { color: colors.text }]}>{String(item.ITEMNMBR || '-').trim()}</Text>
-        </View>
-        
-        <View style={styles.cardRow}>
-          <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Lot #</Text>
-          <Text style={[styles.cardValue, { color: colors.text }]}>{String(item.LOTNUMBER || '-').trim()}</Text>
-        </View>
-        
-        <View style={styles.cardRow}>
-          <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>UOFM</Text>
-          <Text style={[styles.cardValue, { color: colors.text }]}>{String(item.UOFM || '-').trim()}</Text>
-        </View>
-        
-        <View style={styles.cardRow}>
-          <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Average Weight</Text>
-          <Text style={[styles.cardValue, { color: colors.text }]}>{Number(item.AVEWT).toFixed(3)}</Text>
-        </View>
-        
-        <View style={styles.cardRow}>
-          <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Available Bags</Text>
-          <Text style={[styles.cardValue, { color: item['AVAILABLE BAGS'] > 0 ? colors.success : colors.error, fontWeight: '700' }]}>
-            {item['AVAILABLE BAGS']}
-          </Text>
-        </View>
-        
-        <View style={styles.cardRow}>
-          <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Available KGS</Text>
-          <Text style={[styles.cardValue, { color: item['AVAILABLE KGS'] > 0 ? colors.success : colors.error, fontWeight: '700' }]}>
-            {Number(item['AVAILABLE KGS']).toFixed(2)}
-          </Text>
-        </View>
-
-        {item.REMARKS && (
-          <View style={styles.cardRow}>
-            <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Remarks</Text>
-            <Text style={[styles.cardValue, { color: colors.text }]}>{String(item.REMARKS || '-').trim()}</Text>
+      {/* Table Body */}
+      <FlatList
+        ref={flatListRef}
+        data={paginatedItems}
+        renderItem={({ item, index }) => (
+          <View style={[styles.tableRow, { backgroundColor: index % 2 === 0 ? colors.background : colors.cardBackground, borderBottomColor: colors.cardBorder }]}>
+            <View style={styles.colArea}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.AREA || '-').trim()}</Text></View>
+            <View style={styles.colItem}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.ITEMNMBR || '-').trim()}</Text></View>
+            <View style={styles.colLot}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.LOTNUMBER || '-').trim()}</Text></View>
+            {/* <View style={styles.colUofm}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.UOFM || '-').trim()}</View> */}
+            <View style={styles.colWt}><Text style={[styles.tableCellNumber, { color: colors.text }]}>{Number(item.AVEWT).toFixed(3)}</Text></View>
+            <View style={styles.colBags}><Text style={[styles.tableCellNumber, { color: item['AVAILABLE BAGS'] > 0 ? colors.success : colors.error }]}>{item['AVAILABLE BAGS']}</Text></View>
+            <View style={styles.colKgs}><Text style={[styles.tableCellNumber, { color: item['AVAILABLE KGS'] > 0 ? colors.success : colors.error }]}>{Number(item['AVAILABLE KGS']).toFixed(2)}</Text></View>
           </View>
         )}
-      </View>
+        keyExtractor={(item, index) => `${item.ITEMNMBR}-${item.LOTNUMBER}-${index}`}
+        contentContainerStyle={styles.tableListContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        showsVerticalScrollIndicator={true}
+        snapToInterval={48}
+        decelerationRate="fast"
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="package-variant" size={64} color={colors.textTertiary} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              {searchQuery ? 'No matching records found' : 'No stock balance data available'}
+            </Text>
+          </View>
+        }
+      />
     </View>
   );
 
@@ -220,7 +207,7 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
     <View style={[
       styles.paginationContainer, 
       { 
-        backgroundColor: colors.primary + '08', 
+        backgroundColor: colors.cardBackground, 
         borderTopColor: colors.cardBorder,
         flexDirection: isTablet ? 'row' : 'column',
         gap: isTablet ? 0 : 12,
@@ -302,7 +289,7 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
     return (
       <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading Stock Balance...</Text>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading Current Balance...</Text>
       </SafeAreaView>
     );
   }
@@ -330,7 +317,40 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Stock Balance</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Current Balance</Text>
+      </View>
+
+      {/* Filter Type Radio Buttons */}
+      <View style={[styles.filterContainer, { backgroundColor: colors.cardBackground, borderBottomColor: colors.cardBorder }]}>
+        <TouchableOpacity 
+          style={[styles.filterOption, filterType === 'all' && { backgroundColor: colors.primary + '20' }]}
+          onPress={() => setFilterType('all')}
+        >
+          <View style={[styles.radioOuter, { borderColor: colors.primary }]}>
+            {filterType === 'all' && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
+          </View>
+          <Text style={[styles.filterLabel, { color: colors.text }]}>View All</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.filterOption, filterType === 'item' && { backgroundColor: colors.primary + '20' }]}
+          onPress={() => setFilterType('item')}
+        >
+          <View style={[styles.radioOuter, { borderColor: colors.primary }]}>
+            {filterType === 'item' && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
+          </View>
+          <Text style={[styles.filterLabel, { color: colors.text }]}>View Per Item</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.filterOption, filterType === 'area' && { backgroundColor: colors.primary + '20' }]}
+          onPress={() => setFilterType('area')}
+        >
+          <View style={[styles.radioOuter, { borderColor: colors.primary }]}>
+            {filterType === 'area' && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
+          </View>
+          <Text style={[styles.filterLabel, { color: colors.text }]}>View Per Area</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -387,61 +407,14 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
         </View>
       </View>
 
-      {/* Content */}
-      <View style={[styles.contentContainer, isTablet && styles.contentContainerTablet]}>
-        {isTablet ? (
-          // Table View for Tablets
-          <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-            <View>
-              {renderTableHeader()}
-              <FlatList
-                data={paginatedItems}
-                renderItem={({ item, index }) => renderTableRow(item, index)}
-                keyExtractor={(item, index) => `${item.ITEMNMBR}-${item.LOTNUMBER}-${index}`}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={handleRefresh}
-                    colors={[colors.primary]}
-                    tintColor={colors.primary}
-                  />
-                }
-                showsVerticalScrollIndicator={true}
-                stickyHeaderIndices={[]}
-              />
-            </View>
-          </ScrollView>
-        ) : (
-          // Card View for Phones
-          <FlatList
-            data={paginatedItems}
-            renderItem={({ item, index }) => renderCard(item, index)}
-            keyExtractor={(item, index) => `${item.ITEMNMBR}-${item.LOTNUMBER}-${index}`}
-            contentContainerStyle={styles.cardListContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
-              />
-            }
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <MaterialCommunityIcons name="package-variant" size={64} color={colors.textTertiary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  {searchQuery ? 'No matching records found' : 'No stock balance data available'}
-                </Text>
-              </View>
-            }
-          />
-        )}
+      {/* Content - Always Table View */}
+      <View style={styles.contentContainer}>
+        {renderTable()}
       </View>
 
       {/* Pagination */}
       {totalItems > ITEMS_PER_PAGE && (
-        <View style={{ paddingBottom: insets.bottom }}>
+        <View style={[styles.paginationWrapper, { paddingBottom: insets.bottom, backgroundColor: colors.cardBackground }]}>
           {renderPagination()}
         </View>
       )}
@@ -501,6 +474,40 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
+  // Filter Styles
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    gap: 8,
+    justifyContent: 'space-around',
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -546,124 +553,115 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
+    minHeight: 0,
   },
   contentContainerTablet: {
     paddingHorizontal: 20,
   },
+  scrollContent: {
+    minWidth: '100%',
+  },
+  tableWrapper: {
+    minWidth: '100%',
+  },
   // Table Styles
-  tableHeader: {
-    flexDirection: 'row',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-  },
-  tableHeaderText: {
-    fontSize: 13,
-    fontWeight: '700',
+  tableContainer: {
+    width: '100%',
     flex: 1,
-    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
-  tableHeaderTextArea: {
-    minWidth: 60,
-  },
-  tableHeaderTextItem: {
-    minWidth: 100,
-    flex: 1,
-  },
-  tableHeaderTextLot: {
-    fontSize: 13,
-    fontWeight: '700',
-    minWidth: 100,
-    textAlign: 'center',
-  },
-  tableHeaderTextUofm: {
-    minWidth: 50,
-  },
-  tableHeaderTextWt: {
-    minWidth: 60,
-  },
-  tableHeaderTextBags: {
-    minWidth: 80,
-  },
-  tableHeaderTextKgs: {
-    minWidth: 80,
+  tableListContent: {
+    flexGrow: 1,
+    minHeight: 200,
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    alignItems: 'center',
     borderBottomWidth: 1,
     minHeight: 48,
   },
-  tableCell: {
-    fontSize: 13,
-    flex: 1,
-    textAlign: 'center',
-    paddingHorizontal: 4,
+  tableHeaderRow: {
+    minHeight: 52,
   },
-  tableCellItem: {
-    fontSize: 13,
-    flex: 1,
-    textAlign: 'center',
+  // Column flex values - same for header and body
+  // Using flex to ensure columns take consistent space
+  colArea: {
+    flex: 0.8,
+    minWidth: 60,
     paddingHorizontal: 4,
+    paddingVertical: 12,
+    justifyContent: 'center',
   },
-  tableCellLot: {
-    fontSize: 13,
+  colItem: {
     flex: 1.5,
-    textAlign: 'center',
+    minWidth: 100,
     paddingHorizontal: 4,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  colLot: {
+    flex: 1.3,
+    minWidth: 90,
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  colUofm: {
+    flex: 0.7,
+    minWidth: 45,
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  colWt: {
+    flex: 1,
+    minWidth: 60,
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  colBags: {
+    flex: 1.2,
+    minWidth: 80,
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  colKgs: {
+    flex: 1.2,
+    minWidth: 80,
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  tableHeaderText: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'left',
+  },
+  tableHeaderTextRight: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  tableCellText: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'left',
   },
   tableCellNumber: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    flex: 1,
-    textAlign: 'center',
-    paddingHorizontal: 4,
-  },
-  // Card Styles for Mobile
-  cardListContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  card: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 10,
-  },
-  cardBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  cardBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  cardContent: {
-    gap: 10,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  cardValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    flex: 1,
     textAlign: 'right',
   },
   // Pagination Styles
+  paginationWrapper: {
+    paddingBottom: 8,
+    backgroundColor: '#ffffff',
+  },
   paginationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -671,6 +669,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderTopWidth: 1,
+    backgroundColor: '#ffffff',
   },
   paginationInfo: {
     fontSize: 15,

@@ -38,14 +38,6 @@ const WAREHOUSE_MODULES: ModuleCardData[] = [
     icon: 'package-variant-closed-check',
     color: 'success',
   },
-
-    {
-    id: 'receiving-copy',
-    title: 'Posted Issuance Verification (WIREFRAME)',
-    description: 'View posted issuance verification transaction(s)',
-    icon: 'package-variant-closed-check',
-    color: 'success',
-  },
   // {
   //   id: 'pending',
   //   title: 'Pending Warehouse Issuance Confirmation',
@@ -188,8 +180,6 @@ export function WarehouseHomeScreen({
       router.push('/stock-balance' as any);
     } else if (moduleId === 'receiving') {
       router.push('/posted-warehouse-confirmation/posted-warehouse-confirmation' as any);
-    } else if (moduleId === 'receiving-copy') {
-      router.push('/posted-warehouse-confirmation-wireframe/posted-warehouse-confirmation-wireframe' as any);
     } else if (onModulePress) {
       onModulePress(moduleId);
     }

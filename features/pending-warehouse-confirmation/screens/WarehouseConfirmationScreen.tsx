@@ -98,7 +98,7 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
   const fetchTransactionDetails = async (transRefNo: string) => {
     try {
       setLoadingDetails(true);
-      const result = await warehouseMetricsService.getTransactionDetails(transRefNo);
+      const result = await warehouseMetricsService.getPostedTransactionDetails(transRefNo);
       
       if (result && result.success) {
         setTransactionDetails(result.data || []);

@@ -141,46 +141,6 @@ class WarehouseController {
   }
 
   /**
-   * GET /warehouse/transaction-details/:transRefNo
-   * Returns transaction details for warehouse confirmation
-   */
-  static async getTransactionDetails(req, res) {
-    try {
-      const { transRefNo } = req.params;
-
-      if (!transRefNo) {
-        return res.status(400).json({
-          success: false,
-          message: 'Transaction reference number is required',
-          data: []
-        });
-      }
-
-      const result = await WarehouseService.getTransactionDetails(transRefNo);
-      
-      if (result && result.success) {
-        return res.json({
-          success: true,
-          data: result.data,
-          count: result.count,
-          transRefNo
-        });
-      } else {
-        return res.status(500).json({
-          success: false,
-          message: result?.error || 'Failed to fetch transaction details',
-          data: []
-        });
-      }
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch transaction details'
-      });
-    }
-  }
-
-  /**
    * GET /stock-balance
    * Returns current stock balance from inventory
    * Query params: locncode (optional, default 'PAWHRM')
