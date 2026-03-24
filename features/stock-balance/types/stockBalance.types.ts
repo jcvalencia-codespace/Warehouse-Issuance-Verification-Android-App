@@ -12,6 +12,7 @@ export interface StockBalanceItem {
   AVEWT: number;
   'AVAILABLE BAGS': number;
   'AVAILABLE KGS': number;
+  RECEIVEDDATE: string;
 }
 
 export interface StockBalanceResponse {
@@ -26,4 +27,5 @@ export interface StockBalanceParams {
   search?: string;
   area?: string;
   itemNumber?: string;
+  receivedDate?: string;
 }

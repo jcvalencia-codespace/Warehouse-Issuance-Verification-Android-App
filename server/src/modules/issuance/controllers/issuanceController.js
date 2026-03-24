@@ -225,7 +225,7 @@ exports.postIssuance = async (req, res) => {
       // Insert into QUANTITYMASTER4.HEADER
       await transaction.request().query(`
         INSERT INTO [INVENTORY.QUANTITYMASTER4.HEADER] (LOCNCODE, FROMCOMPANY, FROMLOCNCODE, FROMTRANSNO, ISSUEDBY, DATETRANS, TRANSTYPE, TRANSREFNO, RECEIVEDBY, DATERECEIVED, POSTSTATUS)
-        VALUES ('OPPREP', 'SFC', 'PAWHRM', ${transRefNo}, '${username}', '${formattedDate}', '${transType}', ${transRefNo}, '${forkliftOperator}', GETDATE(), 1)
+        VALUES ('OPPREP', 'SFC', 'PAWHRM', ${issIdNumber}, '${username}', '${formattedDate}', '${transType}', ${transRefNo}, '${forkliftOperator}', GETDATE(), 1)
       `);
 
       // Calculate actual unit cost - use allocation AMOUNT

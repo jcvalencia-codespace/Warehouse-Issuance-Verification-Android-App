@@ -47,6 +47,9 @@ export class StockBalanceService {
       if (params?.itemNumber) {
         queryParams.append('itemNumber', params.itemNumber);
       }
+      if(params?.receivedDate){
+        queryParams.append('receivedDate', params.receivedDate);
+      }
 
       const queryString = queryParams.toString();
       const url = `${this.baseUrl}/stock-balance${queryString ? `?${queryString}` : ''}`;

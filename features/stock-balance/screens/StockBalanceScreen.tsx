@@ -39,10 +39,10 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredData, setFilteredData] = useState<StockBalanceItem[]>([]);
-  
-  // Filter type: 'all' | 'item' | 'area'
-  const [filterType, setFilterType] = useState<'all' | 'item' | 'area'>('all');
-  
+
+  // Filter type:  'item' | 'area'
+  const [filterType, setFilterType] = useState<'area' | 'item'>('area');
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -60,7 +60,7 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
   // Filter data when search query or filter type changes
   useEffect(() => {
     let filtered = stockData;
-    
+
     // Apply search query filter
     if (searchQuery.trim()) {
       filtered = filtered.filter(
@@ -68,19 +68,35 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
           (item.AREA || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.ITEMNMBR || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.LOTNUMBER || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (item.REMARKS || '').toLowerCase().includes(searchQuery.toLowerCase())
+          (item.REMARKS || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (() => {
+            try {
+              const date = new Date(item.RECEIVEDDATE);
+              if (!isNaN(date.getTime())) {
+                const formattedDate = date.toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                });
+                return formattedDate.toLowerCase().includes(searchQuery.toLowerCase());
+              }
+              return false;
+            } catch {
+              return false;
+            }
+          })()
       );
     }
-    
+
     // Apply sorting based on filter type
     if (filterType === 'item') {
       // Sort by Item #
-      filtered = [...filtered].sort((a, b) => 
+      filtered = [...filtered].sort((a, b) =>
         (a.ITEMNMBR || '').localeCompare(b.ITEMNMBR || '')
       );
     } else if (filterType === 'area') {
       // Sort by Area
-      filtered = [...filtered].sort((a, b) => 
+      filtered = [...filtered].sort((a, b) =>
         (a.AREA || '').localeCompare(b.AREA || '')
       );
     } else {
@@ -91,7 +107,7 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
         return (a.ITEMNMBR || '').localeCompare(b.ITEMNMBR || '');
       });
     }
-    
+
     setFilteredData(filtered);
     setCurrentPage(1); // Reset to first page on filter change
     setTotalItems(filtered.length);
@@ -102,7 +118,7 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
       setLoading(true);
       setError(null);
       const result = await stockBalanceService.getStockBalance();
-      
+
       if (result && result.success) {
         setStockData(result.data || []);
         setTotalItems(result.data?.length || 0);
@@ -148,20 +164,25 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
     }
   };
 
+  const formatDateDisplay = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
   // Render table
   const renderTable = () => (
     <View style={[styles.tableContainer, { borderColor: colors.cardBorder }]}>
       {/* Table Header */}
       <View style={[styles.tableRow, styles.tableHeaderRow, { backgroundColor: colors.primary + '10', borderBottomColor: colors.cardBorder }]}>
-        <View style={styles.colArea}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>Area</Text></View>
-        <View style={styles.colItem}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>Item #</Text></View>
-        <View style={styles.colLot}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>Lot #</Text></View>
+        <View style={styles.colArea}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>AREA</Text></View>
+        <View style={styles.colItem}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>ITEM NO</Text></View>
+        <View style={styles.colLot}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>LOT NO</Text></View>
         {/* <View style={styles.colUofm}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>UOFM</Text></View> */}
-        <View style={styles.colWt}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>Ave Wt</Text></View>
-        <View style={styles.colBags}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>Avail Bags</Text></View>
-        <View style={styles.colKgs}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>Avail KGS</Text></View>
+        <View style={styles.colWt}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>REMARKS</Text></View>
+        <View style={styles.colBags}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>QTY BAGS</Text></View>
+        <View style={styles.colKgs}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>WEIGHT (KG)</Text></View>
+        <View style={styles.colKgs}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>RECEIVE DATE</Text></View>
       </View>
-      
+
       {/* Table Body */}
       <FlatList
         ref={flatListRef}
@@ -172,9 +193,10 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
             <View style={styles.colItem}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.ITEMNMBR || '-').trim()}</Text></View>
             <View style={styles.colLot}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.LOTNUMBER || '-').trim()}</Text></View>
             {/* <View style={styles.colUofm}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.UOFM || '-').trim()}</View> */}
-            <View style={styles.colWt}><Text style={[styles.tableCellNumber, { color: colors.text }]}>{Number(item.AVEWT).toFixed(3)}</Text></View>
+            <View style={styles.colWt}><Text style={[styles.tableCellNumber, { color: colors.text }]}>{String(item.REMAKRS || '-')}</Text></View>
             <View style={styles.colBags}><Text style={[styles.tableCellNumber, { color: item['AVAILABLE BAGS'] > 0 ? colors.success : colors.error }]}>{item['AVAILABLE BAGS']}</Text></View>
             <View style={styles.colKgs}><Text style={[styles.tableCellNumber, { color: item['AVAILABLE KGS'] > 0 ? colors.success : colors.error }]}>{Number(item['AVAILABLE KGS']).toFixed(2)}</Text></View>
+            <View style={styles.colKgs}><Text style={[styles.tableCellDate, { color: colors.text }]}>{String(formatDateDisplay(new Date(item.RECEIVEDDATE)) || '-')}</Text></View>
           </View>
         )}
         keyExtractor={(item, index) => `${item.ITEMNMBR}-${item.LOTNUMBER}-${index}`}
@@ -205,9 +227,9 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
   // Render pagination
   const renderPagination = () => (
     <View style={[
-      styles.paginationContainer, 
-      { 
-        backgroundColor: colors.cardBackground, 
+      styles.paginationContainer,
+      {
+        backgroundColor: colors.cardBackground,
         borderTopColor: colors.cardBorder,
         flexDirection: isTablet ? 'row' : 'column',
         gap: isTablet ? 0 : 12,
@@ -216,7 +238,7 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
       }
     ]}>
       <Text style={[
-        styles.paginationInfo, 
+        styles.paginationInfo,
         { color: colors.textSecondary },
         isTablet && styles.paginationInfoTablet
       ]}>
@@ -314,35 +336,20 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right', 'top']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.cardBackground, borderBottomColor: colors.cardBorder }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Current Balance</Text>
+        <View style={styles.headerLeftContainer}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Current Balance</Text>
+          </View>
+          <Text style={[styles.headerSubTitle, { color: colors.textSecondary }]}>View warehouse current stocks</Text>
+        </View>
+        <Text style={[styles.headerCurrentDate, { color: colors.textSecondary }]}>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
       </View>
-
       {/* Filter Type Radio Buttons */}
       <View style={[styles.filterContainer, { backgroundColor: colors.cardBackground, borderBottomColor: colors.cardBorder }]}>
-        <TouchableOpacity 
-          style={[styles.filterOption, filterType === 'all' && { backgroundColor: colors.primary + '20' }]}
-          onPress={() => setFilterType('all')}
-        >
-          <View style={[styles.radioOuter, { borderColor: colors.primary }]}>
-            {filterType === 'all' && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
-          </View>
-          <Text style={[styles.filterLabel, { color: colors.text }]}>View All</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.filterOption, filterType === 'item' && { backgroundColor: colors.primary + '20' }]}
-          onPress={() => setFilterType('item')}
-        >
-          <View style={[styles.radioOuter, { borderColor: colors.primary }]}>
-            {filterType === 'item' && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
-          </View>
-          <Text style={[styles.filterLabel, { color: colors.text }]}>View Per Item</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.filterOption, filterType === 'area' && { backgroundColor: colors.primary + '20' }]}
           onPress={() => setFilterType('area')}
         >
@@ -350,6 +357,16 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
             {filterType === 'area' && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
           </View>
           <Text style={[styles.filterLabel, { color: colors.text }]}>View Per Area</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterOption, filterType === 'item' && { backgroundColor: colors.primary + '20' }]}
+          onPress={() => setFilterType('item')}
+        >
+          <View style={[styles.radioOuter, { borderColor: colors.primary }]}>
+            {filterType === 'item' && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
+          </View>
+          <Text style={[styles.filterLabel, { color: colors.text }]}>View Per Item</Text>
         </TouchableOpacity>
       </View>
 
@@ -359,7 +376,7 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
           <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search by Area, Item #, Lot #..."
+            placeholder="Search by AREA, ITEM NO., LOT NO., RECEIVE DATE"
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={handleSearchChange}
@@ -376,7 +393,7 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
 
       {/* Summary */}
       <View style={[
-        styles.summaryContainer, 
+        styles.summaryContainer,
         { backgroundColor: colors.primary + '10' },
         isTablet && styles.summaryContainerTablet
       ]}>
@@ -473,6 +490,26 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerLeftContainer: {
+    flex: 1,
+  },
+  headerSubTitle: {
+    fontSize: 14,
+    fontWeight: '400',
+    marginTop: 4,
+    marginLeft: 36,
+  },
+  headerCurrentDate: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  headerSpacer: {
+    flex: 1,
   },
   // Filter Styles
   filterContainer: {
@@ -656,6 +693,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'right',
+  },
+  tableCellDate: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   // Pagination Styles
   paginationWrapper: {

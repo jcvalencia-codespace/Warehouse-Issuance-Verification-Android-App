@@ -268,7 +268,10 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
         <MaterialCommunityIcons name="checkbox-marked-circle-outline" size={14} color={colors.primary} />
       </View>
       <View style={[styles.tableHeaderCell, styles.tableRefNoCell]}>
-        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>REF NO.</Text>
+        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>ISS REF NO.</Text>
+      </View>
+      <View style={[styles.tableHeaderCell, styles.tableRefNoCell]}>
+        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>TRANS REF NO.</Text>
       </View>
       <View style={[styles.tableHeaderCell, styles.tableDateCell]}>
         <MaterialCommunityIcons name="calendar" size={14} color={colors.primary} />
@@ -312,6 +315,12 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
         {/* Status Indicator */}
         <View style={[styles.tableCell, styles.tableStatusCell]}>
           <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
+        </View>
+
+        <View style={[styles.tableCell, styles.tableRefNoCell]}>
+          <Text style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
+            {item.FROMTRANSNO}
+          </Text>
         </View>
 
         {/* Reference No */}
@@ -393,6 +402,7 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
         ) : (
           <TransactionDetailList 
             details={transactionDetails} 
+            fromTransNo={selectedTransaction?.FROMTRANSNO}
             transRefNo={selectedTransaction?.TRANSREFNO}
             issuedBy={selectedTransaction?.ISSUEDBY}
             transDate={selectedTransaction?.DATETRANS}

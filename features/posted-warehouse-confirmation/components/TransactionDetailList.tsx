@@ -18,6 +18,7 @@ interface TransactionDetailListProps {
   details: TransactionDetail[];
   loading?: boolean;
   // Header information
+  fromTransNo?: string;
   transRefNo?: string;
   issuedBy?: string;
   transDate?: string;
@@ -27,6 +28,7 @@ interface TransactionDetailListProps {
 export function TransactionDetailList({
   details,
   loading = false,
+  fromTransNo,
   transRefNo,
   issuedBy,
   transDate,
@@ -39,10 +41,10 @@ export function TransactionDetailList({
   const IS_SMALL_SCREEN = SCREEN_WIDTH < 380;
   const [showCostColumns, setShowCostColumns] = useState(false);
 
-  // Dynamic column widths as percentage of screen width (7 columns = 100%)
+  // Dynamic column widths as percentage of screen width (now 6 columns = 100% since # removed)
   const COL_WIDTHS = {
     colNo: SCREEN_WIDTH * (IS_TABLET ? (IS_LANDSCAPE ? 0.05 : 0.06) : (IS_LANDSCAPE ? 0.05 : 0.06)),
-    colItemCode: SCREEN_WIDTH * (IS_TABLET ? (IS_LANDSCAPE ? 0.20 : 0.22) : (IS_LANDSCAPE ? 0.22 : 0.24)),
+    colItemCode: SCREEN_WIDTH * (IS_TABLET ? (IS_LANDSCAPE ? 0.14 : 0.16) : (IS_LANDSCAPE ? 0.16 : 0.18)),
     colLotNumber: SCREEN_WIDTH * (IS_TABLET ? (IS_LANDSCAPE ? 0.22 : 0.35) : (IS_LANDSCAPE ? 0.28 : 0.35)),
     colBagsIssued: SCREEN_WIDTH * (IS_TABLET ? (IS_LANDSCAPE ? 0.10 : 0.11) : (IS_LANDSCAPE ? 0.10 : 0.11)),
     colQtyIssued: SCREEN_WIDTH * (IS_TABLET ? (IS_LANDSCAPE ? 0.20 : 0.20) : (IS_LANDSCAPE ? 0.18 : 0.20)),
@@ -62,6 +64,9 @@ export function TransactionDetailList({
   const headerScrollRef = useRef<ScrollView>(null);
   const [horizontalScrollOffset, setHorizontalScrollOffset] = useState(0);
 
+  // Flag to prevent recursive scrolling between left and right sections
+  const isScrollingRef = useRef(false);
+
   // Handle horizontal scroll sync for sticky columns
   const handleHorizontalScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -70,9 +75,14 @@ export function TransactionDetailList({
 
   // Handle left section scroll (sync with right section)
   const handleLeftScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isScrollingRef.current) return;
     const offsetY = event.nativeEvent.contentOffset.y;
     // Sync the right section body vertical scroll
+    isScrollingRef.current = true;
     rightBodyScrollRef.current?.scrollTo({ y: offsetY, animated: false });
+    setTimeout(() => {
+      isScrollingRef.current = false;
+    }, 10);
   };
 
   // Handle right section horizontal scroll (sync with header)
@@ -86,9 +96,14 @@ export function TransactionDetailList({
 
   // Handle right section body vertical scroll (sync with left section)
   const handleRightBodyScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isScrollingRef.current) return;
     const offsetY = event.nativeEvent.contentOffset.y;
     // Sync the left section vertical scroll
+    isScrollingRef.current = true;
     leftScrollRef.current?.scrollTo({ y: offsetY, animated: false });
+    setTimeout(() => {
+      isScrollingRef.current = false;
+    }, 50);
   };
 
   // Format number with thousands separator
@@ -157,50 +172,63 @@ export function TransactionDetailList({
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Transaction Header Information */}
         <View style={[styles.headerSection, { backgroundColor: colors.cardBackground, borderBottomColor: colors.divider, paddingHorizontal: IS_TABLET ? (IS_LANDSCAPE ? 12 : 20) : (IS_LANDSCAPE ? 8 : 12), paddingVertical: IS_TABLET ? (IS_LANDSCAPE ? 8 : 16) : (IS_LANDSCAPE ? 6 : 12) }]}>
-          <View style={[styles.headerGrid, { flexWrap: IS_LANDSCAPE ? 'nowrap' : 'wrap', gap: IS_TABLET ? (IS_LANDSCAPE ? 12 : 16) : (IS_LANDSCAPE ? 8 : 12) }]}>
-            <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 180 : 200) : (IS_LANDSCAPE ? 150 : (SCREEN_WIDTH - 48) / 2), flex: IS_TABLET ? 1 : undefined, maxWidth: IS_TABLET ? (IS_LANDSCAPE ? 280 : 280) : (IS_LANDSCAPE ? '48%' : '48%') }]}>
-              <View style={[styles.headerIconContainer, { backgroundColor: colors.primary + '15', width: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), height: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), borderRadius: IS_TABLET ? (IS_LANDSCAPE ? 6 : 10) : (IS_LANDSCAPE ? 6 : 10), marginRight: IS_LANDSCAPE ? 6 : 10 }]}>
-                <MaterialCommunityIcons name="file-document-outline" size={IS_LANDSCAPE ? 14 : 18} color={colors.primary} />
+          <View style={[styles.headerGrid, { flexWrap: 'wrap', gap: IS_TABLET ? (IS_LANDSCAPE ? 8 : 12) : 8 }]}>
+
+            <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+              <View style={[styles.headerIconContainer, { backgroundColor: colors.primary + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+                <MaterialCommunityIcons name="file-document-outline" size={16} color={colors.primary} />
               </View>
               <View style={styles.headerContent}>
-                <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 9 : 11) : (IS_LANDSCAPE ? 8 : 10) }]}>TRANS REF NO.</Text>
-                <Text style={[styles.headerValue, { color: colors.text, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 14 : 16) : (IS_LANDSCAPE ? 12 : 14) }]} numberOfLines={1}>
+                <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>ISSUANCE REF NO.</Text>
+                <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
+                  {fromTransNo}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+              <View style={[styles.headerIconContainer, { backgroundColor: colors.primary + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+                <MaterialCommunityIcons name="file-document-outline" size={16} color={colors.primary} />
+              </View>
+              <View style={styles.headerContent}>
+                <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>TRANS REF NO.</Text>
+                <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
                   {transRefNo}
                 </Text>
               </View>
             </View>
 
-            <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 180 : 200) : (IS_LANDSCAPE ? 150 : (SCREEN_WIDTH - 48) / 2), flex: IS_TABLET ? 1 : undefined, maxWidth: IS_TABLET ? (IS_LANDSCAPE ? 280 : 280) : (IS_LANDSCAPE ? '48%' : '48%') }]}>
-              <View style={[styles.headerIconContainer, { backgroundColor: colors.secondary + '15', width: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), height: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), borderRadius: IS_TABLET ? (IS_LANDSCAPE ? 6 : 10) : (IS_LANDSCAPE ? 6 : 10), marginRight: IS_LANDSCAPE ? 6 : 10 }]}>
-                <MaterialCommunityIcons name="calendar" size={IS_LANDSCAPE ? 14 : 18} color={colors.secondary} />
+            <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+              <View style={[styles.headerIconContainer, { backgroundColor: colors.secondary + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+                <MaterialCommunityIcons name="calendar" size={16} color={colors.secondary} />
               </View>
               <View style={styles.headerContent}>
-                <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 9 : 11) : (IS_LANDSCAPE ? 8 : 10) }]}>TRANS DATE</Text>
-                <Text style={[styles.headerValue, { color: colors.text, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 14 : 16) : (IS_LANDSCAPE ? 12 : 14) }]} numberOfLines={1}>
+                <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>TRANS DATE</Text>
+                <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
                   {formatDate(transDate)}
                 </Text>
               </View>
             </View>
 
-            <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 180 : 200) : (IS_LANDSCAPE ? 150 : (SCREEN_WIDTH - 48) / 2), flex: IS_TABLET ? 1 : undefined, maxWidth: IS_TABLET ? (IS_LANDSCAPE ? 280 : 280) : (IS_LANDSCAPE ? '48%' : '48%') }]}>
-              <View style={[styles.headerIconContainer, { backgroundColor: colors.warning + '15', width: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), height: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), borderRadius: IS_TABLET ? (IS_LANDSCAPE ? 6 : 10) : (IS_LANDSCAPE ? 6 : 10), marginRight: IS_LANDSCAPE ? 6 : 10 }]}>
-                <MaterialCommunityIcons name="account-arrow-right" size={IS_LANDSCAPE ? 14 : 18} color={colors.warning} />
+            <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+              <View style={[styles.headerIconContainer, { backgroundColor: colors.warning + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+                <MaterialCommunityIcons name="account-arrow-right" size={16} color={colors.warning} />
               </View>
               <View style={styles.headerContent}>
-                <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 9 : 11) : (IS_LANDSCAPE ? 8 : 10) }]}>ISSUED BY</Text>
-                <Text style={[styles.headerValue, { color: colors.text, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 14 : 16) : (IS_LANDSCAPE ? 12 : 14) }]} numberOfLines={1}>
+                <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>ISSUED BY</Text>
+                <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
                   {issuedBy}
                 </Text>
               </View>
             </View>
 
-            <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 180 : 200) : (IS_LANDSCAPE ? 150 : (SCREEN_WIDTH - 48) / 2), flex: IS_TABLET ? 1 : undefined, maxWidth: IS_TABLET ? (IS_LANDSCAPE ? 280 : 280) : (IS_LANDSCAPE ? '48%' : '48%') }]}>
-              <View style={[styles.headerIconContainer, { backgroundColor: colors.success + '15', width: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), height: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), borderRadius: IS_TABLET ? (IS_LANDSCAPE ? 6 : 10) : (IS_LANDSCAPE ? 6 : 10), marginRight: IS_LANDSCAPE ? 6 : 10 }]}>
-                <MaterialCommunityIcons name="account-check" size={IS_LANDSCAPE ? 14 : 18} color={colors.success} />
+            <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+              <View style={[styles.headerIconContainer, { backgroundColor: colors.success + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+                <MaterialCommunityIcons name="account-check" size={16} color={colors.success} />
               </View>
               <View style={styles.headerContent}>
-                <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 9 : 11) : (IS_LANDSCAPE ? 8 : 10) }]}>RECEIVED BY</Text>
-                <Text style={[styles.headerValue, { color: colors.text, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 14 : 16) : (IS_LANDSCAPE ? 12 : 14) }]} numberOfLines={1}>
+                <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>RECEIVED BY</Text>
+                <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
                   {receivedBy}
                 </Text>
               </View>
@@ -340,50 +368,62 @@ export function TransactionDetailList({
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Transaction Header Information */}
       <View style={[styles.headerSection, { backgroundColor: colors.cardBackground, borderBottomColor: colors.divider, paddingHorizontal: IS_TABLET ? (IS_LANDSCAPE ? 12 : 20) : (IS_LANDSCAPE ? 8 : 12), paddingVertical: IS_TABLET ? (IS_LANDSCAPE ? 8 : 16) : (IS_LANDSCAPE ? 6 : 12) }]}>
-        <View style={[styles.headerGrid, { flexWrap: IS_LANDSCAPE ? 'nowrap' : 'wrap', gap: IS_TABLET ? (IS_LANDSCAPE ? 12 : 16) : (IS_LANDSCAPE ? 8 : 12) }]}>
-          <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 180 : 200) : (IS_LANDSCAPE ? 150 : (SCREEN_WIDTH - 48) / 2), flex: IS_TABLET ? 1 : undefined, maxWidth: IS_TABLET ? (IS_LANDSCAPE ? 280 : 280) : (IS_LANDSCAPE ? '48%' : '48%') }]}>
-            <View style={[styles.headerIconContainer, { backgroundColor: colors.primary + '15', width: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), height: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), borderRadius: IS_TABLET ? (IS_LANDSCAPE ? 6 : 10) : (IS_LANDSCAPE ? 6 : 10), marginRight: IS_LANDSCAPE ? 6 : 10 }]}>
-              <MaterialCommunityIcons name="file-document-outline" size={IS_LANDSCAPE ? 14 : 18} color={colors.primary} />
+        <View style={[styles.headerGrid, { flexWrap: 'wrap', gap: IS_TABLET ? (IS_LANDSCAPE ? 8 : 12) : 8 }]}>
+          <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+            <View style={[styles.headerIconContainer, { backgroundColor: colors.primary + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+              <MaterialCommunityIcons name="file-document-outline" size={16} color={colors.primary} />
             </View>
             <View style={styles.headerContent}>
-              <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 9 : 11) : (IS_LANDSCAPE ? 8 : 10) }]}>TRANS REF NO.</Text>
-              <Text style={[styles.headerValue, { color: colors.text, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 14 : 16) : (IS_LANDSCAPE ? 12 : 14) }]} numberOfLines={1}>
+              <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>ISSUANCE REF NO.</Text>
+              <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
+                {fromTransNo}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+            <View style={[styles.headerIconContainer, { backgroundColor: colors.primary + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+              <MaterialCommunityIcons name="file-document-outline" size={16} color={colors.primary} />
+            </View>
+            <View style={styles.headerContent}>
+              <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>TRANS REF NO.</Text>
+              <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
                 {transRefNo}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 180 : 200) : (IS_LANDSCAPE ? 150 : (SCREEN_WIDTH - 48) / 2), flex: IS_TABLET ? 1 : undefined, maxWidth: IS_TABLET ? (IS_LANDSCAPE ? 280 : 280) : (IS_LANDSCAPE ? '48%' : '48%') }]}>
-            <View style={[styles.headerIconContainer, { backgroundColor: colors.secondary + '15', width: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), height: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), borderRadius: IS_TABLET ? (IS_LANDSCAPE ? 6 : 10) : (IS_LANDSCAPE ? 6 : 10), marginRight: IS_LANDSCAPE ? 6 : 10 }]}>
-              <MaterialCommunityIcons name="calendar" size={IS_LANDSCAPE ? 14 : 18} color={colors.secondary} />
+          <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+            <View style={[styles.headerIconContainer, { backgroundColor: colors.secondary + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+              <MaterialCommunityIcons name="calendar" size={16} color={colors.secondary} />
             </View>
             <View style={styles.headerContent}>
-              <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 9 : 11) : (IS_LANDSCAPE ? 8 : 10) }]}>TRANS DATE</Text>
-              <Text style={[styles.headerValue, { color: colors.text, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 14 : 16) : (IS_LANDSCAPE ? 12 : 14) }]} numberOfLines={1}>
+              <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>TRANS DATE</Text>
+              <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
                 {formatDate(transDate)}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 180 : 200) : (IS_LANDSCAPE ? 150 : (SCREEN_WIDTH - 48) / 2), flex: IS_TABLET ? 1 : undefined, maxWidth: IS_TABLET ? (IS_LANDSCAPE ? 280 : 280) : (IS_LANDSCAPE ? '48%' : '48%') }]}>
-            <View style={[styles.headerIconContainer, { backgroundColor: colors.warning + '15', width: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), height: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), borderRadius: IS_TABLET ? (IS_LANDSCAPE ? 6 : 10) : (IS_LANDSCAPE ? 6 : 10), marginRight: IS_LANDSCAPE ? 6 : 10 }]}>
-              <MaterialCommunityIcons name="account-arrow-right" size={IS_LANDSCAPE ? 14 : 18} color={colors.warning} />
+          <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+            <View style={[styles.headerIconContainer, { backgroundColor: colors.warning + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+              <MaterialCommunityIcons name="account-arrow-right" size={16} color={colors.warning} />
             </View>
             <View style={styles.headerContent}>
-              <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 9 : 11) : (IS_LANDSCAPE ? 8 : 10) }]}>ISSUED BY</Text>
-              <Text style={[styles.headerValue, { color: colors.text, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 14 : 16) : (IS_LANDSCAPE ? 12 : 14) }]} numberOfLines={1}>
+              <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>ISSUED BY</Text>
+              <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
                 {issuedBy}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 180 : 200) : (IS_LANDSCAPE ? 150 : (SCREEN_WIDTH - 48) / 2), flex: IS_TABLET ? 1 : undefined, maxWidth: IS_TABLET ? (IS_LANDSCAPE ? 280 : 280) : (IS_LANDSCAPE ? '48%' : '48%') }]}>
-            <View style={[styles.headerIconContainer, { backgroundColor: colors.success + '15', width: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), height: IS_TABLET ? (IS_LANDSCAPE ? 28 : 36) : (IS_LANDSCAPE ? 24 : 36), borderRadius: IS_TABLET ? (IS_LANDSCAPE ? 6 : 10) : (IS_LANDSCAPE ? 6 : 10), marginRight: IS_LANDSCAPE ? 6 : 10 }]}>
-              <MaterialCommunityIcons name="account-check" size={IS_LANDSCAPE ? 14 : 18} color={colors.success} />
+          <View style={[styles.headerItem, { minWidth: IS_TABLET ? (IS_LANDSCAPE ? 150 : 160) : (SCREEN_WIDTH - 48) / (IS_PORTRAIT ? 3 : 2), flex: IS_LANDSCAPE ? 1 : undefined, maxWidth: IS_LANDSCAPE ? '20%' : (IS_PORTRAIT ? '33%' : '48%') }]}>
+            <View style={[styles.headerIconContainer, { backgroundColor: colors.success + '15', width: 32, height: 32, borderRadius: 8, marginRight: 8 }]}>
+              <MaterialCommunityIcons name="account-check" size={16} color={colors.success} />
             </View>
             <View style={styles.headerContent}>
-              <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 9 : 11) : (IS_LANDSCAPE ? 8 : 10) }]}>RECEIVED BY</Text>
-              <Text style={[styles.headerValue, { color: colors.text, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 14 : 16) : (IS_LANDSCAPE ? 12 : 14) }]} numberOfLines={1}>
+              <Text style={[styles.headerLabel, { color: colors.textTertiary, fontSize: 14 }]}>RECEIVED BY</Text>
+              <Text style={[styles.headerValue, { color: colors.text, fontSize: 14 }]} numberOfLines={1}>
                 {receivedBy}
               </Text>
             </View>
@@ -412,9 +452,9 @@ export function TransactionDetailList({
           <View style={[styles.tableHeader, { backgroundColor: colors.cardBackground, borderBottomColor: colors.divider, minHeight: IS_LANDSCAPE ? 40 : 48 }]}>
             {/* Left Sticky Columns Header */}
             <View style={styles.stickyHeaderContainer}>
-              <View style={[styles.headerCell, { width: COL_WIDTHS.colNo, paddingHorizontal: IS_LANDSCAPE ? 4 : 8, paddingVertical: IS_LANDSCAPE ? 8 : 12 }]}>
+              {/* <View style={[styles.headerCell, { width: COL_WIDTHS.colNo, paddingHorizontal: IS_LANDSCAPE ? 4 : 8, paddingVertical: IS_LANDSCAPE ? 8 : 12 }]}>
                 <Text style={[styles.headerCellText, { color: colors.textSecondary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 10 : 12) : (IS_LANDSCAPE ? 8 : 10) }]}>#</Text>
-              </View>
+              </View> */}
               <View style={[styles.headerCell, { width: COL_WIDTHS.colItemCode, paddingHorizontal: IS_LANDSCAPE ? 4 : 8, paddingVertical: IS_LANDSCAPE ? 8 : 12 }]}>
                 <Text style={[styles.headerCellText, { color: colors.textSecondary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 10 : 12) : (IS_LANDSCAPE ? 8 : 10), textAlign: 'left' }]}>ITEM CODE</Text>
               </View>
@@ -459,13 +499,14 @@ export function TransactionDetailList({
           {/* Table Body Container - Split into sticky left and scrollable right */}
           <View style={styles.tableBodyContainer}>
             {/* Sticky Left Columns - Fixed position on left */}
-            <View style={[styles.stickyLeftOverlay, { width: COL_WIDTHS.colNo + COL_WIDTHS.colItemCode + COL_WIDTHS.colLotNumber }]}>
+            <View style={[styles.stickyLeftOverlay, { width: COL_WIDTHS.colItemCode + COL_WIDTHS.colLotNumber }]}>
               <ScrollView
                 ref={leftScrollRef}
                 showsVerticalScrollIndicator={false}
                 onScroll={handleLeftScroll}
                 scrollEventThrottle={16}
                 style={styles.stickyLeftScroll}
+                contentContainerStyle={{ flexGrow: 1 }}
               >
                 {details.map((detail, index) => {
                   const isEvenRow = index % 2 === 0;
@@ -477,18 +518,18 @@ export function TransactionDetailList({
                         {
                           backgroundColor: isEvenRow ? colors.cardBackground : colors.background + '50',
                           borderBottomColor: colors.divider,
-                          minHeight: IS_LANDSCAPE ? 44 : 52,
+                          height: IS_LANDSCAPE ? 44 : 52,
                         },
                       ]}
                     >
                       {/* Row Number - Sticky */}
-                      <View style={[styles.cell, { width: COL_WIDTHS.colNo, paddingHorizontal: IS_LANDSCAPE ? 4 : 8, paddingVertical: IS_LANDSCAPE ? 6 : 8 }]}>
+                      {/* <View style={[styles.cell, { width: COL_WIDTHS.colNo, paddingHorizontal: IS_LANDSCAPE ? 4 : 8, paddingVertical: IS_LANDSCAPE ? 6 : 8 }]}>
                         <View style={[styles.rowNumberBadge, { backgroundColor: isEvenRow ? colors.primary + '15' : colors.textTertiary + '10', width: IS_TABLET ? (IS_LANDSCAPE ? 24 : 28) : (IS_LANDSCAPE ? 20 : 28), height: IS_TABLET ? (IS_LANDSCAPE ? 24 : 28) : (IS_LANDSCAPE ? 20 : 28), borderRadius: IS_TABLET ? (IS_LANDSCAPE ? 12 : 14) : (IS_LANDSCAPE ? 10 : 14) }]}>
                           <Text style={[styles.rowNumberText, { color: isEvenRow ? colors.primary : colors.textTertiary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 10 : 14) : (IS_LANDSCAPE ? 8 : 14) }]}>
                             {index + 1}
                           </Text>
                         </View>
-                      </View>
+                      </View> */}
 
                       {/* Item Code - Sticky */}
                       <View style={[styles.cell, styles.stickyLeftCell, { width: COL_WIDTHS.colItemCode, paddingHorizontal: IS_LANDSCAPE ? 4 : 8, paddingVertical: IS_LANDSCAPE ? 6 : 8 }]}>
@@ -523,15 +564,15 @@ export function TransactionDetailList({
               showsVerticalScrollIndicator={false}
               onScroll={handleRightScroll}
               scrollEventThrottle={16}
-              style={[styles.scrollableRightContainer, { marginLeft: COL_WIDTHS.colNo + COL_WIDTHS.colItemCode + COL_WIDTHS.colLotNumber }]}
+              style={[styles.scrollableRightContainer, { marginLeft: COL_WIDTHS.colItemCode + COL_WIDTHS.colLotNumber }]}
             >
               <ScrollView
                 ref={rightBodyScrollRef}
                 showsVerticalScrollIndicator={false}
-                nestedScrollEnabled={true}
                 scrollEventThrottle={16}
                 onScroll={handleRightBodyScroll}
                 style={styles.scrollableBodyScroll}
+                contentContainerStyle={{ flexGrow: 1 }}
               >
                 {details.map((detail, index) => {
                   const isEvenRow = index % 2 === 0;
@@ -543,7 +584,7 @@ export function TransactionDetailList({
                         {
                           backgroundColor: isEvenRow ? colors.cardBackground : colors.background + '50',
                           borderBottomColor: colors.divider,
-                          minHeight: IS_LANDSCAPE ? 44 : 52,
+                          height: IS_LANDSCAPE ? 44 : 52,
                         },
                       ]}
                     >

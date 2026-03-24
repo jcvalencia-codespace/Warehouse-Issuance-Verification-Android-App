@@ -1,12 +1,12 @@
 import { Colors } from '@/constants/theme';
 import React from 'react';
 import {
-    Dimensions,
-    Modal,
-    StyleSheet,
-    TouchableOpacity,
-    useColorScheme,
-    View
+  Dimensions,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  useColorScheme,
+  View
 } from 'react-native';
 import { ThemedText } from '../themed-text';
 import { ThemedView } from '../themed-view';
@@ -17,6 +17,7 @@ export interface ModalDialogProps {
   visible: boolean;
   onClose: () => void;
   onConfirm?: () => void | Promise<void>;
+  onCancel?: () => void | Promise<void>;
   title: string;
   message: string;
   type?: 'success' | 'error' | 'info' | 'warning';
@@ -24,6 +25,7 @@ export interface ModalDialogProps {
   cancelText?: string;
   isLoading?: boolean;
   showCancelButton?: boolean;
+  confirmButtonVariant?: 'default' | 'destructive' | 'primary';
 }
 
 const typeConfig = {
@@ -53,6 +55,7 @@ export function ModalDialog({
   visible,
   onClose,
   onConfirm,
+  onCancel,
   title,
   message,
   type = 'info',
@@ -60,6 +63,7 @@ export function ModalDialog({
   cancelText = 'Cancel',
   isLoading = false,
   showCancelButton = true,
+  confirmButtonVariant = 'default',
 }: ModalDialogProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -139,7 +143,7 @@ export function ModalDialog({
                       opacity: isLoading ? 0.6 : 1,
                     },
                   ]}
-                  onPress={onClose}
+                  onPress={onCancel || onClose}
                   disabled={isLoading}
                 >
                   <ThemedText
@@ -158,7 +162,9 @@ export function ModalDialog({
                   styles.button,
                   styles.confirmButton,
                   {
-                    backgroundColor: config.light,
+                    backgroundColor: confirmButtonVariant === 'destructive' 
+                      ? '#ef4444'
+                      : config.light,
                     opacity: isLoading ? 0.7 : 1,
                   },
                 ]}

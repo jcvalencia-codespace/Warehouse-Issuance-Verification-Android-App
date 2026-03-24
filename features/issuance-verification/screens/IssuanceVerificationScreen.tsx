@@ -3,6 +3,7 @@
  * Professional full-page form for warehouse issuance verification
  */
 
+import { ModalDialog } from '@/components/ui/modal-dialog';
 import { Colors } from '@/constants/theme';
 import { toast } from '@/hooks/use-toast';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -57,6 +58,10 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     floorScale: '',
     transType: '',
   });
+
+  // Modal state for web-compatible dialogs
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
 
   // Separate state to track raw weight input (for preserving decimal while typing)
   const [weightInputRaw, setWeightInputRaw] = useState('');
@@ -401,59 +406,51 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
 
   const handleCancel = useCallback(() => {
     if (formData.transactionRefNumber || formData.area || formData.numberOfBags || formData.weightInKg) {
-      Alert.alert(
-        'Discard Changes?',
-        'You have unsaved changes. Are you sure you want to discard them?',
-        [
-          { text: 'Keep Editing', style: 'cancel' },
-          { text: 'Discard', style: 'destructive', onPress: () => router.back() },
-        ]
-      );
+      // Use modal for web compatibility
+      setShowDiscardModal(true);
     } else {
       router.back();
     }
   }, [formData, router]);
 
+  const handleConfirmDiscard = useCallback(() => {
+    setShowDiscardModal(false);
+    router.back();
+  }, [router]);
+
   const handleClear = useCallback(() => {
-    Alert.alert(
-      'Clear All Inputs?',
-      'This will clear all form data. Are you sure?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            setFormData({
-              transactionRefNumber: '',
-              area: '',
-              itemNumber: '',
-              lotNumber: '',
-              numberOfBags: null,
-              weightInKg: null,
-              forkliftOperator: '',
-              floorScale: '',
-              transType: '',
-            });
-            setWeightInputRaw('');
-            setErrors({});
-            setAllocationResults([]);
-            setCurrentPage(1);
-            setIsViewingAvailableLots(false);
-            
-            // Fetch new transaction reference number after clearing
-            try {
-              const refNumber = await issuanceService.getTransactionReferenceNumber();
-              if (refNumber) {
-                setFormData((prev) => ({ ...prev, transactionRefNumber: refNumber.toString() }));
-              }
-            } catch (error) {
-              console.error('Error fetching transaction reference number:', error);
-            }
-          },
-        },
-      ]
-    );
+    // Use modal for web compatibility
+    setShowClearModal(true);
+  }, []);
+
+  const handleConfirmClear = useCallback(async () => {
+    setShowClearModal(false);
+    setFormData({
+      transactionRefNumber: '',
+      area: '',
+      itemNumber: '',
+      lotNumber: '',
+      numberOfBags: null,
+      weightInKg: null,
+      forkliftOperator: '',
+      floorScale: '',
+      transType: '',
+    });
+    setWeightInputRaw('');
+    setErrors({});
+    setAllocationResults([]);
+    setCurrentPage(1);
+    setIsViewingAvailableLots(false);
+    
+    // Fetch new transaction reference number after clearing
+    try {
+      const refNumber = await issuanceService.getTransactionReferenceNumber();
+      if (refNumber) {
+        setFormData((prev) => ({ ...prev, transactionRefNumber: refNumber.toString() }));
+      }
+    } catch (error) {
+      console.error('Error fetching transaction reference number:', error);
+    }
   }, []);
 
   const handleNumberOfBagsChange = useCallback((text: string) => {
@@ -663,6 +660,32 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Discard Changes Modal - Web Compatible */}
+      <ModalDialog
+        visible={showDiscardModal}
+        onClose={() => setShowDiscardModal(false)}
+        onConfirm={handleConfirmDiscard}
+        title="Discard Changes?"
+        message="You have unsaved changes. Are you sure you want to discard them?"
+        type="warning"
+        confirmText="Discard"
+        cancelText="Keep Editing"
+        confirmButtonVariant="destructive"
+      />
+
+      {/* Clear All Modal - Web Compatible */}
+      <ModalDialog
+        visible={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleConfirmClear}
+        title="Clear All Inputs?"
+        message="This will clear all form data. Are you sure?"
+        type="warning"
+        confirmText="Clear"
+        cancelText="Cancel"
+        confirmButtonVariant="destructive"
+      />
     </SafeAreaView>
   );
 }
