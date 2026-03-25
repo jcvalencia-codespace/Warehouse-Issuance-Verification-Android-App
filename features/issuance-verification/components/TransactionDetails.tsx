@@ -446,7 +446,13 @@ export function TransactionDetails({
                 { color: formData.itemNumber ? colors.text : colors.textTertiary },
               ]}
             >
-              {formData.itemNumber || 'Select item number'}
+              {(() => {
+                const selectedItem = itemOptions.find(opt => opt.label === formData.itemNumber);
+                if (selectedItem && selectedItem.remarks && selectedItem.remarks.trim()) {
+                  return `${selectedItem.label}-${selectedItem.remarks}`;
+                }
+                return formData.itemNumber || 'Select item number';
+              })()}
             </Text>
             {formData.area && (
               <MaterialCommunityIcons
@@ -505,7 +511,9 @@ export function TransactionDetails({
                   const filteredItems = itemSearchQuery
                     ? itemOptions.filter(option =>
                       option.label.toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
-                      option.value.toLowerCase().includes(itemSearchQuery.toLowerCase())
+                      option.value.toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
+                      (option.remarks && option.remarks.toLowerCase().includes(itemSearchQuery.toLowerCase())) ||
+                      (option.lotNumber && option.lotNumber.toLowerCase().includes(itemSearchQuery.toLowerCase()))
                     )
                     : itemOptions;
 
@@ -519,16 +527,19 @@ export function TransactionDetails({
                             borderBottomWidth: 1,
                             borderBottomColor: colors.divider,
                           },
-                          formData.itemNumber === option.value && {
+                          formData.itemNumber === option.value && formData.lotNumber === option.lotNumber && {
                             backgroundColor: colors.primary + '10',
                           },
                         ]}
                         onPress={() => {
-                          onFormDataChange({ itemNumber: option.value, lotNumber: '' });
+                          // Store the base item number (without remarks suffix) and lot number
+                          const baseItemNumber = option.label;
+                          onFormDataChange({ itemNumber: baseItemNumber, lotNumber: option.lotNumber || '' });
                           onShowItemPickerChange(false);
-                          // Filter lots by selected item
+                          // Filter lots by selected item and remarks
                           const filteredLots = lotOptions.filter(
-                            lot => lot.itemNumber === option.value
+                            lot => lot.itemNumber === baseItemNumber && 
+                                   (!option.remarks || lot.remarks === option.remarks)
                           );
                           onFilteredLotOptionsChange(filteredLots.length > 0 ? filteredLots : lotOptions);
                           if (errors.itemNumber) {
@@ -552,7 +563,9 @@ export function TransactionDetails({
                               },
                             ]}
                           >
-                            {option.label}
+                            {option.remarks && option.remarks.trim() 
+                              ? `${option.label}-${option.remarks}` 
+                              : option.label}
                           </Text>
                         </View>
                         {formData.itemNumber === option.value && (

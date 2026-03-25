@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -30,8 +31,9 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
   const colors = Colors[scheme ?? 'light'];
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isTablet = width > 768;
+  const isLandscape = width > height;
 
   const [stockData, setStockData] = useState<StockBalanceItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,56 +173,50 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
   // Render table
   const renderTable = () => (
     <View style={[styles.tableContainer, { borderColor: colors.cardBorder }]}>
-      {/* Table Header */}
-      <View style={[styles.tableRow, styles.tableHeaderRow, { backgroundColor: colors.primary + '10', borderBottomColor: colors.cardBorder }]}>
-        <View style={styles.colArea}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>AREA</Text></View>
-        <View style={styles.colItem}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>ITEM NO</Text></View>
-        <View style={styles.colLot}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>LOT NO</Text></View>
-        {/* <View style={styles.colUofm}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>UOFM</Text></View> */}
-        <View style={styles.colWt}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>REMARKS</Text></View>
-        <View style={styles.colBags}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>QTY BAGS</Text></View>
-        <View style={styles.colKgs}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>WEIGHT (KG)</Text></View>
-        <View style={styles.colKgs}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>RECEIVE DATE</Text></View>
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={true} bounces={false}>
+        <View style={[
+          styles.tableInnerContainer,
+          isLandscape && { minWidth: width - 32 }
+        ]}>
+          {/* Table Header */}
+          <View style={[styles.tableRow, styles.tableHeaderRow, { backgroundColor: colors.primary + '10', borderBottomColor: colors.cardBorder }]}>
+            <View style={styles.colArea}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>AREA</Text></View>
+            <View style={styles.colItem}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>ITEM NO</Text></View>
+            {/* <View style={styles.colUofm}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>UOFM</Text></View> */}
+            <View style={styles.colWt}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>REMARKS</Text></View>
+            <View style={styles.colBags}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>QTY BAGS</Text></View>
+            <View style={styles.colKgs}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>WEIGHT (KG)</Text></View>
+            <View style={styles.colDate}><Text style={[styles.tableHeaderTextRight, { color: colors.primary }]}>RECEIVE DATE</Text></View>
+            <View style={styles.colLot}><Text style={[styles.tableHeaderText, { color: colors.primary }]}>LOT NO</Text></View>
+          </View>
 
-      {/* Table Body */}
-      <FlatList
-        ref={flatListRef}
-        data={paginatedItems}
-        renderItem={({ item, index }) => (
-          <View style={[styles.tableRow, { backgroundColor: index % 2 === 0 ? colors.background : colors.cardBackground, borderBottomColor: colors.cardBorder }]}>
-            <View style={styles.colArea}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.AREA || '-').trim()}</Text></View>
-            <View style={styles.colItem}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.ITEMNMBR || '-').trim()}</Text></View>
-            <View style={styles.colLot}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.LOTNUMBER || '-').trim()}</Text></View>
-            {/* <View style={styles.colUofm}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.UOFM || '-').trim()}</View> */}
-            <View style={styles.colWt}><Text style={[styles.tableCellNumber, { color: colors.text }]}>{String(item.REMAKRS || '-')}</Text></View>
-            <View style={styles.colBags}><Text style={[styles.tableCellNumber, { color: item['AVAILABLE BAGS'] > 0 ? colors.success : colors.error }]}>{item['AVAILABLE BAGS']}</Text></View>
-            <View style={styles.colKgs}><Text style={[styles.tableCellNumber, { color: item['AVAILABLE KGS'] > 0 ? colors.success : colors.error }]}>{Number(item['AVAILABLE KGS']).toFixed(2)}</Text></View>
-            <View style={styles.colKgs}><Text style={[styles.tableCellDate, { color: colors.text }]}>{String(formatDateDisplay(new Date(item.RECEIVEDDATE)) || '-')}</Text></View>
-          </View>
-        )}
-        keyExtractor={(item, index) => `${item.ITEMNMBR}-${item.LOTNUMBER}-${index}`}
-        contentContainerStyle={styles.tableListContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-        showsVerticalScrollIndicator={true}
-        snapToInterval={48}
-        decelerationRate="fast"
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="package-variant" size={64} color={colors.textTertiary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {searchQuery ? 'No matching records found' : 'No stock balance data available'}
-            </Text>
-          </View>
-        }
-      />
+          {/* Table Body */}
+          {paginatedItems.map((item, index) => (
+            <View key={`${item.ITEMNMBR}-${item.LOTNUMBER}-${index}`} style={[styles.tableRow, { backgroundColor: index % 2 === 0 ? colors.background : colors.cardBackground, borderBottomColor: colors.cardBorder }]}>
+              <View style={styles.colArea}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.AREA || '-').trim()}</Text></View>
+              <View style={styles.colItem}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.ITEMNMBR || '-').trim()}</Text></View>
+              {/* <View style={styles.colUofm}><Text style={[styles.tableCellText, { color: colors.text }]}>{String(item.UOFM || '-').trim()}</View> */}
+              <View style={styles.colWt}><Text style={[styles.tableCellNumber, { color: colors.text }]}>{String(item.REMARKS || '-')}</Text></View>
+              <View style={styles.colBags}><Text style={[styles.tableCellNumber, { color: item['AVAILABLE BAGS'] > 0 ? colors.success : colors.error }]}>{item['AVAILABLE BAGS']}</Text></View>
+              <View style={styles.colKgs}><Text style={[styles.tableCellNumber, { color: item['AVAILABLE KGS'] > 0 ? colors.success : colors.error }]}>{Number(item['AVAILABLE KGS']).toFixed(2)}</Text></View>
+              <View style={styles.colDate}><Text style={[styles.tableCellNumber, { color: colors.text }]}>{String(formatDateDisplay(new Date(item.RECEIVEDDATE)) || '-')}</Text></View>
+              <View style={styles.colLot}>
+                <Text style={[styles.tableCellText, { color: colors.text }]}>
+                  {String(item.LOTNUMBER || '-').trim()}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+      {paginatedItems.length === 0 && (
+        <View style={styles.emptyContainer}>
+          <MaterialCommunityIcons name="package-variant" size={64} color={colors.textTertiary} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            {searchQuery ? 'No matching records found' : 'No stock balance data available'}
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -425,9 +421,21 @@ export function StockBalanceScreen({ navigation, route }: StockBalanceScreenProp
       </View>
 
       {/* Content - Always Table View */}
-      <View style={styles.contentContainer}>
+      <ScrollView
+        style={styles.contentContainer}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        showsVerticalScrollIndicator={true}
+      >
         {renderTable()}
-      </View>
+      </ScrollView>
 
       {/* Pagination */}
       {totalItems > ITEMS_PER_PAGE && (
@@ -610,6 +618,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
+  tableInnerContainer: {
+    minWidth: 900,
+  },
   tableListContent: {
     flexGrow: 1,
     minHeight: 200,
@@ -619,58 +630,67 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     minHeight: 48,
+    flexWrap: 'nowrap',
   },
   tableHeaderRow: {
     minHeight: 52,
   },
   // Column flex values - same for header and body
-  // Using flex to ensure columns take consistent space
+  // Using consistent flex values for all columns
   colArea: {
-    flex: 0.8,
-    minWidth: 60,
-    paddingHorizontal: 4,
+    flex: 1,
+    width: 80,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'center',
   },
   colItem: {
-    flex: 1.5,
-    minWidth: 100,
-    paddingHorizontal: 4,
+    flex: 1,
+    width: 120,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'center',
   },
   colLot: {
-    flex: 1.3,
-    minWidth: 90,
-    paddingHorizontal: 4,
+    flex: 1,
+    width: 140,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'center',
+    flexWrap: 'nowrap',
   },
   colUofm: {
-    flex: 0.7,
-    minWidth: 45,
-    paddingHorizontal: 4,
+    flex: 1,
+    width: 60,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'center',
   },
   colWt: {
     flex: 1,
-    minWidth: 60,
-    paddingHorizontal: 4,
+    width: 100,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'center',
   },
   colBags: {
-    flex: 1.2,
-    minWidth: 80,
-    paddingHorizontal: 4,
+    flex: 1,
+    width: 90,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'center',
   },
   colKgs: {
-    flex: 1.2,
-    minWidth: 80,
-    paddingHorizontal: 4,
+    flex: 1,
+    width: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  colDate: {
+    flex: 1,
+    width: 110,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'center',
   },
@@ -688,6 +708,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     textAlign: 'left',
+    flexWrap: 'nowrap',
   },
   tableCellNumber: {
     fontSize: 14,
@@ -697,7 +718,7 @@ const styles = StyleSheet.create({
   tableCellDate: {
     fontSize: 13,
     fontWeight: '500',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   // Pagination Styles
   paginationWrapper: {

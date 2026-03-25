@@ -281,6 +281,9 @@ export const styles = StyleSheet.create({
     marginTop: 28,
     alignItems: 'center',
   },
+  subFooter: {
+    alignItems: 'center',
+  },
   footerLine: {
     width: 60,
     height: 3,

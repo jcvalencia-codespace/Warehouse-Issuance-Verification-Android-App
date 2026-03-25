@@ -6,7 +6,7 @@ const { getPool } = require('../../../config/database');
  */
 exports.allocateBags = async (req, res) => {
   try {
-    const { requiredBags, area, itemNumber } = req.body;
+    const { requiredBags, area, itemNumber, lotNumber } = req.body;
 
     // Validate required parameters
     if (!requiredBags || requiredBags <= 0) {
@@ -37,6 +37,11 @@ exports.allocateBags = async (req, res) => {
     let whereClause = `D.AREA = '${area}'`;
     whereClause += ` AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0`;
     whereClause += ` AND D.ITEMNMBR = '${itemNumber}'`;
+    
+    // Add lot number filter if provided
+    if (lotNumber) {
+      whereClause += ` AND D.LOTNUMBER = '${lotNumber}'`;
+    }
 
     // Execute the FIFO allocation query
     const query = `
@@ -236,8 +241,8 @@ exports.postIssuance = async (req, res) => {
 
       // Insert into QUANTITYMASTER4.DETAILS - use form input weight and bags
       await transaction.request().query(`
-        INSERT INTO [INVENTORY.QUANTITYMASTER4.DETAILS] (TRANSREFNO, FROMISSUANCENOID, REFERENCENO, LOTNUMBER, ITEMNMBR, UOFM, QUANTITY_TRANS, BAG_TRANS, UNITCOST, QUANTITY_RECV, BAGS_RECV, ACTUAL_UNITCOST)
-        VALUES (${transRefNo}, ${issIdNumber}, '${allocation.QM_IDNUMBER}', '${allocation.LOTNUMBER}', '${allocation.ITEMNMBR}', '${allocation.UOFM}', ${allocation.KGS}, ${numberOfBags}, ${unitCost}, ${actualQuantity}, ${actualBags}, ${calculatedActualUnitCost})
+        INSERT INTO [INVENTORY.QUANTITYMASTER4.DETAILS] (TRANSREFNO, FROMISSUANCENOID, REFERENCENO, LOTNUMBER, ITEMNMBR, REMARKS, UOFM, QUANTITY_TRANS, BAG_TRANS, UNITCOST, QUANTITY_RECV, BAGS_RECV, ACTUAL_UNITCOST)
+        VALUES (${transRefNo}, ${issIdNumber}, '${allocation.QM_IDNUMBER}', '${allocation.LOTNUMBER}', '${allocation.ITEMNMBR}', '${allocation.REMARKS}', '${allocation.UOFM}', ${allocation.KGS}, ${numberOfBags}, ${unitCost}, ${actualQuantity}, ${actualBags}, ${calculatedActualUnitCost})
       `);
 
       // Commit transaction
@@ -334,13 +339,14 @@ exports.getItemsByArea = async (req, res) => {
     const pool = await getPool(dbName);
 
     const query = `
-      SELECT DISTINCT D.ITEMNMBR 
+      SELECT D.ITEMNMBR, ISNULL(D.REMARKS, '') AS REMARKS, MIN(D.LOTNUMBER) AS LOTNUMBER
       FROM [INVENTORY.QUANTITYMASTER3.HEADER] H 
       INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] D 
           ON H.QM_IDNUMBER = D.QM_IDNUMBER
       WHERE H.LOCNCODE = 'PAWHRM' 
         AND D.AREA = @area
         AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0
+      GROUP BY D.ITEMNMBR, D.REMARKS
       ORDER BY D.ITEMNMBR
     `;
 
@@ -349,11 +355,17 @@ exports.getItemsByArea = async (req, res) => {
       .query(query);
     
     const items = result.recordset
-      .filter(row => row.ITEMNMBR)
       .map(row => ({
         label: row.ITEMNMBR.trim(),
-        value: row.ITEMNMBR.trim()
-      }));
+        value: row.REMARKS && row.REMARKS.trim() 
+          ? `${row.ITEMNMBR.trim()}-${row.REMARKS.trim()}` 
+          : row.ITEMNMBR.trim(),
+        remarks: row.REMARKS && row.REMARKS.trim() ? row.REMARKS.trim() : undefined,
+        lotNumber: row.LOTNUMBER ? row.LOTNUMBER.trim() : undefined
+      }))
+      .filter((item, index, self) => 
+        index === self.findIndex(t => t.value === item.value)
+      );
 
     res.json({
       success: true,

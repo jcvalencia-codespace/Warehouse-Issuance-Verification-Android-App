@@ -27,6 +27,8 @@ export interface AreaOption {
   label: string;
   value: string;
   itemNumber?: string;
+  remarks?: string | null;
+  lotNumber?: string;
 }
 
 export type FormStatus = 'idle' | 'saving' | 'posting' | 'saved' | 'posted' | 'error';

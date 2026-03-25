@@ -310,9 +310,31 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       if (response.success && response.data) {
         // Check if allocation uses more than 1 lot
         const allocatedItems = response.data.filter((item: BagAllocationItem) => item.BAGS !== null);
+        
+        // Check if there are any allocated items
+        if (allocatedItems.length === 0) {
+          setIsAllocating(false);
+          Alert.alert(
+            'No Allocation',
+            'No bags could be allocated with the specified quantity. Please check the available inventory.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
         const uniqueLots = new Set(allocatedItems.map((item: BagAllocationItem) => item.LOTNUMBER));
 
-        
+        // Prevent using more than 1 lot when encoding number of bags
+        if (uniqueLots.size > 1) {
+          setIsAllocating(false);
+          Alert.alert(
+            'Multiple Lots Detected',
+            `This allocation uses ${uniqueLots.size} different lots. Please adjust the number of bags to use only 1 lot.`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
         setAllocationResults(response.data);
 
       } else {

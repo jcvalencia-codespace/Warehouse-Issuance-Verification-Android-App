@@ -266,7 +266,7 @@ export function LoginForm() {
                 <View style={styles.logoTextContainer}>
                   <Text style={[styles.appName, { color: colors.text }]}>Santeh Feeds Corporation</Text>
                   <Text style={[styles.appTagline, { color: colors.textSecondary }]}>
-                    Warehouse Management System
+                    ERP - MOBILE
                   </Text>
                 </View>
               </Animated.View>
@@ -451,7 +451,12 @@ export function LoginForm() {
               <View style={styles.footer}>
                 <View style={[styles.footerLine, { backgroundColor: colors.divider }]} />
                 <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-                  Version 1.0.0 • Santeh Feeds Corporation
+                  VERSION 1.0.0 • SANTEH FEEDS CORPORATION
+                </Text>
+              </View>
+              <View style={styles.subFooter}>
+                <Text style={[styles.footerText, { color: colors.textTertiary }]}>
+                  2026 MISSW - CALUMPIT
                 </Text>
               </View>
             </Animated.View>

@@ -23,7 +23,14 @@ import { TransactionDetail, TransactionHeader } from '../types/confirmation.type
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_TABLET = SCREEN_WIDTH > 768;
 const IS_PORTRAIT = SCREEN_HEIGHT > SCREEN_WIDTH;
+const IS_LANDSCAPE = !IS_PORTRAIT;
 const IS_SMALL_SCREEN = SCREEN_WIDTH < 380;
+
+// Helper to ensure minimum font size of 14 in landscape mode
+const fontSize = (portraitSize: number, tabletSize?: number) => {
+  const baseSize = IS_TABLET && tabletSize ? tabletSize : portraitSize;
+  return IS_LANDSCAPE ? Math.max(baseSize, 14) : baseSize;
+};
 
 
 
@@ -695,7 +702,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: IS_TABLET ? 15 : 14,
+    fontSize: fontSize(14, 15),
     marginTop: 4,
   },
   // Total Issuance Styles - Emphasized
@@ -717,7 +724,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   totalIssuanceLabel: {
-    fontSize: 14,
+    fontSize: fontSize(14),
     fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
@@ -741,7 +748,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: fontSize(13),
     fontWeight: '500',
   },
   statDivider: {
@@ -788,11 +795,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   dateInputText: {
-    fontSize: 13,
+    fontSize: fontSize(13),
     fontWeight: '600',
   },
   dateRangeSeparator: {
-    fontSize: 13,
+    fontSize: fontSize(13),
     fontWeight: '500',
   },
   dateRangeText: {
@@ -809,7 +816,7 @@ const styles = StyleSheet.create({
   },
   viewButtonText: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: fontSize(13),
     fontWeight: '600',
   },
   resetButton: {
@@ -839,7 +846,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   searchHint: {
-    fontSize: 12,
+    fontSize: fontSize(12),
     fontWeight: '500',
     marginTop: 8,
     marginBottom: 4,
@@ -918,7 +925,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   transactionItemCode: {
-    fontSize: IS_TABLET ? 11 : 10,
+    fontSize: fontSize(10, 11),
     fontWeight: '500',
   },
   chevronContainer: {
@@ -952,7 +959,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailValueCompact: {
-    fontSize: 9,
+    fontSize: fontSize(9),
     fontWeight: '600',
   },
   detailRow: {
@@ -968,11 +975,11 @@ const styles = StyleSheet.create({
     minWidth: IS_PORTRAIT ? 60 : undefined,
   },
   detailLabel: {
-    fontSize: IS_TABLET ? 11 : 10,
+    fontSize: fontSize(10, 11),
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: IS_TABLET ? 11 : 10,
+    fontSize: fontSize(10, 11),
     fontWeight: '600',
   },
   quantitySection: {
@@ -989,7 +996,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   quantityLabel: {
-    fontSize: 13,
+    fontSize: fontSize(13),
     fontWeight: '500',
   },
   quantityValue: {
@@ -997,7 +1004,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   quantityUnit: {
-    fontSize: 12,
+    fontSize: fontSize(12),
     fontWeight: '500',
   },
   // Loading & Error states
@@ -1111,7 +1118,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   refreshButtonText: {
-    fontSize: 14,
+    fontSize: fontSize(14),
     fontWeight: '600',
   },
   // Details view styles
@@ -1139,7 +1146,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   detailsSubtitle: {
-    fontSize: IS_TABLET ? 14 : 13,
+    fontSize: fontSize(13, 14),
     marginTop: 2,
   },
   statusBadge: {
@@ -1151,7 +1158,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: fontSize(12),
     fontWeight: '600',
   },
   // Table styles
@@ -1170,7 +1177,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tableHeaderText: {
-    fontSize: IS_TABLET ? 11 : 10,
+    fontSize: fontSize(10, 11),
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -1185,7 +1192,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tableCellText: {
-    fontSize: IS_TABLET ? 13 : 12,
+    fontSize: fontSize(12, 13),
     fontWeight: '500',
   },
   tableStatusCell: {

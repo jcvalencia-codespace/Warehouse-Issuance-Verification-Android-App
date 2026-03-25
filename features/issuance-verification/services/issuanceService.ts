@@ -6,6 +6,8 @@ export interface AreaOption {
   label: string;
   value: string;
   itemNumber?: string;
+  remarks?: string | null;
+  lotNumber?: string;
 }
 
 export class IssuanceService {
@@ -145,11 +147,13 @@ export class IssuanceService {
    * @param requiredBags - Number of bags needed
    * @param area - Area/location to allocate from (required)
    * @param itemNumber - Item number to allocate (required)
+   * @param lotNumber - Optional lot number to filter allocation
    */
   async allocateBags(
     requiredBags: number, 
     area: string, 
-    itemNumber: string
+    itemNumber: string,
+    lotNumber?: string
   ): Promise<BagAllocationResponse> {
     try {
       if (!this.baseUrl) {
@@ -162,6 +166,7 @@ export class IssuanceService {
           requiredBags,
           area,
           itemNumber,
+          lotNumber,
         },
         {
           timeout: 15000,
