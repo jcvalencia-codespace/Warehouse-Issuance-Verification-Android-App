@@ -43,7 +43,7 @@ interface TransactionDetailsProps {
   onIsLoadingLotsChange: (loading: boolean) => void;
   onAvailableLotsLoaded: (lots: any[]) => void;
   selectedItemNumber?: string;
-  onItemSelect?: (itemNumber: string) => void;
+  onItemSelect?: (itemNumber: string, itemRemarks?: string) => void;
   showItemColumn?: boolean;
   // Quantity props
   isAllocating: boolean;
@@ -328,7 +328,7 @@ export function TransactionDetails({
                         },
                       ]}
                       onPress={() => {
-                        onFormDataChange({ area: option.value, itemNumber: '', lotNumber: '' });
+                        onFormDataChange({ area: option.value, itemNumber: '', itemRemarks: '', lotNumber: '' });
                         onShowAreaPickerChange(false);
                         // Fetch items for the selected area
                         onIsLoadingItemsChange(true);
@@ -362,15 +362,15 @@ export function TransactionDetails({
                       <MaterialCommunityIcons
                         name="warehouse"
                         size={18}
-                        color={formData.area === option.value ? colors.primary : colors.textSecondary}
+                        color={formData.area === option.label ? colors.primary : colors.textSecondary}
                         style={styles.dropdownOptionIcon}
                       />
                       <Text
                         style={[
                           styles.dropdownOptionText,
                           {
-                            color: formData.area === option.value ? colors.primary : colors.text,
-                            fontWeight: formData.area === option.value ? '600' : '400',
+                            color: formData.area === option.label ? colors.primary : colors.text,
+                            fontWeight: formData.area === option.label ? '600' : '400',
                           },
                         ]}
                       >
@@ -447,9 +447,16 @@ export function TransactionDetails({
               ]}
             >
               {(() => {
-                const selectedItem = itemOptions.find(opt => opt.label === formData.itemNumber);
+                const selectedItem = itemOptions.find(opt => 
+                  opt.label === formData.itemNumber && 
+                  (!formData.itemRemarks || opt.remarks === formData.itemRemarks)
+                );
                 if (selectedItem && selectedItem.remarks && selectedItem.remarks.trim()) {
                   return `${selectedItem.label}-${selectedItem.remarks}`;
+                }
+                // Fallback: if formData has itemRemarks, show it
+                if (formData.itemRemarks && formData.itemRemarks.trim()) {
+                  return `${formData.itemNumber}-${formData.itemRemarks}`;
                 }
                 return formData.itemNumber || 'Select item number';
               })()}
@@ -527,14 +534,20 @@ export function TransactionDetails({
                             borderBottomWidth: 1,
                             borderBottomColor: colors.divider,
                           },
-                          formData.itemNumber === option.value && formData.lotNumber === option.lotNumber && {
+                          // Highlight if item number matches AND (remarks matches OR both have no remarks)
+                          formData.itemNumber === option.label && 
+                          ((!formData.itemRemarks && !option.remarks) || formData.itemRemarks === option.remarks) && {
                             backgroundColor: colors.primary + '10',
                           },
                         ]}
                         onPress={() => {
-                          // Store the base item number (without remarks suffix) and lot number
+                          // Store the base item number (without remarks suffix), remarks, and lot number
                           const baseItemNumber = option.label;
-                          onFormDataChange({ itemNumber: baseItemNumber, lotNumber: option.lotNumber || '' });
+                          onFormDataChange({ 
+                            itemNumber: baseItemNumber, 
+                            itemRemarks: option.remarks || '',
+                            lotNumber: option.lotNumber || '' 
+                          });
                           onShowItemPickerChange(false);
                           // Filter lots by selected item and remarks
                           const filteredLots = lotOptions.filter(
@@ -551,15 +564,21 @@ export function TransactionDetails({
                           <MaterialCommunityIcons
                             name="package-variant"
                             size={18}
-                            color={formData.itemNumber === option.value ? colors.primary : colors.textSecondary}
+                            color={formData.itemNumber === option.label && 
+                            ((!formData.itemRemarks && !option.remarks) || formData.itemRemarks === option.remarks) 
+                              ? colors.primary : colors.textSecondary}
                             style={styles.dropdownOptionIcon}
                           />
                           <Text
                             style={[
                               styles.dropdownOptionText,
                               {
-                                color: formData.itemNumber === option.value ? colors.primary : colors.text,
-                                fontWeight: formData.itemNumber === option.value ? '600' : '400',
+                                color: formData.itemNumber === option.label && 
+                                ((!formData.itemRemarks && !option.remarks) || formData.itemRemarks === option.remarks) 
+                                  ? colors.primary : colors.text,
+                                fontWeight: formData.itemNumber === option.label && 
+                                ((!formData.itemRemarks && !option.remarks) || formData.itemRemarks === option.remarks) 
+                                  ? '600' : '400',
                               },
                             ]}
                           >
@@ -568,7 +587,8 @@ export function TransactionDetails({
                               : option.label}
                           </Text>
                         </View>
-                        {formData.itemNumber === option.value && (
+                        {formData.itemNumber === option.label && 
+                        ((!formData.itemRemarks && !option.remarks) || formData.itemRemarks === option.remarks) && (
                           <MaterialCommunityIcons
                             name="check-circle"
                             size={20}
@@ -737,6 +757,16 @@ export function TransactionDetails({
           )}
         </View>
 
+        {/* Allocation Error Display */}
+        {errors.allocationError && (
+          <View style={[styles.errorContainer, { marginTop: 16, padding: 12, backgroundColor: colors.error + '15', borderRadius: 8 }]}>
+            <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+            <Text style={[styles.errorText, { color: colors.error, flex: 1 }]}>
+              {errors.allocationError}
+            </Text>
+          </View>
+        )}
+
         {/* Quick Summary */}
         {formData.numberOfBags && formData.weightInKg && (
           <View style={[styles.summaryBox, { backgroundColor: colors.primary + '08', borderColor: colors.primary + '20' }]}>
@@ -827,9 +857,11 @@ export function TransactionDetails({
               itemsPerPage={5}
               onPageChange={onPageChange}
               selectedItemNumber={selectedItemNumber}
+              selectedItemRemarks={formData.itemRemarks}
               selectedArea={formData.area}
               onItemSelect={onItemSelect}
               showItemColumn={showItemColumn}
+              allocationError={errors.allocationError}
             />
           )}
 
@@ -1171,3 +1203,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+

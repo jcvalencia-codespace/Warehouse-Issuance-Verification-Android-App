@@ -98,17 +98,24 @@ export class IssuanceService {
   }
 
   /**
-   * Get list of lot numbers by area and optionally by item number
+   * Get list of lot numbers by area and optionally by item number and remarks
    */
-  async getLotsByArea(area: string, itemNumber?: string): Promise<AreaOption[]> {
+  async getLotsByArea(area: string, itemNumber?: string, itemRemarks?: string): Promise<AreaOption[]> {
     try {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
       }
 
       let url = `${this.baseUrl}/issuance/areas/${encodeURIComponent(area)}/lots`;
+      const params: string[] = [];
       if (itemNumber) {
-        url += `?itemNumber=${encodeURIComponent(itemNumber)}`;
+        params.push(`itemNumber=${encodeURIComponent(itemNumber)}`);
+      }
+      if (itemRemarks) {
+        params.push(`itemRemarks=${encodeURIComponent(itemRemarks)}`);
+      }
+      if (params.length > 0) {
+        url += `?${params.join('&')}`;
       }
 
       const response = await axios.get(url);
@@ -148,12 +155,14 @@ export class IssuanceService {
    * @param area - Area/location to allocate from (required)
    * @param itemNumber - Item number to allocate (required)
    * @param lotNumber - Optional lot number to filter allocation
+   * @param itemRemarks - Optional remarks to filter allocation
    */
   async allocateBags(
     requiredBags: number, 
     area: string, 
     itemNumber: string,
-    lotNumber?: string
+    lotNumber?: string,
+    itemRemarks?: string
   ): Promise<BagAllocationResponse> {
     try {
       if (!this.baseUrl) {
@@ -167,6 +176,7 @@ export class IssuanceService {
           area,
           itemNumber,
           lotNumber,
+          itemRemarks,
         },
         {
           timeout: 15000,

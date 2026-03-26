@@ -51,6 +51,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     transactionRefNumber: '',
     area: '',
     itemNumber: '',
+    itemRemarks: '',
     lotNumber: '',
     numberOfBags: null,
     weightInKg: null,
@@ -160,12 +161,15 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   }, []);
 
   // Handle item selection from allocation table
-  const handleItemSelect = useCallback((itemNumber: string) => {
-    setFormData((prev) => ({ ...prev, itemNumber }));
+  const handleItemSelect = useCallback((itemNumber: string, itemRemarks?: string) => {
+    setFormData((prev) => ({ ...prev, itemNumber, itemRemarks: itemRemarks || '' }));
     setShowItemColumn(false);
-    // Filter allocation results to show only selected item
+    // Filter allocation results to show only selected item and remarks
     if (allocationResults.length > 0) {
-      const filtered = allocationResults.filter(item => item.ITEMNMBR === itemNumber);
+      const filtered = allocationResults.filter(item => 
+        item.ITEMNMBR === itemNumber && 
+        (!itemRemarks || item.REMARKS === itemRemarks)
+      );
       setAllocationResults(filtered);
     }
   }, [allocationResults]);
@@ -199,14 +203,6 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       newErrors.weightInKg = 'Weight is required';
     } else if (formData.weightInKg < 0) {
       newErrors.weightInKg = 'Weight cannot be negative';
-    } else if (allocationResults.length > 0) {
-      // Get the top 1 available weight from the allocation results
-      const sortedByWeight = [...allocationResults].sort((a, b) => (b['AVAILABLE KGS'] || 0) - (a['AVAILABLE KGS'] || 0));
-      const topAvailableKgs = sortedByWeight[0]?.['AVAILABLE KGS'] || 0;
-      
-      if (formData.weightInKg > topAvailableKgs) {
-        newErrors.weightInKg = `Input exceeds maximum available weight (${topAvailableKgs.toFixed(2)} kg in top lot)`;
-      }
     }
 
     if (!formData.forkliftOperator || formData.forkliftOperator.trim() === '') {
@@ -275,24 +271,6 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       return;
     }
 
-    // Validate against available lots if they are loaded
-    if (allocationResults.length > 0) {
-      const sortedByBags = [...allocationResults].sort((a, b) => (b['AVAILABLE BAGS'] || 0) - (a['AVAILABLE BAGS'] || 0));
-      const topAvailableBags = sortedByBags[0]?.['AVAILABLE BAGS'] || 0;
-      const sortedByWeight = [...allocationResults].sort((a, b) => (b['AVAILABLE KGS'] || 0) - (a['AVAILABLE KGS'] || 0));
-      const topAvailableKgs = sortedByWeight[0]?.['AVAILABLE KGS'] || 0;
-
-      if (formData.numberOfBags > topAvailableBags) {
-        Alert.alert('Invalid Quantity', `Number of bags exceeds maximum available (${topAvailableBags} bags in top lot)`);
-        return;
-      }
-
-      if (formData.weightInKg && formData.weightInKg > topAvailableKgs) {
-        Alert.alert('Invalid Weight', `Weight exceeds maximum available (${topAvailableKgs.toFixed(2)} kg in top lot)`);
-        return;
-      }
-    }
-
     const area = formData.area;
     const itemNumber = formData.itemNumber;
 
@@ -305,7 +283,13 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     setIsAllocating(true);
     setIsViewingAvailableLots(false);
     try {
-      const response = await issuanceService.allocateBags(formData.numberOfBags, area, itemNumber);
+      const response = await issuanceService.allocateBags(
+        formData.numberOfBags, 
+        area, 
+        itemNumber,
+        undefined,
+        formData.itemRemarks
+      );
 
       if (response.success && response.data) {
         // Check if allocation uses more than 1 lot
@@ -314,11 +298,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
         // Check if there are any allocated items
         if (allocatedItems.length === 0) {
           setIsAllocating(false);
-          Alert.alert(
-            'No Allocation',
-            'No bags could be allocated with the specified quantity. Please check the available inventory.',
-            [{ text: 'OK' }]
-          );
+          setErrors(prev => ({ ...prev, allocationError: 'No bags could be allocated with the specified quantity. Please check the available inventory.' }));
           return;
         }
 
@@ -327,22 +307,21 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
         // Prevent using more than 1 lot when encoding number of bags
         if (uniqueLots.size > 1) {
           setIsAllocating(false);
-          Alert.alert(
-            'Multiple Lots Detected',
-            `This allocation uses ${uniqueLots.size} different lots. Please adjust the number of bags to use only 1 lot.`,
-            [{ text: 'OK' }]
-          );
+          setErrors(prev => ({ ...prev, allocationError: `This allocation uses ${uniqueLots.size} different lots. Please adjust the number of bags to use only 1 lot.` }));
           return;
         }
+
+        // Clear any previous allocation error
+        setErrors(prev => { const newErrors = { ...prev }; delete newErrors.allocationError; return newErrors; });
 
         setAllocationResults(response.data);
 
       } else {
-        Alert.alert('Error', response.message || 'Failed to allocate bags');
+        setErrors(prev => ({ ...prev, allocationError: response.message || 'Failed to allocate bags' }));
       }
     } catch (error: any) {
       console.error('Allocation error:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to allocate bags. Please try again.');
+      setErrors(prev => ({ ...prev, allocationError: error.response?.data?.message || 'Failed to allocate bags. Please try again.' }));
     } finally {
       setIsAllocating(false);
     }
@@ -388,6 +367,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
                   transactionRefNumber: '',
                   area: '',
                   itemNumber: '',
+                  itemRemarks: '',
                   lotNumber: '',
                   numberOfBags: null,
                   weightInKg: null,
@@ -451,6 +431,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       transactionRefNumber: '',
       area: '',
       itemNumber: '',
+      itemRemarks: '',
       lotNumber: '',
       numberOfBags: null,
       weightInKg: null,
@@ -479,10 +460,21 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     const cleaned = text.replace(/[^0-9]/g, '');
     const value = cleaned ? parseInt(cleaned, 10) : null;
     setFormData((prev) => ({ ...prev, numberOfBags: value }));
-    if (errors.numberOfBags) {
+    
+    // Validate against allocation results if available
+    if (value && allocationResults.length > 0) {
+      const sortedByBags = [...allocationResults].sort((a, b) => (b['AVAILABLE BAGS'] || 0) - (a['AVAILABLE BAGS'] || 0));
+      const topAvailableBags = sortedByBags[0]?.['AVAILABLE BAGS'] || 0;
+      
+      if (value > topAvailableBags) {
+        setErrors((prev) => ({ ...prev, numberOfBags: `Input exceeds maximum available bags (${topAvailableBags} bags in top lot)` }));
+      } else if (errors.numberOfBags) {
+        setErrors((prev) => ({ ...prev, numberOfBags: undefined }));
+      }
+    } else if (errors.numberOfBags) {
       setErrors((prev) => ({ ...prev, numberOfBags: undefined }));
     }
-  }, [errors.numberOfBags]);
+  }, [allocationResults, errors.numberOfBags]);
 
   const handleWeightChange = useCallback((text: string) => {
     // Allow typing decimals naturally - keep the decimal point while typing
@@ -508,10 +500,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     }
     
     setFormData((prev) => ({ ...prev, weightInKg: value }));
-    if (errors.weightInKg) {
-      setErrors((prev) => ({ ...prev, weightInKg: undefined }));
-    }
-  }, [errors.weightInKg]);
+  }, [allocationResults, errors.weightInKg]);
 
   const selectedAreaLabel = areaOptions.find(
     (opt) => opt.value === formData.area
@@ -708,6 +697,8 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
         cancelText="Cancel"
         confirmButtonVariant="destructive"
       />
+
+      
     </SafeAreaView>
   );
 }

@@ -18,9 +18,11 @@ interface AllocationTableProps {
   itemsPerPage: number;
   onPageChange: (page: number) => void;
   selectedItemNumber?: string;
+  selectedItemRemarks?: string;
   selectedArea?: string;
-  onItemSelect?: (itemNumber: string) => void;
+  onItemSelect?: (itemNumber: string, itemRemarks?: string) => void;
   showItemColumn?: boolean;
+  allocationError?: string;
 }
 
 export function AllocationTable({
@@ -33,15 +35,36 @@ export function AllocationTable({
   itemsPerPage,
   onPageChange,
   selectedItemNumber,
+  selectedItemRemarks,
   selectedArea,
   onItemSelect,
   showItemColumn = true,
+  allocationError,
 }: AllocationTableProps) {
-  // Filter items when an item number or area is selected
+  // Filter items when an item number, remarks, or area is selected
   const filteredItems = items.filter(item => {
-    const matchesItem = !selectedItemNumber || item.ITEMNMBR?.trim() === selectedItemNumber.trim();
+    const itemKey = item.ITEMNMBR?.trim() || '';
+    const itemRemarks = item.REMARKS?.trim() || '';
+    
+    // Create the display key for comparison (ITEMNMBR-REMARKS or just ITEMNMBR)
+    const fullItemKey = itemRemarks ? `${itemKey}-${itemRemarks}` : itemKey;
+    
+    const matchesItem = !selectedItemNumber || fullItemKey === selectedItemNumber.trim() || itemKey === selectedItemNumber.trim();
+    
+    // Handle remarks filtering:
+    // - If selectedItemRemarks has value, filter by that specific remarks
+    // - If selectedItemRemarks is empty/undefined, only show items WITHOUT remarks
+    let matchesRemarks: boolean;
+    if (!selectedItemRemarks || selectedItemRemarks.trim() === '') {
+      // No remarks selected - only show items without remarks
+      matchesRemarks = itemRemarks === '';
+    } else {
+      // Remarks selected - match the specific remarks
+      matchesRemarks = itemRemarks === selectedItemRemarks.trim();
+    }
+    
     const matchesArea = !selectedArea || item.AREA?.trim() === selectedArea.trim();
-    return matchesItem && matchesArea;
+    return matchesItem && matchesRemarks && matchesArea;
   });
   
   // Calculate pagination based on filtered items
@@ -55,6 +78,15 @@ export function AllocationTable({
 
   return (
     <View style={styles.container}>
+      {/* Allocation Error Display */}
+      {allocationError && (
+        <View style={[styles.errorContainer, { marginBottom: 16, padding: 12, backgroundColor: colors.error + '15', borderRadius: 8 }]}>
+          <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.error, flex: 1 }]}>
+            {allocationError}
+          </Text>
+        </View>
+      )}
       {isTablet ? (
         // Table View for Tablets
         <View style={styles.tableContainer}>
@@ -77,13 +109,19 @@ export function AllocationTable({
             <TouchableOpacity
               key={`${item.QM_IDNUMBER}-${index}`}
               style={[styles.tableRow, { backgroundColor: index % 2 === 0 ? colors.background : colors.cardBackground, borderBottomColor: colors.cardBorder }]}
-              onPress={() => showItemColumn && onItemSelect?.(item.ITEMNMBR)}
+              onPress={() => showItemColumn && onItemSelect?.(item.ITEMNMBR, item.REMARKS)}
               disabled={!showItemColumn}
               activeOpacity={0.7}
             >
               {showItemColumn && (
-                <Text style={[styles.tableCellItem, { color: selectedItemNumber === item.ITEMNMBR ? colors.primary : colors.text, fontWeight: selectedItemNumber === item.ITEMNMBR ? '700' as const : '400' as const }]}>
-                  {String(item.ITEMNMBR || '-').trim()}
+                <Text style={[styles.tableCellItem, { 
+                  color: (selectedItemNumber === item.ITEMNMBR || selectedItemNumber === `${item.ITEMNMBR?.trim()}-${item.REMARKS?.trim()}`) 
+                    ? colors.primary : colors.text, 
+                  fontWeight: (selectedItemNumber === item.ITEMNMBR || selectedItemNumber === `${item.ITEMNMBR?.trim()}-${item.REMARKS?.trim()}`) ? '700' as const : '400' as const 
+                }]}>
+                  {item.REMARKS && item.REMARKS.trim() 
+                    ? `${String(item.ITEMNMBR || '-').trim()}-${item.REMARKS.trim()}`
+                    : String(item.ITEMNMBR || '-').trim()}
                 </Text>
               )}
               <Text style={[styles.tableCellLot, { color: colors.text }]}>{String(item.LOTNUMBER || '-').trim()}</Text>
@@ -122,7 +160,14 @@ export function AllocationTable({
                 {showItemColumn && (
                   <View style={styles.cardRow}>
                     <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>ITEM #</Text>
-                    <Text style={[styles.cardValue, { color: selectedItemNumber === item.ITEMNMBR ? colors.primary : colors.text }]}>{String(item.ITEMNMBR || '-').trim()}</Text>
+                    <Text style={[styles.cardValue, { 
+                      color: (selectedItemNumber === item.ITEMNMBR || selectedItemNumber === `${item.ITEMNMBR?.trim()}-${item.REMARKS?.trim()}`) 
+                        ? colors.primary : colors.text 
+                    }]}>
+                      {item.REMARKS && item.REMARKS.trim() 
+                        ? `${String(item.ITEMNMBR || '-').trim()}-${item.REMARKS.trim()}`
+                        : String(item.ITEMNMBR || '-').trim()}
+                    </Text>
                   </View>
                 )}
                 <View style={styles.cardRow}>
@@ -224,6 +269,15 @@ export function AllocationTable({
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   // Table Styles
   tableContainer: {

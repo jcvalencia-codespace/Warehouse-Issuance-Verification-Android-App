@@ -6,7 +6,7 @@ const { getPool } = require('../../../config/database');
  */
 exports.allocateBags = async (req, res) => {
   try {
-    const { requiredBags, area, itemNumber, lotNumber } = req.body;
+    const { requiredBags, area, itemNumber, lotNumber, itemRemarks } = req.body;
 
     // Validate required parameters
     if (!requiredBags || requiredBags <= 0) {
@@ -37,6 +37,15 @@ exports.allocateBags = async (req, res) => {
     let whereClause = `D.AREA = '${area}'`;
     whereClause += ` AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0`;
     whereClause += ` AND D.ITEMNMBR = '${itemNumber}'`;
+    
+    // Add remarks filter - always filter by remarks to ensure correct item+remarks combination
+    if (itemRemarks && itemRemarks.trim() !== '') {
+      // If remarks provided, filter by that specific remarks
+      whereClause += ` AND D.REMARKS = '${itemRemarks}'`;
+    } else {
+      // If no remarks selected, only allocate from lots with NULL/empty remarks
+      whereClause += ` AND (D.REMARKS IS NULL OR D.REMARKS = '')`;
+    }
     
     // Add lot number filter if provided
     if (lotNumber) {
@@ -388,7 +397,7 @@ exports.getItemsByArea = async (req, res) => {
 exports.getLotsByArea = async (req, res) => {
   try {
     const { area } = req.params;
-    const { itemNumber } = req.query;
+    const { itemNumber, itemRemarks } = req.query;
     
     if (!area) {
       return res.status(400).json({
@@ -402,7 +411,7 @@ exports.getLotsByArea = async (req, res) => {
 
     // Base query
     let query = `
-      SELECT DISTINCT D.LOTNUMBER, D.ITEMNMBR
+      SELECT DISTINCT D.LOTNUMBER, D.ITEMNMBR, D.REMARKS
       FROM [INVENTORY.QUANTITYMASTER3.HEADER] H 
       INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] D 
           ON H.QM_IDNUMBER = D.QM_IDNUMBER
@@ -416,11 +425,23 @@ exports.getLotsByArea = async (req, res) => {
       query += ` AND D.ITEMNMBR = @itemNumber`;
     }
 
+    // Add remarks filter - always filter to ensure correct item+remarks combination
+    if (itemRemarks && itemRemarks.trim() !== '') {
+      // If remarks provided, filter by that specific remarks
+      query += ` AND D.REMARKS = @itemRemarks`;
+    } else {
+      // If no remarks selected, only show lots with NULL/empty remarks
+      query += ` AND (D.REMARKS IS NULL OR D.REMARKS = '')`;
+    }
+
     query += ` ORDER BY D.LOTNUMBER`;
 
     const request = pool.request().input('area', area);
     if (itemNumber) {
       request.input('itemNumber', itemNumber);
+    }
+    if (itemRemarks) {
+      request.input('itemRemarks', itemRemarks);
     }
 
     const result = await request.query(query);
@@ -430,7 +451,8 @@ exports.getLotsByArea = async (req, res) => {
       .map(row => ({
         label: row.LOTNUMBER.trim(),
         value: row.LOTNUMBER.trim(),
-        itemNumber: row.ITEMNMBR ? row.ITEMNMBR.trim() : null
+        itemNumber: row.ITEMNMBR ? row.ITEMNMBR.trim() : null,
+        remarks: row.REMARKS ? row.REMARKS.trim() : null
       }));
 
     res.json({

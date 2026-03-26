@@ -7,6 +7,7 @@ export interface IssuanceVerificationFormData {
   transactionRefNumber: string;
   area: string;
   itemNumber: string;
+  itemRemarks: string;
   lotNumber: string;
   numberOfBags: number | null;
   weightInKg: number | null;
@@ -42,6 +43,7 @@ export interface FormErrors {
   weightInKg?: string;
   forkliftOperator?: string;
   floorScale?: string;
+  allocationError?: string;
 }
 
 // Bag Allocation Types
