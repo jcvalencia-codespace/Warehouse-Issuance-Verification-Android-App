@@ -165,6 +165,7 @@ exports.postIssuance = async (req, res) => {
     const { 
       transactionRefNumber, 
       area, 
+      palletWeight,
       numberOfBags, 
       weightInKg,
       allocations,
@@ -244,14 +245,18 @@ exports.postIssuance = async (req, res) => {
 
       // Calculate actual unit cost - use allocation AMOUNT
       const unitCost = allocation.AMOUNT || 0;
-      const actualQuantity = weightInKg || 0;
+      const actualQuantity = (weightInKg - palletWeight);
       const actualBags = numberOfBags || 0;
       const calculatedActualUnitCost =  ((allocation.KGS * unitCost) / actualQuantity);
 
       // Insert into QUANTITYMASTER4.DETAILS - use form input weight and bags
       await transaction.request().query(`
-        INSERT INTO [INVENTORY.QUANTITYMASTER4.DETAILS] (TRANSREFNO, FROMISSUANCENOID, REFERENCENO, LOTNUMBER, ITEMNMBR, REMARKS, UOFM, QUANTITY_TRANS, BAG_TRANS, UNITCOST, QUANTITY_RECV, BAGS_RECV, ACTUAL_UNITCOST)
-        VALUES (${transRefNo}, ${issIdNumber}, '${allocation.QM_IDNUMBER}', '${allocation.LOTNUMBER}', '${allocation.ITEMNMBR}', '${allocation.REMARKS}', '${allocation.UOFM}', ${allocation.KGS}, ${numberOfBags}, ${unitCost}, ${actualQuantity}, ${actualBags}, ${calculatedActualUnitCost})
+        INSERT INTO [INVENTORY.QUANTITYMASTER4.DETAILS] (TRANSREFNO, FROMISSUANCENOID, REFERENCENO, LOTNUMBER, ITEMNMBR, 
+                                                          REMARKS, UOFM, QUANTITY_TRANS, BAG_TRANS, UNITCOST, 
+                                                          QUANTITY_RECV, BAGS_RECV, ACTUAL_UNITCOST)
+        VALUES (${transRefNo}, ${issIdNumber}, '${allocation.QM_IDNUMBER}', '${allocation.LOTNUMBER}', '${allocation.ITEMNMBR}',
+               '${allocation.REMARKS}', '${allocation.UOFM}', ${allocation.KGS}, ${numberOfBags}, ${unitCost}, 
+                ${actualQuantity}, ${actualBags}, ${calculatedActualUnitCost})
       `);
 
       // Commit transaction
@@ -495,7 +500,7 @@ exports.getAvailableLots = async (req, res) => {
         D.UOFM, 
         D.REMARKS, 
         D.QM_IDNUMBER,
-        CAST(QUANTITY_RECV * 1.0 / BAGS_RECV AS DECIMAL(18,8)) AS AVEWT,
+        CAST(QUANTITY_RECV / BAGS_RECV AS DECIMAL(18,8)) AS AVEWT,
         (BAGS_RECV + BAGS_RET) 
         - (BAGS_ALLOC + BAGS_ISS + BAGS_SAL + BAGS_ADJ) AS [AVAILABLE BAGS],
         (QUANTITY_RECV - QUANTITY_ALLOC - QUANTITY_ISS 

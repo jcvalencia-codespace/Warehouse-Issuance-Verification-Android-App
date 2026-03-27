@@ -53,6 +53,8 @@ interface TransactionDetailsProps {
   paginatedResults: any[];
   onNumberOfBagsChange: (value: string) => void;
   onWeightChange: (value: string) => void;
+  palletWeightInputRaw?: string;
+  onPalletWeightChange: (value: string) => void;
   weightInputRaw?: string;
   onCalculateAllocation: () => void;
   onPageChange: (page: number) => void;
@@ -103,6 +105,8 @@ export function TransactionDetails({
   paginatedResults,
   onNumberOfBagsChange,
   onWeightChange,
+  palletWeightInputRaw = '',
+  onPalletWeightChange,
   weightInputRaw = '',
   onCalculateAllocation,
   onPageChange,
@@ -633,8 +637,44 @@ export function TransactionDetails({
         </Text> */}
 
         <View style={styles.row}>
-          {/* Number of Bags */}
-          <View style={[styles.inputGroup, styles.halfWidth]}>
+          <View style={[styles.inputGroup, styles.column]}>
+            <Text style={[styles.label, { color: colors.text }]}>Pallet Weight
+              <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
+            </Text>
+            <View
+              style={[
+                styles.inputContainer,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: errors.palletWeight ? colors.error : colors.cardBorder,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="forklift"
+                size={20}
+                color={colors.textTertiary}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
+                placeholder="0"
+                placeholderTextColor={colors.textTertiary}
+                value={palletWeightInputRaw}
+                onChangeText={onPalletWeightChange}
+                keyboardType="numeric"
+              />
+              <Text style={[styles.unitLabel, { color: colors.textTertiary }]}>pallet kg</Text>
+            </View>
+            {errors.palletWeight && (
+              <View style={styles.errorContainer}>
+                <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                <Text style={[styles.errorText, { color: colors.error }]}>{errors.palletWeight}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={[styles.inputGroup, styles.column]}>
             <Text style={[styles.label, { color: colors.text }]}>Number of Bags
               <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
             </Text>
@@ -666,15 +706,12 @@ export function TransactionDetails({
             {errors.numberOfBags && (
               <View style={styles.errorContainer}>
                 <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                <Text style={[styles.errorText, { color: colors.error }]}>
-                  {errors.numberOfBags}
-                </Text>
+                <Text style={[styles.errorText, { color: colors.error }]}>{errors.numberOfBags}</Text>
               </View>
             )}
           </View>
 
-          {/* Weight in KG */}
-          <View style={[styles.inputGroup, styles.halfWidth]}>
+          <View style={[styles.inputGroup, styles.column]}>
             <Text style={[styles.label, { color: colors.text }]}>Weight (kg)
               <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
             </Text>
@@ -706,9 +743,7 @@ export function TransactionDetails({
             {errors.weightInKg && (
               <View style={styles.errorContainer}>
                 <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                <Text style={[styles.errorText, { color: colors.error }]}>
-                  {errors.weightInKg}
-                </Text>
+                <Text style={[styles.errorText, { color: colors.error }]}>{errors.weightInKg}</Text>
               </View>
             )}
           </View>
@@ -1021,11 +1056,15 @@ const styles = StyleSheet.create({
   },
   // Quantity card styles
   row: {
+    marginTop: 10,
     flexDirection: 'row',
     gap: 16,
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
   },
-  halfWidth: {
+  column: {
     flex: 1,
+    minWidth: 160,
   },
   unitLabel: {
     fontSize: 16,

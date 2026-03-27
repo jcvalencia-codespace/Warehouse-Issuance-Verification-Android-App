@@ -9,6 +9,7 @@ export interface IssuanceVerificationFormData {
   itemNumber: string;
   itemRemarks: string;
   lotNumber: string;
+  palletWeight: number | null;
   numberOfBags: number | null;
   weightInKg: number | null;
   forkliftOperator: string;
@@ -39,6 +40,7 @@ export interface FormErrors {
   area?: string;
   itemNumber?: string;
   lotNumber?: string;
+  palletWeight?: string;
   numberOfBags?: string;
   weightInKg?: string;
   forkliftOperator?: string;

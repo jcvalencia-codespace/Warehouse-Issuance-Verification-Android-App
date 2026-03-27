@@ -199,6 +199,7 @@ export class IssuanceService {
   async postIssuance(data: {
     transactionRefNumber: string;
     area: string;
+    palletWeight: number;
     numberOfBags: number;
     weightInKg: number;
     allocations?: BagAllocationResponse['data'];

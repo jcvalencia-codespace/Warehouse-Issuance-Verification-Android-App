@@ -53,6 +53,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     itemNumber: '',
     itemRemarks: '',
     lotNumber: '',
+    palletWeight: null,
     numberOfBags: null,
     weightInKg: null,
     forkliftOperator: '',
@@ -66,6 +67,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
 
   // Separate state to track raw weight input (for preserving decimal while typing)
   const [weightInputRaw, setWeightInputRaw] = useState('');
+  const [palletWeightInputRaw, setPalletWeightInputRaw] = useState('');
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<FormStatus>('idle');
@@ -185,6 +187,10 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       newErrors.area = 'Please select an area';
     }
 
+    if(formData.palletWeight === null || formData.palletWeight === undefined){
+      newErrors.palletWeight = 'Pallet Weight is required';
+    }
+
     if (formData.numberOfBags === null || formData.numberOfBags === undefined) {
       newErrors.numberOfBags = 'Number of bags is required';
     } else if (formData.numberOfBags < 0) {
@@ -240,6 +246,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       floorScale: 150,
       area: 280,
       itemNumber: 500,
+      palletWeight: 700,
       numberOfBags: 700,
       weightInKg: 700,
       forkliftOperator: 900,
@@ -351,6 +358,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
               const response = await issuanceService.postIssuance({
                 transactionRefNumber: formData.transactionRefNumber,
                 area: formData.area,
+                palletWeight: formData.palletWeight || 0,
                 numberOfBags: formData.numberOfBags || 0,
                 weightInKg: formData.weightInKg || 0,
                 allocations: allocatedItems,
@@ -369,6 +377,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
                   itemNumber: '',
                   itemRemarks: '',
                   lotNumber: '',
+                  palletWeight: null,
                   numberOfBags: null,
                   weightInKg: null,
                   forkliftOperator: '',
@@ -376,6 +385,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
                   transType: '',
                 });
                 setWeightInputRaw('');
+                setPalletWeightInputRaw('');
                 setErrors({});
                 setAllocationResults([]);
                 setCurrentPage(1);
@@ -433,6 +443,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       itemNumber: '',
       itemRemarks: '',
       lotNumber: '',
+      palletWeight: null,
       numberOfBags: null,
       weightInKg: null,
       forkliftOperator: '',
@@ -440,6 +451,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       transType: '',
     });
     setWeightInputRaw('');
+    setPalletWeightInputRaw('');
     setErrors({});
     setAllocationResults([]);
     setCurrentPage(1);
@@ -501,6 +513,29 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     
     setFormData((prev) => ({ ...prev, weightInKg: value }));
   }, [allocationResults, errors.weightInKg]);
+
+  const handlePalletWeightChange = useCallback((text: string) => {
+    const cleaned = text.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    let formatted = parts[0];
+    if (parts.length > 1) {
+      formatted += '.' + parts[1].slice(0, 2);
+    }
+    setPalletWeightInputRaw(formatted);
+
+    let value: number | null = null;
+    if (formatted !== '' && formatted !== '.') {
+      const parsed = parseFloat(formatted);
+      if (!isNaN(parsed)) {
+        value = parsed;
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, palletWeight: value }));
+    if (errors.palletWeight && formatted !== '' && formatted !== '.') {
+      setErrors((prev) => ({ ...prev, palletWeight: undefined }));
+    }
+  }, [errors.palletWeight]);
 
   const selectedAreaLabel = areaOptions.find(
     (opt) => opt.value === formData.area
@@ -601,6 +636,8 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
               paginatedResults={paginatedResults}
               onNumberOfBagsChange={handleNumberOfBagsChange}
               onWeightChange={handleWeightChange}
+              palletWeightInputRaw={palletWeightInputRaw}
+              onPalletWeightChange={handlePalletWeightChange}
               weightInputRaw={weightInputRaw}
               onCalculateAllocation={handleCalculateAllocation}
               onPageChange={setCurrentPage}
