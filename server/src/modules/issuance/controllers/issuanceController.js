@@ -37,7 +37,7 @@ exports.allocateBags = async (req, res) => {
     let whereClause = `D.AREA = '${area}'`;
     whereClause += ` AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0`;
     whereClause += ` AND D.ITEMNMBR = '${itemNumber}'`;
-    
+
     // Add remarks filter - always filter by remarks to ensure correct item+remarks combination
     if (itemRemarks && itemRemarks.trim() !== '') {
       // If remarks provided, filter by that specific remarks
@@ -46,7 +46,7 @@ exports.allocateBags = async (req, res) => {
       // If no remarks selected, only allocate from lots with NULL/empty remarks
       whereClause += ` AND (D.REMARKS IS NULL OR D.REMARKS = '')`;
     }
-    
+
     // Add lot number filter if provided
     if (lotNumber) {
       whereClause += ` AND D.LOTNUMBER = '${lotNumber}'`;
@@ -160,13 +160,13 @@ exports.allocateBags = async (req, res) => {
 exports.postIssuance = async (req, res) => {
   const dbName = process.env.DB_SFC || 'SFC';
   const pool = await getPool(dbName);
-  
+
   try {
-    const { 
-      transactionRefNumber, 
-      area, 
+    const {
+      transactionRefNumber,
+      area,
       palletWeight,
-      numberOfBags, 
+      numberOfBags,
       weightInKg,
       allocations,
       username,
@@ -191,7 +191,7 @@ exports.postIssuance = async (req, res) => {
 
     // Get the first allocation (should only be 1 lot based on validation)
     const allocation = allocations[0];
-    
+
     // Get next IDs
     const issIdNumberResult = await pool.request().query(
       'SELECT MAX((ISS_IDNUMBER) + 1) AS NEXT_ID FROM [INVENTORY.ISSUANCE.HEADER5]'
@@ -203,7 +203,7 @@ exports.postIssuance = async (req, res) => {
       'SELECT MAX((TRANSREFNO) + 1) AS NEXT_REF FROM [INVENTORY.QUANTITYMASTER4.HEADER]'
     );
     let transRefNo = transRefNoResult.recordset[0].NEXT_REF;
-    
+
     // If NEXT_REF is NULL (table is empty or has NULL values), start from 1
     if (transRefNo === null || transRefNo === undefined) {
       transRefNo = 1;
@@ -247,16 +247,16 @@ exports.postIssuance = async (req, res) => {
       const unitCost = allocation.AMOUNT || 0;
       const actualQuantity = (weightInKg - palletWeight);
       const actualBags = numberOfBags || 0;
-      const calculatedActualUnitCost =  ((allocation.KGS * unitCost) / actualQuantity);
+      const calculatedActualUnitCost = ((allocation.KGS * unitCost) / actualQuantity);
 
       // Insert into QUANTITYMASTER4.DETAILS - use form input weight and bags
       await transaction.request().query(`
         INSERT INTO [INVENTORY.QUANTITYMASTER4.DETAILS] (TRANSREFNO, FROMISSUANCENOID, REFERENCENO, LOTNUMBER, ITEMNMBR, 
-                                                          REMARKS, UOFM, QUANTITY_TRANS, BAG_TRANS, UNITCOST, 
-                                                          QUANTITY_RECV, BAGS_RECV, ACTUAL_UNITCOST)
+                                                          REMARKS, UOFM, PALLETWEIGHT, QUANTITY_TRANS, BAG_TRANS, 
+                                                          UNITCOST, QUANTITY_RECV, BAGS_RECV, ACTUAL_UNITCOST)
         VALUES (${transRefNo}, ${issIdNumber}, '${allocation.QM_IDNUMBER}', '${allocation.LOTNUMBER}', '${allocation.ITEMNMBR}',
-               '${allocation.REMARKS}', '${allocation.UOFM}', ${allocation.KGS}, ${numberOfBags}, ${unitCost}, 
-                ${actualQuantity}, ${actualBags}, ${calculatedActualUnitCost})
+               '${allocation.REMARKS}', '${allocation.UOFM}', ${palletWeight}, ${allocation.KGS}, ${numberOfBags}, 
+                ${unitCost}, ${actualQuantity}, ${actualBags}, ${calculatedActualUnitCost})
       `);
 
       // Commit transaction
@@ -312,7 +312,7 @@ exports.getAreas = async (req, res) => {
     `;
 
     const result = await pool.request().query(query);
-    
+
     const areas = result.recordset
       .filter(row => row.AREA)
       .map(row => ({
@@ -341,7 +341,7 @@ exports.getAreas = async (req, res) => {
 exports.getItemsByArea = async (req, res) => {
   try {
     const { area } = req.params;
-    
+
     if (!area) {
       return res.status(400).json({
         success: false,
@@ -367,17 +367,17 @@ exports.getItemsByArea = async (req, res) => {
     const result = await pool.request()
       .input('area', area)
       .query(query);
-    
+
     const items = result.recordset
       .map(row => ({
         label: row.ITEMNMBR.trim(),
-        value: row.REMARKS && row.REMARKS.trim() 
-          ? `${row.ITEMNMBR.trim()}-${row.REMARKS.trim()}` 
+        value: row.REMARKS && row.REMARKS.trim()
+          ? `${row.ITEMNMBR.trim()}-${row.REMARKS.trim()}`
           : row.ITEMNMBR.trim(),
         remarks: row.REMARKS && row.REMARKS.trim() ? row.REMARKS.trim() : undefined,
         lotNumber: row.LOTNUMBER ? row.LOTNUMBER.trim() : undefined
       }))
-      .filter((item, index, self) => 
+      .filter((item, index, self) =>
         index === self.findIndex(t => t.value === item.value)
       );
 
@@ -403,7 +403,7 @@ exports.getLotsByArea = async (req, res) => {
   try {
     const { area } = req.params;
     const { itemNumber, itemRemarks } = req.query;
-    
+
     if (!area) {
       return res.status(400).json({
         success: false,
@@ -450,7 +450,7 @@ exports.getLotsByArea = async (req, res) => {
     }
 
     const result = await request.query(query);
-    
+
     const lots = result.recordset
       .filter(row => row.LOTNUMBER)
       .map(row => ({
@@ -476,12 +476,46 @@ exports.getLotsByArea = async (req, res) => {
 };
 
 /**
+ * Get next issuance reference number
+ */
+exports.getNextIssuanceReference = async (req, res) => {
+  try {
+    const dbName = process.env.DB_SFC || 'SFC';
+    const pool = await getPool(dbName);
+
+    const result = await pool.request().query(
+      'SELECT MAX((ISS_IDNUMBER) + 1) AS NEXT_ID FROM [INVENTORY.ISSUANCE.HEADER5]'
+    );
+
+    let nextId = result.recordset[0].NEXT_ID;
+
+    // If NEXT_ID is NULL (table is empty or has NULL values), start from 1
+    if (nextId === null || nextId === undefined) {
+      nextId = 1;
+    }
+
+    res.json({
+      success: true,
+      nextReferenceNumber: nextId
+    });
+
+  } catch (error) {
+    console.error('Error fetching next issuance reference number:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch next issuance reference number',
+      error: error.message
+    });
+  }
+};
+
+/**
  * Get all available lots for an area (without allocation)
  */
 exports.getAvailableLots = async (req, res) => {
   try {
     const { area } = req.params;
-    
+
     if (!area) {
       return res.status(400).json({
         success: false,
@@ -520,7 +554,7 @@ exports.getAvailableLots = async (req, res) => {
     const result = await pool.request()
       .input('area', area)
       .query(query);
-    
+
     const data = result.recordset.map(row => ({
       ...row,
       BAGS: null,
@@ -551,10 +585,15 @@ exports.getTransactionReferenceNumber = async (req, res) => {
   try {
     const dbName = process.env.DB_SFC || 'SFC';
     const pool = await getPool(dbName);
-    const query = `SELECT MAX((ISS_IDNUMBER) + 1) AS NEXT_ID FROM [INVENTORY.ISSUANCE.HEADER5]`;
+    const query = `SELECT MAX((TRANSREFNO) + 1) AS NEXT_REF FROM [INVENTORY.QUANTITYMASTER4.HEADER]`;
     const result = await pool.request().query(query);
 
-    const nextReferenceNumber = result.recordset[0].NEXT_ID || 1;
+    let nextReferenceNumber = result.recordset[0].NEXT_REF;
+    
+    // If NEXT_REF is NULL (table is empty or has NULL values), start from 1
+    if (nextReferenceNumber === null || nextReferenceNumber === undefined) {
+      nextReferenceNumber = 1;
+    }
 
     res.json({
       success: true,

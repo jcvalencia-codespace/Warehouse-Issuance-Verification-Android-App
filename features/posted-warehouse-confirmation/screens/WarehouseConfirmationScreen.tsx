@@ -288,10 +288,6 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
         <MaterialCommunityIcons name="tag-outline" size={14} color={colors.primary} />
         <Text style={[styles.tableHeaderText, { color: colors.primary }]}>TYPE</Text>
       </View>
-      <View style={[styles.tableHeaderCell, styles.tableLocationCell]}>
-        <MaterialCommunityIcons name="map-marker-outline" size={14} color={colors.primary} />
-        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>LOCATION</Text>
-      </View>
       <View style={[styles.tableHeaderCell, styles.tableIssuedByCell]}>
         <MaterialCommunityIcons name="account-outline" size={14} color={colors.primary} />
         <Text style={[styles.tableHeaderText, { color: colors.primary }]}>ISSUED BY</Text>
@@ -348,13 +344,6 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
         <View style={[styles.tableCell, styles.tableTypeCell]}>
           <Text style={[styles.tableCellText, { color: colors.text }]} numberOfLines={2}>
             {item.TRANSTYPE || '-'}
-          </Text>
-        </View>
-
-        {/* Location */}
-        <View style={[styles.tableCell, styles.tableLocationCell]}>
-          <Text style={[styles.tableCellText, { color: colors.text }]} numberOfLines={1}>
-            {item.FROMLOCNCODE || '-'}
           </Text>
         </View>
 
@@ -748,7 +737,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statLabel: {
-    fontSize: fontSize(13),
+    fontSize: fontSize(14),
     fontWeight: '500',
   },
   statDivider: {
@@ -795,11 +784,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   dateInputText: {
-    fontSize: fontSize(13),
+    fontSize: fontSize(14),
     fontWeight: '600',
   },
   dateRangeSeparator: {
-    fontSize: fontSize(13),
+    fontSize: fontSize(14),
     fontWeight: '500',
   },
   dateRangeText: {
@@ -816,7 +805,7 @@ const styles = StyleSheet.create({
   },
   viewButtonText: {
     color: '#ffffff',
-    fontSize: fontSize(13),
+    fontSize: fontSize(14),
     fontWeight: '600',
   },
   resetButton: {
@@ -846,7 +835,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   searchHint: {
-    fontSize: fontSize(12),
+    fontSize: fontSize(14),
     fontWeight: '500',
     marginTop: 8,
     marginBottom: 4,
@@ -996,7 +985,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   quantityLabel: {
-    fontSize: fontSize(13),
+    fontSize: fontSize(14),
     fontWeight: '500',
   },
   quantityValue: {
@@ -1004,7 +993,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   quantityUnit: {
-    fontSize: fontSize(12),
+    fontSize: fontSize(14),
     fontWeight: '500',
   },
   // Loading & Error states
@@ -1146,7 +1135,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   detailsSubtitle: {
-    fontSize: fontSize(13, 14),
+    fontSize: fontSize(14, 15),
     marginTop: 2,
   },
   statusBadge: {
@@ -1158,7 +1147,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusText: {
-    fontSize: fontSize(12),
+    fontSize: fontSize(14),
     fontWeight: '600',
   },
   // Table styles
@@ -1177,7 +1166,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tableHeaderText: {
-    fontSize: fontSize(10, 11),
+    fontSize: fontSize(14, 15),
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -1192,7 +1181,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tableCellText: {
-    fontSize: fontSize(12, 13),
+    fontSize: fontSize(14, 15),
     fontWeight: '500',
   },
   tableStatusCell: {

@@ -4,6 +4,7 @@
  */
 
 export { AllocationTable } from './AllocationTable';
+export { BarcodeScanner } from './BarcodeScanner';
 export { IssuanceHeader } from './IssuanceHeader';
 export { TransactionDetails } from './TransactionDetails';
 

@@ -4,6 +4,7 @@
  */
 
 export interface IssuanceVerificationFormData {
+  issuanceRefNumber: string;
   transactionRefNumber: string;
   area: string;
   itemNumber: string;
@@ -36,6 +37,7 @@ export interface AreaOption {
 export type FormStatus = 'idle' | 'saving' | 'posting' | 'saved' | 'posted' | 'error';
 
 export interface FormErrors {
+  issuanceRefNumber?: string;
   transactionRefNumber?: string;
   area?: string;
   itemNumber?: string;

@@ -76,6 +76,28 @@ export class IssuanceService {
   }
 
   /**
+   * Get the next issuance reference number
+   */
+  async getIssuanceReferenceNumber(): Promise<string> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+
+      const response = await axios.get(`${this.baseUrl}/issuance/issuance-reference`);
+      
+      if (response.data.success) {
+        return response.data.nextReferenceNumber;
+      }
+      
+      return '';
+    } catch (error) {
+      console.error('Error fetching issuance reference number:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get list of item numbers by area
    */
   async getItemsByArea(area: string): Promise<AreaOption[]> {
@@ -197,6 +219,7 @@ export class IssuanceService {
    * Post issuance verification
    */
   async postIssuance(data: {
+    issuanceRefNumber: string;
     transactionRefNumber: string;
     area: string;
     palletWeight: number;

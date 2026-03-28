@@ -9,6 +9,9 @@ router.post('/allocate-bags', IssuanceController.allocateBags);
 // Get transaction reference number endpoint
 router.get('/transaction-reference', IssuanceController.getTransactionReferenceNumber);
 
+// Get next issuance reference number endpoint
+router.get('/issuance-reference', IssuanceController.getNextIssuanceReference);
+
 // Get areas endpoint
 router.get('/areas', IssuanceController.getAreas);
 

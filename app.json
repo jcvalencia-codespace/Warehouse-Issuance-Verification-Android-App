@@ -45,7 +45,8 @@
             "image": "./assets/images/appLogo.png"
           }
         }
-      ]
+      ],
+      "expo-camera"
     ],
     "experiments": {
       "typedRoutes": true,

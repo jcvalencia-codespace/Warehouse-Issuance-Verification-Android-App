@@ -60,6 +60,7 @@ interface TransactionDetailsProps {
   onPageChange: (page: number) => void;
   isViewingAvailableLots?: boolean;
   scrollToField?: (fieldName: string) => void;
+  onScanForkliftOperator?: () => void;
 }
 
 export function TransactionDetails({
@@ -112,6 +113,7 @@ export function TransactionDetails({
   onPageChange,
   isViewingAvailableLots = false,
   scrollToField,
+  onScanForkliftOperator,
 }: TransactionDetailsProps) {
   return (
     <>
@@ -120,58 +122,121 @@ export function TransactionDetails({
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Transaction Details</Text>
         <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontStyle: 'italic', marginLeft: 4 }]}>(Enter the issuance verification information below) </Text>
-        {/* Transaction Reference Number */}
+        {/* Reference Numbers Row */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
-            Transaction Reference Number
+            Reference Numbers
             <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
           </Text>
-          <View
-            style={[
-              styles.inputContainer,
-              {
-                backgroundColor: colors.background,
-                borderColor: errors.transactionRefNumber ? colors.error : colors.cardBorder,
-              },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name="file-document-outline"
-              size={20}
-              color={colors.textTertiary}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="e.g., 123456789"
-              placeholderTextColor={colors.textTertiary}
-              value={formData.transactionRefNumber}
-              readOnly
-              onChangeText={(text) => {
-                onFormDataChange({ transactionRefNumber: text });
-                if (errors.transactionRefNumber) {
-                  onErrorsChange({ transactionRefNumber: undefined });
-                }
-              }}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
-            {formData.transactionRefNumber ? (
-              <MaterialCommunityIcons
-                name="check-circle"
-                size={18}
-                color={colors.success}
-              />
-            ) : null}
-          </View>
-          {errors.transactionRefNumber && (
-            <View style={styles.errorContainer}>
-              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-              <Text style={[styles.errorText, { color: colors.error }]}>
-                {errors.transactionRefNumber}
+          <View style={styles.referenceRow}>
+            {/* Issuance Reference Number */}
+            <View style={styles.referenceField}>
+              <Text style={[styles.referenceLabel, { color: colors.textSecondary }]}>
+                Issuance Ref #
               </Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  styles.referenceInput,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: errors.issuanceRefNumber ? colors.error : colors.cardBorder,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="file-document-outline"
+                  size={18}
+                  color={colors.textTertiary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="e.g., 123456789"
+                  placeholderTextColor={colors.textTertiary}
+                  value={formData.issuanceRefNumber}
+                  readOnly
+                  onChangeText={(text) => {
+                    onFormDataChange({ issuanceRefNumber: text });
+                    if (errors.issuanceRefNumber) {
+                      onErrorsChange({ issuanceRefNumber: undefined });
+                    }
+                  }}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+                {formData.issuanceRefNumber ? (
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={16}
+                    color={colors.success}
+                  />
+                ) : null}
+              </View>
+              {errors.issuanceRefNumber && (
+                <View style={styles.errorContainer}>
+                  <MaterialCommunityIcons name="alert-circle" size={12} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>
+                    {errors.issuanceRefNumber}
+                  </Text>
+                </View>
+              )}
             </View>
-          )}
+
+            {/* Transaction Reference Number */}
+            <View style={styles.referenceField}>
+              <Text style={[styles.referenceLabel, { color: colors.textSecondary }]}>
+                Transaction Ref #
+              </Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  styles.referenceInput,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: errors.transactionRefNumber ? colors.error : colors.cardBorder,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="file-document-outline"
+                  size={18}
+                  color={colors.textTertiary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="e.g., 123456789"
+                  placeholderTextColor={colors.textTertiary}
+                  value={formData.transactionRefNumber}
+                  readOnly
+                  onChangeText={(text) => {
+                    onFormDataChange({ transactionRefNumber: text });
+                    if (errors.transactionRefNumber) {
+                      onErrorsChange({ transactionRefNumber: undefined });
+                    }
+                  }}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+                {formData.transactionRefNumber ? (
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={16}
+                    color={colors.success}
+                  />
+                ) : null}
+              </View>
+              {errors.transactionRefNumber && (
+                <View style={styles.errorContainer}>
+                  <MaterialCommunityIcons name="alert-circle" size={12} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>
+                    {errors.transactionRefNumber}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
         </View>
 
         {/* Floor Scale */}
@@ -658,7 +723,7 @@ export function TransactionDetails({
               />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
-                placeholder="0"
+                placeholder="0.0"
                 placeholderTextColor={colors.textTertiary}
                 value={palletWeightInputRaw}
                 onChangeText={onPalletWeightChange}
@@ -732,7 +797,7 @@ export function TransactionDetails({
               />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
-                placeholder="0.00"
+                placeholder="0.0"
                 placeholderTextColor={colors.textTertiary}
                 value={weightInputRaw || formData.weightInKg?.toString() || ''}
                 onChangeText={onWeightChange}
@@ -755,34 +820,50 @@ export function TransactionDetails({
             Forklift Operator
             <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
           </Text>
-          <View
-            style={[
-              styles.inputContainer,
-              {
-                backgroundColor: colors.background,
-                borderColor: errors.forkliftOperator ? colors.error : colors.cardBorder,
-              },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name="account-hard-hat"
-              size={20}
-              color={colors.textTertiary}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Enter forklift operator name"
-              placeholderTextColor={colors.textTertiary}
-              value={formData.forkliftOperator || ''}
-              onChangeText={(text) => {
-                onFormDataChange({ forkliftOperator: text });
-                if (errors.forkliftOperator) {
-                  onErrorsChange({ forkliftOperator: undefined });
-                }
-              }}
-              autoCapitalize="words"
-            />
+          <View style={styles.forkliftRow}>
+            <View
+              style={[
+                styles.inputContainer,
+                styles.forkliftInput,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: errors.forkliftOperator ? colors.error : colors.cardBorder,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="account-hard-hat"
+                size={20}
+                color={colors.textTertiary}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
+                placeholder="Enter forklift operator name"
+                placeholderTextColor={colors.textTertiary}
+                value={formData.forkliftOperator || ''}
+                onChangeText={(text) => {
+                  onFormDataChange({ forkliftOperator: text });
+                  if (errors.forkliftOperator) {
+                    onErrorsChange({ forkliftOperator: undefined });
+                  }
+                }}
+                autoCapitalize="words"
+              />
+            </View>
+            {onScanForkliftOperator && (
+              <TouchableOpacity
+                style={[styles.scanButton, { backgroundColor: colors.primary }]}
+                onPress={onScanForkliftOperator}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="barcode-scan"
+                  size={20}
+                  color="#FFFFFF"
+                />
+              </TouchableOpacity>
+            )}
           </View>
           {errors.forkliftOperator && (
             <View style={styles.errorContainer}>
@@ -1053,6 +1134,37 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
+  },
+  // Reference numbers row styles
+  referenceRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  referenceField: {
+    flex: 1,
+  },
+  forkliftRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  forkliftInput: {
+    flex: 1,
+  },
+  scanButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  referenceLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  referenceInput: {
+    flex: 1,
   },
   // Quantity card styles
   row: {

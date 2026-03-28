@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../auth/context/AuthContext';
-import { IssuanceHeader, TransactionDetails } from '../components';
+import { BarcodeScanner, IssuanceHeader, TransactionDetails } from '../components';
 import { AreaOption, issuanceService } from '../services/issuanceService';
 import {
   BagAllocationItem,
@@ -48,6 +48,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   const { user } = useAuth();
 
   const [formData, setFormData] = useState<IssuanceVerificationFormData>({
+    issuanceRefNumber: '',
     transactionRefNumber: '',
     area: '',
     itemNumber: '',
@@ -91,6 +92,9 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   const scrollViewRef = useRef<ScrollView>(null);
   const ITEMS_PER_PAGE = 5;
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Barcode scanner state
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
   // Reset page when allocation results change
   useEffect(() => {
@@ -162,6 +166,21 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     fetchTransactionRefNumber();
   }, []);
 
+  // Fetch issuance reference number on mount
+  useEffect(() => {
+    const fetchIssuanceRefNumber = async () => {
+      try {
+        const refNumber = await issuanceService.getIssuanceReferenceNumber();
+        if (refNumber) {
+          setFormData((prev) => ({ ...prev, issuanceRefNumber: refNumber.toString() }));
+        }
+      } catch (error) {
+        console.error('Error fetching issuance reference number:', error);
+      }
+    };
+    fetchIssuanceRefNumber();
+  }, []);
+
   // Handle item selection from allocation table
   const handleItemSelect = useCallback((itemNumber: string, itemRemarks?: string) => {
     setFormData((prev) => ({ ...prev, itemNumber, itemRemarks: itemRemarks || '' }));
@@ -176,8 +195,39 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     }
   }, [allocationResults]);
 
+  // Handle barcode scan for forklift operator
+  const handleBarcodeScan = useCallback((data: string) => {
+    setFormData((prev) => ({ ...prev, forkliftOperator: data }));
+    
+    // Clear any errors for forklift operator field
+    if (errors.forkliftOperator) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.forkliftOperator;
+        return newErrors;
+      });
+    }
+
+    // Close the scanner
+    setShowBarcodeScanner(false);
+  }, [errors]);
+
+  // Open barcode scanner
+  const openBarcodeScanner = useCallback(() => {
+    setShowBarcodeScanner(true);
+  }, []);
+
+  // Close barcode scanner
+  const closeBarcodeScanner = useCallback(() => {
+    setShowBarcodeScanner(false);
+  }, []);
+
   const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
+
+    if (!formData.issuanceRefNumber.trim()) {
+      newErrors.issuanceRefNumber = 'Issuance reference number is required';
+    }
 
     if (!formData.transactionRefNumber.trim()) {
       newErrors.transactionRefNumber = 'Transaction reference number is required';
@@ -242,6 +292,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   const scrollToField = useCallback((fieldName: string) => {
     // Define scroll offsets for each field (approximate)
     const fieldOffsets: Record<string, number> = {
+      issuanceRefNumber: 0,
       transactionRefNumber: 0,
       floorScale: 150,
       area: 280,
@@ -356,6 +407,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
             setStatus('posting');
             try {
               const response = await issuanceService.postIssuance({
+                issuanceRefNumber: formData.issuanceRefNumber,
                 transactionRefNumber: formData.transactionRefNumber,
                 area: formData.area,
                 palletWeight: formData.palletWeight || 0,
@@ -372,6 +424,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
                 setStatus('posted');
                 // Clear form data after successful post instead of going back
                 setFormData({
+                  issuanceRefNumber: '',
                   transactionRefNumber: '',
                   area: '',
                   itemNumber: '',
@@ -400,6 +453,16 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
                 } catch (error) {
                   console.error('Error fetching transaction reference number:', error);
                 }
+
+                // Fetch new issuance reference number
+                try {
+                  const refNumber = await issuanceService.getIssuanceReferenceNumber();
+                  if (refNumber) {
+                    setFormData((prev) => ({ ...prev, issuanceRefNumber: refNumber.toString() }));
+                  }
+                } catch (error) {
+                  console.error('Error fetching issuance reference number:', error);
+                }
                 
                 Alert.alert('Success', 'Issuance verification posted successfully');
               } else {
@@ -417,7 +480,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   }, [formData, validateForm, router, allocationResults, user]);
 
   const handleCancel = useCallback(() => {
-    if (formData.transactionRefNumber || formData.area || formData.numberOfBags || formData.weightInKg) {
+    if (formData.issuanceRefNumber || formData.transactionRefNumber || formData.area || formData.numberOfBags || formData.weightInKg) {
       // Use modal for web compatibility
       setShowDiscardModal(true);
     } else {
@@ -438,6 +501,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   const handleConfirmClear = useCallback(async () => {
     setShowClearModal(false);
     setFormData({
+      issuanceRefNumber: '',
       transactionRefNumber: '',
       area: '',
       itemNumber: '',
@@ -465,6 +529,16 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       }
     } catch (error) {
       console.error('Error fetching transaction reference number:', error);
+    }
+
+    // Fetch new issuance reference number after clearing
+    try {
+      const refNumber = await issuanceService.getIssuanceReferenceNumber();
+      if (refNumber) {
+        setFormData((prev) => ({ ...prev, issuanceRefNumber: refNumber.toString() }));
+      }
+    } catch (error) {
+      console.error('Error fetching issuance reference number:', error);
     }
   }, []);
 
@@ -496,7 +570,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     const parts = cleaned.split('.');
     let formatted = parts[0];
     if (parts.length > 1) {
-      formatted += '.' + parts[1].slice(0, 2);
+      formatted += '.' + parts[1].slice(0, 1);
     }
     
     // Update raw input state to preserve decimal while typing
@@ -519,7 +593,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     const parts = cleaned.split('.');
     let formatted = parts[0];
     if (parts.length > 1) {
-      formatted += '.' + parts[1].slice(0, 2);
+      formatted += '.' + parts[1].slice(0, 1);
     }
     setPalletWeightInputRaw(formatted);
 
@@ -643,6 +717,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
               onPageChange={setCurrentPage}
               isViewingAvailableLots={isViewingAvailableLots}
               scrollToField={scrollToField}
+              onScanForkliftOperator={openBarcodeScanner}
             />
 
             {/* Info Card */}
@@ -735,6 +810,13 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
         confirmButtonVariant="destructive"
       />
 
+      {/* Barcode Scanner for Forklift Operator */}
+      <BarcodeScanner
+        visible={showBarcodeScanner}
+        onClose={closeBarcodeScanner}
+        onScan={handleBarcodeScan}
+        title="Scan Forklift Operator Badge"
+      />
       
     </SafeAreaView>
   );
