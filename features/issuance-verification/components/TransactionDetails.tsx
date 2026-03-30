@@ -849,6 +849,7 @@ export function TransactionDetails({
                   }
                 }}
                 autoCapitalize="words"
+                readOnly
               />
             </View>
             {onScanForkliftOperator && (

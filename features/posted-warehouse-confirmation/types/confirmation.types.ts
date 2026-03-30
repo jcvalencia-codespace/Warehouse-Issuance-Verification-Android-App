@@ -5,6 +5,7 @@
 export interface TransactionDetail {
   QM4DROWID: number;
   'ITEM CODE': string;
+  ITEMNMBR?: string;
   'LOT NUMBER': string;
   UOFM: string;
   'QUANTITY ISS.': number;
@@ -13,6 +14,7 @@ export interface TransactionDetail {
   'QUANTITY RECEIVED': number | null;
   'BAGS RECEIVED': number | null;
   ACTUAL_UNITCOST: number | null;
+  REMARKS?: string | null;
 }
 
 export interface TransactionHeader {

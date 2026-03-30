@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Santeh Feeds Corporation - App",
-    "slug": "WhseConfirmation",
+    "slug": "ERP - Mobile",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/appLogo.png",
@@ -46,7 +46,8 @@
           }
         }
       ],
-      "expo-camera"
+      "expo-camera",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

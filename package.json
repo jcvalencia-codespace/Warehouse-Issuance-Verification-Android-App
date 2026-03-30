@@ -13,6 +13,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@expo-google-fonts/libre-barcode-128": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-toast": "^1.2.15",

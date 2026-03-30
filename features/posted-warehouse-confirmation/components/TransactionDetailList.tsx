@@ -7,10 +7,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   useColorScheme,
   useWindowDimensions,
-  View,
+  View
 } from 'react-native';
 import { TransactionDetail } from '../types/confirmation.types';
 
@@ -130,6 +129,18 @@ export function TransactionDetailList({
     }
   };
 
+  const formatItemCodeWithRemark = (detail: TransactionDetail) => {
+    const rawItemCode = detail['ITEM CODE'] || detail.ITEMNMBR || '';
+    const code = rawItemCode.trim();
+    const remark = detail.REMARKS?.trim();
+    if (code && remark) {
+      return `${code}-${remark}`;
+    }
+    if (code) return code;
+    if (remark) return remark;
+    return '-';
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -244,8 +255,8 @@ export function TransactionDetailList({
             <View style={styles.singleCardHeader}>
               <View style={[styles.singleCardItemCode, { backgroundColor: colors.primary + '12' }]}>
                 <MaterialCommunityIcons name="package-variant" size={IS_TABLET ? 20 : 18} color={colors.primary} />
-                <Text style={[styles.singleCardItemCodeText, { color: colors.primary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 16 : 16) : (IS_LANDSCAPE ? 16 : 14) }]}>
-                  {detail['ITEM CODE']}
+                <Text style={[styles.singleCardItemCodeText, { color: colors.primary, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 16 : 16) : (IS_LANDSCAPE ? 16 : 14) }]} numberOfLines={1}>
+                  {formatItemCodeWithRemark(detail)}
                 </Text>
               </View>
               <View style={[styles.singleCardLotNumber, { backgroundColor: colors.secondary + '12' }]}>
@@ -331,7 +342,7 @@ export function TransactionDetailList({
         </View>
 
         {/* Toggle Button for single item */}
-        <View style={[styles.toggleContainer, { backgroundColor: colors.cardBackground, borderBottomColor: colors.divider }]}>
+        {/* <View style={[styles.toggleContainer, { backgroundColor: colors.cardBackground, borderBottomColor: colors.divider }]}>
           <TouchableOpacity
             onPress={() => setShowCostColumns(!showCostColumns)}
             style={styles.toggleButton}
@@ -340,7 +351,7 @@ export function TransactionDetailList({
               {showCostColumns ? '✓ UNIT/ACTUAL COST' : '☐ SHOW COST COLUMNS'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         {/* Summary Footer */}
         <View style={[styles.footer, { backgroundColor: colors.cardBackground, borderTopColor: colors.divider, paddingHorizontal: IS_TABLET ? (IS_LANDSCAPE ? 16 : 20) : (IS_LANDSCAPE ? 8 : 12), paddingVertical: IS_TABLET ? (IS_LANDSCAPE ? 10 : 14) : (IS_LANDSCAPE ? 8 : 10) }]}>
@@ -434,8 +445,7 @@ export function TransactionDetailList({
 
       {/* Table Section */}
       <View style={styles.tableWrapper}>
-        {/* Toggle Button */}
-        <View style={[styles.toggleContainer, { backgroundColor: colors.cardBackground, borderBottomColor: colors.divider }]}>
+        {/* <View style={[styles.toggleContainer, { backgroundColor: colors.cardBackground, borderBottomColor: colors.divider }]}>
           <TouchableOpacity
             onPress={() => setShowCostColumns(!showCostColumns)}
             style={styles.toggleButton}
@@ -444,7 +454,7 @@ export function TransactionDetailList({
               {showCostColumns ? '✓ UNIT/ACTUAL COST' : '☐ SHOW COST COLUMNS'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         {/* Freeze Pane Table Container */}
         <View style={styles.freezePaneContainer}>
@@ -535,7 +545,7 @@ export function TransactionDetailList({
                       <View style={[styles.cell, styles.stickyLeftCell, { width: COL_WIDTHS.colItemCode, paddingHorizontal: IS_LANDSCAPE ? 4 : 8, paddingVertical: IS_LANDSCAPE ? 6 : 8 }]}>
                         <View style={[styles.stickyCellContent, { backgroundColor: isEvenRow ? colors.primary + '08' : colors.textTertiary + '08', paddingHorizontal: IS_LANDSCAPE ? 4 : 8, paddingVertical: IS_LANDSCAPE ? 4 : 6, borderRadius: IS_LANDSCAPE ? 4 : 6 }]}>
                           <Text style={[styles.cellText, { color: colors.text, fontSize: IS_TABLET ? (IS_LANDSCAPE ? 11 : 14) : (IS_LANDSCAPE ? 9 : 14) }]} numberOfLines={1}>
-                            {detail['ITEM CODE']}
+                            {formatItemCodeWithRemark(detail)}
                           </Text>
                         </View>
                       </View>
