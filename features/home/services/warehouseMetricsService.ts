@@ -25,7 +25,7 @@ class WarehouseMetricsService {
 
   constructor() {
     // Get API URL from environment or app.json config
-    this.baseUrl = process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl || '';
+    this.baseUrl = Constants.expoConfig?.extra?.apiUrl || '';
     if (!this.baseUrl) {
       console.warn('⚠️  API URL not configured! Set EXPO_PUBLIC_API_URL in .env or apiUrl in app.json');
     } else {
