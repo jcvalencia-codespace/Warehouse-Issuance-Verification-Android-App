@@ -299,186 +299,6 @@ export function TransactionDetails({
           )}
         </View>
 
-        {/* Area Dropdown */}
-        <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>Area / Location
-            <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
-          </Text>
-
-          <TouchableOpacity
-            style={[
-              styles.inputContainer,
-              styles.dropdownContainer,
-              {
-                backgroundColor: colors.background,
-                borderColor: errors.area ? colors.error : colors.cardBorder,
-              },
-            ]}
-            onPress={() => onShowAreaPickerChange(!showAreaPicker)}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons
-              name="map-marker"
-              size={20}
-              color={colors.textTertiary}
-              style={styles.inputIcon}
-            />
-            <Text
-              style={[
-                styles.dropdownText,
-                { color: formData.area ? colors.text : colors.textTertiary },
-              ]}
-            >
-              {selectedAreaLabel || 'Select warehouse area'}
-            </Text>
-            <MaterialCommunityIcons
-              name={showAreaPicker ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          {showAreaPicker && (
-            <View
-              style={[
-                styles.dropdown,
-                {
-                  backgroundColor: colors.cardBackground,
-                  borderColor: colors.cardBorder,
-                  shadowColor: colors.shadowColor,
-                },
-              ]}
-            >
-              {/* Search Input */}
-              <View style={[styles.searchInputContainer, { borderBottomColor: colors.divider }]}>
-                <MaterialCommunityIcons
-                  name="magnify"
-                  size={20}
-                  color={colors.textTertiary}
-                />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.text }]}
-                  placeholder="Search area..."
-                  placeholderTextColor={colors.textTertiary}
-                  value={areaSearchQuery}
-                  onChangeText={onAreaSearchQueryChange}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                {areaSearchQuery ? (
-                  <Pressable onPress={() => onAreaSearchQueryChange('')}>
-                    <MaterialCommunityIcons
-                      name="close-circle"
-                      size={18}
-                      color={colors.textTertiary}
-                    />
-                  </Pressable>
-                ) : null}
-              </View>
-
-              {/* Scrollable Options List */}
-              <ScrollView
-                style={styles.dropdownScrollView}
-                showsVerticalScrollIndicator={true}
-                nestedScrollEnabled={true}
-              >
-                {filteredAreaOptions.length > 0 ? (
-                  filteredAreaOptions.map((option, index) => (
-                    <Pressable
-                      key={option.value}
-                      style={[
-                        styles.dropdownOption,
-                        index !== filteredAreaOptions.length - 1 && {
-                          borderBottomWidth: 1,
-                          borderBottomColor: colors.divider,
-                        },
-                        formData.area === option.value && {
-                          backgroundColor: colors.primary + '10',
-                        },
-                      ]}
-                      onPress={() => {
-                        onFormDataChange({ area: option.value, itemNumber: '', itemRemarks: '', lotNumber: '' });
-                        onShowAreaPickerChange(false);
-                        // Fetch items for the selected area
-                        onIsLoadingItemsChange(true);
-                        issuanceService.getItemsByArea(option.value)
-                          .then(items => {
-                            onItemOptionsChange(items);
-                            onIsLoadingItemsChange(false);
-                          })
-                          .catch(err => {
-                            console.error('Error fetching items:', err);
-                            onIsLoadingItemsChange(false);
-                          });
-                        // Fetch available lots for the selected area
-                        onIsLoadingLotsChange(true);
-                        issuanceService.getAvailableLots(option.value)
-                          .then(response => {
-                            if (response.success && response.data) {
-                              onAvailableLotsLoaded(response.data);
-                            }
-                            onIsLoadingLotsChange(false);
-                          })
-                          .catch(err => {
-                            console.error('Error fetching available lots:', err);
-                            onIsLoadingLotsChange(false);
-                          });
-                        if (errors.area) {
-                          onErrorsChange({ area: undefined });
-                        }
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name="warehouse"
-                        size={18}
-                        color={formData.area === option.label ? colors.primary : colors.textSecondary}
-                        style={styles.dropdownOptionIcon}
-                      />
-                      <Text
-                        style={[
-                          styles.dropdownOptionText,
-                          {
-                            color: formData.area === option.label ? colors.primary : colors.text,
-                            fontWeight: formData.area === option.label ? '600' : '400',
-                          },
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                      {/* </View> */}
-                      {formData.area === option.value && (
-                        <MaterialCommunityIcons
-                          name="check-circle"
-                          size={20}
-                          color={colors.primary}
-                          style={{ marginLeft: 'auto' }}
-                        />
-                      )}
-                    </Pressable>
-                  ))
-                ) : (
-                  <View style={styles.emptyDropdown}>
-                    <MaterialCommunityIcons
-                      name="magnify-close"
-                      size={32}
-                      color={colors.textTertiary}
-                    />
-                    <Text style={[styles.emptyDropdownText, { color: colors.textTertiary }]}>
-                      {areaSearchQuery ? 'No areas match your search' : 'No areas available'}
-                    </Text>
-                  </View>
-                )}
-              </ScrollView>
-            </View>
-          )}
-          {errors.area && (
-            <View style={styles.errorContainer}>
-              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.area}</Text>
-            </View>
-          )}
-        </View>
-
         {/* Item Number Dropdown */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
@@ -496,12 +316,9 @@ export function TransactionDetails({
               },
             ]}
             onPress={() => {
-              if (formData.area) {
-                onShowItemPickerChange(!showItemPicker);
-              }
+              onShowItemPickerChange(!showItemPicker);
             }}
             activeOpacity={0.7}
-            disabled={!formData.area}
           >
             <MaterialCommunityIcons
               name="package-variant"
@@ -523,20 +340,17 @@ export function TransactionDetails({
                 if (selectedItem && selectedItem.remarks && selectedItem.remarks.trim()) {
                   return `${selectedItem.label}-${selectedItem.remarks}`;
                 }
-                // Fallback: if formData has itemRemarks, show it
                 if (formData.itemRemarks && formData.itemRemarks.trim()) {
                   return `${formData.itemNumber}-${formData.itemRemarks}`;
                 }
-                return formData.itemNumber || 'Select item number';
+                return formData.itemNumber || 'Select item';
               })()}
             </Text>
-            {formData.area && (
-              <MaterialCommunityIcons
-                name={showItemPicker ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={colors.textSecondary}
-              />
-            )}
+            <MaterialCommunityIcons
+              name={showItemPicker ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.textSecondary}
+            />
           </TouchableOpacity>
 
           {showItemPicker && (
@@ -550,7 +364,6 @@ export function TransactionDetails({
                 },
               ]}
             >
-              {/* Search Input */}
               <View style={[styles.searchInputContainer, { borderBottomColor: colors.divider }]}>
                 <MaterialCommunityIcons
                   name="magnify"
@@ -577,7 +390,6 @@ export function TransactionDetails({
                 ) : null}
               </View>
 
-              {/* Scrollable Options List */}
               <ScrollView
                 style={styles.dropdownScrollView}
                 showsVerticalScrollIndicator={true}
@@ -588,8 +400,7 @@ export function TransactionDetails({
                     ? itemOptions.filter(option =>
                       option.label.toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
                       option.value.toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
-                      (option.remarks && option.remarks.toLowerCase().includes(itemSearchQuery.toLowerCase())) ||
-                      (option.lotNumber && option.lotNumber.toLowerCase().includes(itemSearchQuery.toLowerCase()))
+                      (option.remarks && option.remarks.toLowerCase().includes(itemSearchQuery.toLowerCase()))
                     )
                     : itemOptions;
 
@@ -603,27 +414,20 @@ export function TransactionDetails({
                             borderBottomWidth: 1,
                             borderBottomColor: colors.divider,
                           },
-                          // Highlight if item number matches AND (remarks matches OR both have no remarks)
                           formData.itemNumber === option.label && 
                           ((!formData.itemRemarks && !option.remarks) || formData.itemRemarks === option.remarks) && {
                             backgroundColor: colors.primary + '10',
                           },
                         ]}
                         onPress={() => {
-                          // Store the base item number (without remarks suffix), remarks, and lot number
                           const baseItemNumber = option.label;
                           onFormDataChange({ 
                             itemNumber: baseItemNumber, 
                             itemRemarks: option.remarks || '',
-                            lotNumber: option.lotNumber || '' 
+                            area: '',
+                            lotNumber: '' 
                           });
                           onShowItemPickerChange(false);
-                          // Filter lots by selected item and remarks
-                          const filteredLots = lotOptions.filter(
-                            lot => lot.itemNumber === baseItemNumber && 
-                                   (!option.remarks || lot.remarks === option.remarks)
-                          );
-                          onFilteredLotOptionsChange(filteredLots.length > 0 ? filteredLots : lotOptions);
                           if (errors.itemNumber) {
                             onErrorsChange({ itemNumber: undefined });
                           }
@@ -687,6 +491,357 @@ export function TransactionDetails({
             <View style={styles.errorContainer}>
               <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
               <Text style={[styles.errorText, { color: colors.error }]}>{errors.itemNumber}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Area Dropdown */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>Area / Location
+            <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
+          </Text>
+
+          <TouchableOpacity
+            style={[
+              styles.inputContainer,
+              styles.dropdownContainer,
+              {
+                backgroundColor: colors.background,
+                borderColor: errors.area ? colors.error : (formData.itemNumber ? colors.cardBorder : colors.textTertiary),
+                opacity: formData.itemNumber ? 1 : 0.5,
+              },
+            ]}
+            onPress={() => formData.itemNumber && onShowAreaPickerChange(!showAreaPicker)}
+            activeOpacity={0.7}
+            disabled={!formData.itemNumber}
+          >
+            <MaterialCommunityIcons
+              name="map-marker"
+              size={20}
+              color={colors.textTertiary}
+              style={styles.inputIcon}
+            />
+            <Text
+              style={[
+                styles.dropdownText,
+                { color: formData.area ? colors.text : colors.textTertiary },
+              ]}
+            >
+              {formData.itemNumber ? (selectedAreaLabel || 'Select warehouse area') : 'Select item first'}
+            </Text>
+            <MaterialCommunityIcons
+              name={formData.itemNumber ? (showAreaPicker ? 'chevron-up' : 'chevron-down') : 'lock'}
+              size={20}
+              color={formData.itemNumber ? colors.textSecondary : colors.textTertiary}
+            />
+          </TouchableOpacity>
+
+          {showAreaPicker && (
+            <View
+              style={[
+                styles.dropdown,
+                {
+                  backgroundColor: colors.cardBackground,
+                  borderColor: colors.cardBorder,
+                  shadowColor: colors.shadowColor,
+                },
+              ]}
+            >
+              {/* Search Input */}
+              <View style={[styles.searchInputContainer, { borderBottomColor: colors.divider }]}>
+                <MaterialCommunityIcons
+                  name="magnify"
+                  size={20}
+                  color={colors.textTertiary}
+                />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder="Search area..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={areaSearchQuery}
+                  onChangeText={onAreaSearchQueryChange}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {areaSearchQuery ? (
+                  <Pressable onPress={() => onAreaSearchQueryChange('')}>
+                    <MaterialCommunityIcons
+                      name="close-circle"
+                      size={18}
+                      color={colors.textTertiary}
+                    />
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {/* Scrollable Options List */}
+              <ScrollView
+                style={styles.dropdownScrollView}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+              >
+                {filteredAreaOptions.length > 0 ? (
+                  filteredAreaOptions.map((option, index) => (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.dropdownOption,
+                        index !== filteredAreaOptions.length - 1 && {
+                          borderBottomWidth: 1,
+                          borderBottomColor: colors.divider,
+                        },
+                        formData.area === option.value && {
+                          backgroundColor: colors.primary + '10',
+                        },
+                      ]}
+onPress={() => {
+                        onFormDataChange({ area: option.value, lotNumber: '' });
+                        onShowAreaPickerChange(false);
+                        // Fetch lots for the selected area and item (full details for allocation)
+                        onIsLoadingLotsChange(true);
+                        issuanceService.getLotsByAreaAndItem(option.value, formData.itemNumber, formData.itemRemarks || undefined)
+                          .then(response => {
+                            if (response.success && response.data) {
+                              onAvailableLotsLoaded(response.data);
+                              const lotsForPicker = response.data.map((lot: any) => ({
+                                label: lot.LOTNUMBER,
+                                value: lot.LOTNUMBER,
+                                itemNumber: lot.ITEMNMBR,
+                                remarks: lot.REMARKS
+                              }));
+                              onLotOptionsChange(lotsForPicker);
+                              onFilteredLotOptionsChange(lotsForPicker);
+                            }
+                            onIsLoadingLotsChange(false);
+                          })
+                          .catch(err => {
+                            console.error('Error fetching available lots:', err);
+                            onIsLoadingLotsChange(false);
+                          });
+                        if (errors.area) {
+                           onErrorsChange({ area: undefined });
+                       }
+                       }}
+                     >
+                       <MaterialCommunityIcons
+                         name="warehouse"
+                         size={18}
+                        color={formData.area === option.label ? colors.primary : colors.textSecondary}
+                        style={styles.dropdownOptionIcon}
+                      />
+                      <Text
+                        style={[
+                          styles.dropdownOptionText,
+                          {
+                            color: formData.area === option.label ? colors.primary : colors.text,
+                            fontWeight: formData.area === option.label ? '600' : '400',
+                          },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {/* </View> */}
+                      {formData.area === option.value && (
+                        <MaterialCommunityIcons
+                          name="check-circle"
+                          size={20}
+                          color={colors.primary}
+                          style={{ marginLeft: 'auto' }}
+                        />
+                      )}
+                    </Pressable>
+                  ))
+                ) : (
+                  <View style={styles.emptyDropdown}>
+                    <MaterialCommunityIcons
+                      name="magnify-close"
+                      size={32}
+                      color={colors.textTertiary}
+                    />
+                    <Text style={[styles.emptyDropdownText, { color: colors.textTertiary }]}>
+                      {areaSearchQuery ? 'No areas match your search' : 'No areas available'}
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          )}
+          {errors.area && (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>{errors.area}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Lot Number Dropdown */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Lot Number
+            <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
+          </Text>
+
+          <TouchableOpacity
+            style={[
+              styles.inputContainer,
+              styles.dropdownContainer,
+              {
+                backgroundColor: colors.background,
+                borderColor: errors.lotNumber ? colors.error : colors.cardBorder,
+              },
+            ]}
+            onPress={() => {
+              if (formData.area && formData.itemNumber) {
+                onShowLotPickerChange(!showLotPicker);
+              }
+            }}
+            activeOpacity={0.7}
+            disabled={!formData.area || !formData.itemNumber}
+          >
+            <MaterialCommunityIcons
+              name="barcode"
+              size={20}
+              color={colors.textTertiary}
+              style={styles.inputIcon}
+            />
+            <Text
+              style={[
+                styles.dropdownText,
+                { color: formData.lotNumber ? colors.text : colors.textTertiary },
+              ]}
+            >
+              {formData.lotNumber || 'Select lot number'}
+            </Text>
+            {formData.area && formData.itemNumber && (
+              <MaterialCommunityIcons
+                name={showLotPicker ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={colors.textSecondary}
+              />
+            )}
+          </TouchableOpacity>
+
+          {showLotPicker && (
+            <View
+              style={[
+                styles.dropdown,
+                {
+                  backgroundColor: colors.cardBackground,
+                  borderColor: colors.cardBorder,
+                  shadowColor: colors.shadowColor,
+                },
+              ]}
+            >
+              {/* Search Input */}
+              <View style={[styles.searchInputContainer, { borderBottomColor: colors.divider }]}>
+                <MaterialCommunityIcons
+                  name="magnify"
+                  size={20}
+                  color={colors.textTertiary}
+                />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder="Search lot..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={lotSearchQuery}
+                  onChangeText={onLotSearchQueryChange}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {lotSearchQuery ? (
+                  <Pressable onPress={() => onLotSearchQueryChange('')}>
+                    <MaterialCommunityIcons
+                      name="close-circle"
+                      size={18}
+                      color={colors.textTertiary}
+                    />
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {/* Scrollable Options List */}
+              <ScrollView
+                style={styles.dropdownScrollView}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+              >
+                {(() => {
+                  const filteredLots = lotSearchQuery
+                    ? filteredLotOptions.filter(option =>
+                        option.label.toLowerCase().includes(lotSearchQuery.toLowerCase()) ||
+                        option.value.toLowerCase().includes(lotSearchQuery.toLowerCase())
+                      )
+                    : filteredLotOptions;
+
+                  return filteredLots.length > 0 ? (
+                    filteredLots.map((option, index) => (
+                      <Pressable
+                        key={option.value}
+                        style={[
+                          styles.dropdownOption,
+                          index !== filteredLots.length - 1 && {
+                            borderBottomWidth: 1,
+                            borderBottomColor: colors.divider,
+                          },
+                          formData.lotNumber === option.value && {
+                            backgroundColor: colors.primary + '10',
+                          },
+                        ]}
+                        onPress={() => {
+                          onFormDataChange({ lotNumber: option.value });
+                          onShowLotPickerChange(false);
+                          if (errors.lotNumber) {
+                            onErrorsChange({ lotNumber: undefined });
+                          }
+                        }}
+                      >
+                        <MaterialCommunityIcons
+                          name="barcode"
+                          size={18}
+                          color={formData.lotNumber === option.value ? colors.primary : colors.textSecondary}
+                          style={styles.dropdownOptionIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.dropdownOptionText,
+                            {
+                              color: formData.lotNumber === option.value ? colors.primary : colors.text,
+                              fontWeight: formData.lotNumber === option.value ? '600' : '400',
+                            },
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                        {formData.lotNumber === option.value && (
+                          <MaterialCommunityIcons
+                            name="check-circle"
+                            size={20}
+                            color={colors.primary}
+                            style={{ marginLeft: 'auto' }}
+                          />
+                        )}
+                      </Pressable>
+                    ))
+                  ) : (
+                    <View style={styles.emptyDropdown}>
+                      <MaterialCommunityIcons
+                        name="barcode-scan"
+                        size={32}
+                        color={colors.textTertiary}
+                      />
+                      <Text style={[styles.emptyDropdownText, { color: colors.textTertiary }]}>
+                        {lotSearchQuery ? 'No lots match your search' : 'No lots available for selected item'}
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </ScrollView>
+            </View>
+          )}
+          {errors.lotNumber && (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>{errors.lotNumber}</Text>
             </View>
           )}
         </View>
@@ -814,6 +969,39 @@ export function TransactionDetails({
           </View>
         </View>
 
+        {/* Quick Summary - 3 Columns: Bags, Allocated Weight, Avg Weight */}
+        {formData.numberOfBags && (
+          <View style={[styles.quickSummaryGrid, { backgroundColor: 'orange' + '10', borderColor: 'orange' }]}>
+            <View style={styles.quickSummaryCol}>
+              <MaterialCommunityIcons
+                name="scale-bathroom"
+                size={30}
+                color={'orange'}
+              />
+              <Text style={[styles.quickSummaryLabel, { color: 'orange' }]}>RM TO ISSUE</Text>
+              <Text style={[styles.quickSummaryValue, { color: 'orange' }]}>
+                {(() => {
+                  const allocatedItems = allocationResults.filter((item: any) => item.KGS !== null);
+                  const totalAllocatedKgs = allocatedItems.reduce((sum: number, item: any) => sum + (item.KGS || 0), 0);
+                  return totalAllocatedKgs > 0 ? totalAllocatedKgs.toFixed(2) : '-';
+                })()}
+              </Text>
+            </View>
+            <View style={styles.quickSummaryCol}>
+              <MaterialCommunityIcons
+                name="package-variant"
+                size={30}
+                color={'orange'}
+              />
+              <Text style={[styles.quickSummaryLabel, { color: 'orange' }]}>PREP TO RECEIVE</Text>
+              <Text style={[styles.quickSummaryValue, { color: 'orange' }]}>
+                {(formData.weightInKg || 0) - (formData.palletWeight || 0)}
+              </Text>
+            </View>
+            
+          </View>
+        )}
+
         {/* Forklift Operator */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
@@ -884,31 +1072,11 @@ export function TransactionDetails({
           </View>
         )}
 
-        {/* Quick Summary */}
-        {formData.numberOfBags && formData.weightInKg && (
-          <View style={[styles.summaryBox, { backgroundColor: colors.primary + '08', borderColor: colors.primary + '20' }]}>
-            <MaterialCommunityIcons
-              name="calculator"
-              size={18}
-              color={colors.primary}
-            />
-            <Text style={[styles.summaryText, { color: colors.text }]}>
-              Average weight per bag:{' '}
-              <Text style={[styles.summaryValue, { color: colors.primary }]}>
-                {(formData.weightInKg / (formData.numberOfBags || 1)).toFixed(2)} kg
-              </Text>
-            </Text>
-          </View>
-        )}
-
         {/* Allocation Results */}
         <View style={[styles.allocationResults, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-          <Text style={[styles.allocationTitle, { color: colors.text }]}>
-            {isViewingAvailableLots ? 'Available Lots' : 'Bag Allocation Results'}
-          </Text>
 
           {/* Summary */}
-          <View style={[styles.allocationSummary, { backgroundColor: colors.primary + '08' }]}>
+          {/* <View style={[styles.allocationSummary, { backgroundColor: colors.primary + '08' }]}>
             {(() => {
               const allocatedItems = allocationResults.filter(item => item.BAGS !== null);
               const totalBags = allocatedItems.reduce((sum: number, item) => sum + (item.BAGS || 0), 0);
@@ -960,7 +1128,7 @@ export function TransactionDetails({
                 </>
               );
             })()}
-          </View>
+          </View> */}
 
           {/* Allocation Table */}
           {(paginatedResults.length > 0 || allocationResults.length > 0) && (
@@ -1199,6 +1367,49 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 18,
   },
+  avgWeightBox: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 2,
+    marginTop: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  avgWeightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  avgWeightLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  avgWeightValue: {
+    fontSize: 42,
+    fontWeight: '800',
+  },
+  quickSummaryGrid: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 2,
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  quickSummaryCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  quickSummaryLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  quickSummaryValue: {
+    fontSize: 30,
+    fontWeight: '800',
+  },
   calculateButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1354,5 +1565,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+
+  red: {
+    color: '#D32F2F',
+  }
 });
 

@@ -336,6 +336,122 @@ exports.getAreas = async (req, res) => {
 };
 
 /**
+ * Get list of all item numbers (without area filter)
+ */
+exports.getAllItems = async (req, res) => {
+  try {
+    const dbName = process.env.DB_SFC || 'SFC';
+    const pool = await getPool(dbName);
+
+    const query = `
+      SELECT DISTINCT D.ITEMNMBR, ISNULL(D.REMARKS, '') AS REMARKS, MIN(D.LOTNUMBER) AS LOTNUMBER
+      FROM [INVENTORY.QUANTITYMASTER3.HEADER] H 
+      INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] D 
+          ON H.QM_IDNUMBER = D.QM_IDNUMBER
+      WHERE H.LOCNCODE = 'PAWHRM' 
+        AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0
+      GROUP BY D.ITEMNMBR, D.REMARKS
+      ORDER BY D.ITEMNMBR
+    `;
+
+    const result = await pool.request().query(query);
+
+    const items = result.recordset
+      .map(row => ({
+        label: row.ITEMNMBR.trim(),
+        value: row.REMARKS && row.REMARKS.trim()
+          ? `${row.ITEMNMBR.trim()}-${row.REMARKS.trim()}`
+          : row.ITEMNMBR.trim(),
+        remarks: row.REMARKS && row.REMARKS.trim() ? row.REMARKS.trim() : undefined,
+        lotNumber: row.LOTNUMBER ? row.LOTNUMBER.trim() : undefined
+      }))
+      .filter((item, index, self) =>
+        index === self.findIndex(t => t.value === item.value)
+      );
+
+    res.json({
+      success: true,
+      data: items
+    });
+
+  } catch (error) {
+    console.error('Error fetching all items:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch items',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get list of areas by item number
+ */
+exports.getAreasByItem = async (req, res) => {
+  try {
+    const { itemNumber } = req.params;
+    const { itemRemarks } = req.query;
+
+    if (!itemNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Item number is required'
+      });
+    }
+
+    const dbName = process.env.DB_SFC || 'SFC';
+    const pool = await getPool(dbName);
+
+    let query = `
+      SELECT DISTINCT D.AREA
+      FROM [INVENTORY.QUANTITYMASTER3.HEADER] H 
+      INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] D 
+          ON H.QM_IDNUMBER = D.QM_IDNUMBER
+      WHERE H.LOCNCODE = 'PAWHRM' 
+        AND D.ITEMNMBR = @itemNumber
+        AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0
+    `;
+
+    if (itemRemarks && itemRemarks.trim() !== '') {
+      query += ` AND D.REMARKS = @itemRemarks`;
+    } else {
+      query += ` AND (D.REMARKS IS NULL OR D.REMARKS = '')`;
+    }
+
+    query += ` ORDER BY D.AREA`;
+
+    const request = pool.request()
+      .input('itemNumber', itemNumber);
+    
+    if (itemRemarks) {
+      request.input('itemRemarks', itemRemarks);
+    }
+
+    const result = await request.query(query);
+
+    const areas = result.recordset
+      .filter(row => row.AREA)
+      .map(row => ({
+        label: row.AREA.trim(),
+        value: row.AREA.trim()
+      }));
+
+    res.json({
+      success: true,
+      data: areas
+    });
+
+  } catch (error) {
+    console.error('Error fetching areas by item:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch areas',
+      error: error.message
+    });
+  }
+};
+
+/**
  * Get list of item numbers by area
  */
 exports.getItemsByArea = async (req, res) => {
@@ -465,8 +581,100 @@ exports.getLotsByArea = async (req, res) => {
       data: lots
     });
 
+} catch (error) {
+    console.error('Error fetching available lots:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch available lots',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get lots for area and item (full details for allocation table)
+ */
+exports.getLotsByAreaAndItem = async (req, res) => {
+  try {
+    const { area } = req.params;
+    const { itemNumber, itemRemarks } = req.query;
+
+    if (!area) {
+      return res.status(400).json({
+        success: false,
+        message: 'Area is required'
+      });
+    }
+
+    if (!itemNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Item number is required'
+      });
+    }
+
+    const dbName = process.env.DB_SFC || 'SFC';
+    const pool = await getPool(dbName);
+
+    let query = `
+      SELECT 
+        D.AREA, 
+        D.LOTNUMBER, 
+        D.ITEMNMBR, 
+        D.UOFM, 
+        D.REMARKS, 
+        D.QM_IDNUMBER,
+        CAST(QUANTITY_RECV / BAGS_RECV AS DECIMAL(18,8)) AS AVEWT,
+        (BAGS_RECV + BAGS_RET) 
+        - (BAGS_ALLOC + BAGS_ISS + BAGS_SAL + BAGS_ADJ) AS [AVAILABLE BAGS],
+        (QUANTITY_RECV - QUANTITY_ALLOC - QUANTITY_ISS 
+         + QUANTITY_RET - QUANTITY_SAL - QUANTITY_ADJ) AS [AVAILABLE KGS],
+        DATETRANS, 
+        H.REFERENCENO, 
+        D.LINENUMBER
+      FROM [INVENTORY.QUANTITYMASTER3.HEADER] H 
+      INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] D 
+          ON H.QM_IDNUMBER = D.QM_IDNUMBER
+      WHERE H.LOCNCODE = 'PAWHRM' 
+        AND D.AREA = @area
+        AND D.ITEMNMBR = @itemNumber
+        AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0
+    `;
+
+    if (itemRemarks && itemRemarks.trim() !== '') {
+      query += ` AND D.REMARKS = @itemRemarks`;
+    } else {
+      query += ` AND (D.REMARKS IS NULL OR D.REMARKS = '')`;
+    }
+
+    query += ` ORDER BY DATETRANS, REFERENCENO, LINENUMBER`;
+
+    const request = pool.request()
+      .input('area', area)
+      .input('itemNumber', itemNumber);
+    
+    if (itemRemarks) {
+      request.input('itemRemarks', itemRemarks);
+    }
+
+    const result = await request.query(query);
+
+    const data = result.recordset.map(row => ({
+      ...row,
+      BAGS: null,
+      KGS: null,
+      TAG: 'FALSE'
+    }));
+
+    res.json({
+      success: true,
+      data: data,
+      totalAvailableBags: data.reduce((sum, item) => sum + item['AVAILABLE BAGS'], 0),
+      totalAvailableKgs: data.reduce((sum, item) => sum + item['AVAILABLE KGS'], 0)
+    });
+
   } catch (error) {
-    console.error('Error fetching lots by area:', error);
+    console.error('Error fetching lots by area and item:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch lots',
@@ -476,7 +684,7 @@ exports.getLotsByArea = async (req, res) => {
 };
 
 /**
- * Get next issuance reference number
+ * Get all transaction reference number
  */
 exports.getNextIssuanceReference = async (req, res) => {
   try {

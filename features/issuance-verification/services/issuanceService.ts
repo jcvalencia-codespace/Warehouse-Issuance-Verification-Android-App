@@ -98,6 +98,55 @@ export class IssuanceService {
   }
 
   /**
+   * Get list of all item numbers (without area filter)
+   */
+  async getAllItems(): Promise<AreaOption[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+
+      const response = await axios.get(`${this.baseUrl}/issuance/items`);
+      
+      if (response.data.success) {
+        return response.data.data as AreaOption[];
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error fetching all items:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get list of areas by item number
+   */
+  async getAreasByItem(itemNumber: string, itemRemarks?: string): Promise<AreaOption[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+
+      let url = `${this.baseUrl}/issuance/items/${encodeURIComponent(itemNumber)}/areas`;
+      if (itemRemarks) {
+        url += `?itemRemarks=${encodeURIComponent(itemRemarks)}`;
+      }
+
+      const response = await axios.get(url);
+      
+      if (response.data.success) {
+        return response.data.data as AreaOption[];
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error fetching areas by item:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get list of item numbers by area
    */
   async getItemsByArea(area: string): Promise<AreaOption[]> {
@@ -167,6 +216,29 @@ export class IssuanceService {
       return response.data;
     } catch (error) {
       console.error('Error fetching available lots:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get lots for area and item (full details for allocation table)
+   */
+  async getLotsByAreaAndItem(area: string, itemNumber: string, itemRemarks?: string): Promise<any> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+
+      let url = `${this.baseUrl}/issuance/areas/${encodeURIComponent(area)}/lots-by-item?itemNumber=${encodeURIComponent(itemNumber)}`;
+      if (itemRemarks) {
+        url += `&itemRemarks=${encodeURIComponent(itemRemarks)}`;
+      }
+
+      const response = await axios.get(url);
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching lots by area and item:', error);
       throw error;
     }
   }

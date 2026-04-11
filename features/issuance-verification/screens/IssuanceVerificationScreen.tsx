@@ -135,21 +135,45 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     };
   }, [formData.numberOfBags, formData.area, formData.itemNumber, itemOptions, isAllocating, isViewingAvailableLots]);
 
-  // Fetch areas on mount
+  // Fetch all items on mount (for new flow: item first, then area)
   useEffect(() => {
-    const fetchAreas = async () => {
+    const fetchAllItems = async () => {
       try {
-        const areas = await issuanceService.getAreas();
-        if (areas && areas.length > 0) {
-          setAreaOptions(areas);
+        const items = await issuanceService.getAllItems();
+        if (items && items.length > 0) {
+          setItemOptions(items);
         }
       } catch (error) {
-        console.error('Error fetching areas:', error);
-        // Fallback to default options on error
+        console.error('Error fetching all items:', error);
       }
     };
-    fetchAreas();
+    fetchAllItems();
   }, []);
+
+  // Fetch areas when item is selected
+  useEffect(() => {
+    if (formData.itemNumber) {
+      const fetchAreasByItem = async () => {
+        try {
+          const areas = await issuanceService.getAreasByItem(
+            formData.itemNumber, 
+            formData.itemRemarks || undefined
+          );
+          if (areas && areas.length > 0) {
+            setAreaOptions(areas);
+          } else {
+            setAreaOptions([]);
+          }
+        } catch (error) {
+          console.error('Error fetching areas by item:', error);
+          setAreaOptions([]);
+        }
+      };
+      fetchAreasByItem();
+    } else {
+      setAreaOptions([]);
+    }
+  }, [formData.itemNumber, formData.itemRemarks]);
 
   // Fetch transaction reference number on mount
   useEffect(() => {
@@ -180,6 +204,35 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     };
     fetchIssuanceRefNumber();
   }, []);
+
+  // Fetch lots when item or area changes
+  useEffect(() => {
+    if (formData.itemNumber && formData.area) {
+      const fetchLots = async () => {
+        try {
+          const response = await issuanceService.getLotsByAreaAndItem(
+            formData.area, 
+            formData.itemNumber, 
+            formData.itemRemarks || undefined
+          );
+          if (response.success && response.data) {
+            setAllocationResults(response.data);
+            const lotsForPicker = response.data.map((lot: any) => ({
+              label: lot.LOTNUMBER,
+              value: lot.LOTNUMBER,
+              itemNumber: lot.ITEMNMBR,
+              remarks: lot.REMARKS
+            }));
+            setLotOptions(lotsForPicker);
+            setFilteredLotOptions(lotsForPicker);
+          }
+        } catch (error) {
+          console.error('Error fetching lots:', error);
+        }
+      };
+      fetchLots();
+    }
+  }, [formData.itemNumber, formData.itemRemarks, formData.area]);
 
   // Handle item selection from allocation table
   const handleItemSelect = useCallback((itemNumber: string, itemRemarks?: string) => {
@@ -272,6 +325,11 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     if (!formData.itemNumber || formData.itemNumber.trim() === '') {
       newErrors.itemNumber = 'Item number is required';
     }
+
+    if (!formData.lotNumber || formData.lotNumber.trim() === '') {
+      newErrors.lotNumber = 'Please select a lot number';
+    }
+
     if (!formData.floorScale || formData.floorScale.trim() === '') {
       newErrors.floorScale = 'Floor scale is required';
     }
@@ -345,7 +403,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
         formData.numberOfBags, 
         area, 
         itemNumber,
-        undefined,
+        formData.lotNumber || undefined,
         formData.itemRemarks
       );
 

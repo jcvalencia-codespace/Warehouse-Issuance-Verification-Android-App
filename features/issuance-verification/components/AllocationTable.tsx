@@ -99,8 +99,6 @@ export function AllocationTable({
             <Text style={[styles.tableHeaderText, { color: colors.primary }]}>Area</Text>
             <Text style={[styles.tableHeaderText, { color: colors.primary }]}>Avail Bags</Text>
             <Text style={[styles.tableHeaderText, { color: colors.primary }]}>Avail KGS</Text>
-            <Text style={[styles.tableHeaderText, { color: colors.primary }]}>To Take</Text>
-            <Text style={[styles.tableHeaderText, { color: colors.primary }]}>KGS</Text>
             <Text style={[styles.tableHeaderText, { color: colors.primary }]}>Tag</Text>
           </View>
 
@@ -128,12 +126,6 @@ export function AllocationTable({
               <Text style={[styles.tableCell, { color: colors.text }]}>{String(item.AREA || '-').trim()}</Text>
               <Text style={[styles.tableCell, { color: colors.text }]}>{item['AVAILABLE BAGS']}</Text>
               <Text style={[styles.tableCell, { color: colors.text }]}>{Number(item['AVAILABLE KGS']).toFixed(2)}</Text>
-              <Text style={[styles.tableCell, { color: item.BAGS ? colors.success : colors.textTertiary, fontWeight: item.BAGS ? '600' as const : '400' as const }]}>
-                {item.BAGS ?? '-'}
-              </Text>
-              <Text style={[styles.tableCell, { color: item.KGS ? colors.success : colors.textTertiary, fontWeight: item.KGS ? '600' as const : '400' as const }]}>
-                {item.KGS ? Number(item.KGS).toFixed(2) : '-'}
-              </Text>
               <Text style={[styles.tableCell, { color: item.TAG === 'TRUE' ? colors.success : colors.error, fontWeight: '600' as const }]}>
                 {item.TAG === 'TRUE' ? '✓' : '✗'}
               </Text>
@@ -183,20 +175,6 @@ export function AllocationTable({
                 <View style={styles.cardRow}>
                   <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Available</Text>
                   <Text style={[styles.cardValue, { color: colors.text }]}>{item['AVAILABLE BAGS']} bags ({Number(item['AVAILABLE KGS']).toFixed(2)} kg)</Text>
-                </View>
-                
-                <View style={styles.cardRow}>
-                  <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>To Take</Text>
-                  <Text style={[styles.cardValue, { color: item.BAGS ? colors.success : colors.textTertiary, fontWeight: item.BAGS ? '600' as const : '400' as const }]}>
-                    {item.BAGS ? `${item.BAGS} bags` : '-'}
-                  </Text>
-                </View>
-                
-                <View style={styles.cardRow}>
-                  <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Weight</Text>
-                  <Text style={[styles.cardValue, { color: item.KGS ? colors.success : colors.textTertiary, fontWeight: item.KGS ? '600' as const : '400' as const }]}>
-                    {item.KGS ? `${Number(item.KGS).toFixed(2)} kg` : '-'}
-                  </Text>
                 </View>
               </View>
             </View>
