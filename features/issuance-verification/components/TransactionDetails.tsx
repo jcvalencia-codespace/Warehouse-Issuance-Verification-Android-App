@@ -335,7 +335,7 @@ export function TransactionDetails({
               {(() => {
                 const selectedItem = itemOptions.find(opt => 
                   opt.label === formData.itemNumber && 
-                  (!formData.itemRemarks || opt.remarks === formData.itemRemarks)
+                  (formData.itemRemarks === '' ? !opt.remarks : opt.remarks === formData.itemRemarks)
                 );
                 if (selectedItem && selectedItem.remarks && selectedItem.remarks.trim()) {
                   return `${selectedItem.label}-${selectedItem.remarks}`;
