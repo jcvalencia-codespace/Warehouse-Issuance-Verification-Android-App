@@ -50,6 +50,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   const [formData, setFormData] = useState<IssuanceVerificationFormData>({
     issuanceRefNumber: '',
     transactionRefNumber: '',
+    date: new Date().toISOString().split('T')[0],
     area: '',
     itemNumber: '',
     itemRemarks: '',
@@ -83,6 +84,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   const [isLoadingLots, setIsLoadingLots] = useState(false);
   const [showItemPicker, setShowItemPicker] = useState(false);
   const [showLotPicker, setShowLotPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [areaSearchQuery, setAreaSearchQuery] = useState('');
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [lotSearchQuery, setLotSearchQuery] = useState('');
@@ -213,7 +215,8 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
           const response = await issuanceService.getLotsByAreaAndItem(
             formData.area, 
             formData.itemNumber, 
-            formData.itemRemarks || undefined
+            formData.itemRemarks || undefined,
+            formData.date
           );
           if (response.success && response.data) {
             setAllocationResults(response.data);
@@ -404,7 +407,8 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
         area, 
         itemNumber,
         formData.lotNumber || undefined,
-        formData.itemRemarks
+        formData.itemRemarks,
+        formData.date
       );
 
       if (response.success && response.data) {
@@ -476,6 +480,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
                 forkliftOperator: formData.forkliftOperator || '',
                 floorScale: formData.floorScale || '',
                 transType: formData.transType || '',
+                date: formData.date || '',
               });
 
               if (response.success) {
@@ -494,6 +499,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
                   forkliftOperator: '',
                   floorScale: '',
                   transType: '',
+                  date: new Date().toISOString().split('T')[0],
                 });
                 setWeightInputRaw('');
                 setPalletWeightInputRaw('');
@@ -571,6 +577,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       forkliftOperator: '',
       floorScale: '',
       transType: '',
+      date: new Date().toISOString().split('T')[0],
     });
     setWeightInputRaw('');
     setPalletWeightInputRaw('');
@@ -724,6 +731,8 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
               showAreaPicker={showAreaPicker}
               showItemPicker={showItemPicker}
               showLotPicker={showLotPicker}
+              showDatePicker={showDatePicker}
+              onShowDatePickerChange={setShowDatePicker}
               isLoadingItems={isLoadingItems}
               isLoadingLots={isLoadingLots}
               areaSearchQuery={areaSearchQuery}
@@ -760,6 +769,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
               selectedItemNumber={formData.itemNumber}
               onItemSelect={handleItemSelect}
               showItemColumn={showItemColumn}
+              onDateChange={(date) => setFormData((prev) => ({ ...prev, date }))}
               // Quantity props
               isAllocating={isAllocating}
               allocationResults={allocationResults}

@@ -94,6 +94,7 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
     if (searchQuery) {
       filtered = filtered.filter(
         (transaction) =>
+          transaction.FROMTRANSNO.toLowerCase().includes(searchQuery.toLowerCase()) ||
           transaction.TRANSREFNO.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (transaction.ITEMNMBR || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           // Format date for search comparison (e.g., "Sep 2 2026" or "Sep 2")

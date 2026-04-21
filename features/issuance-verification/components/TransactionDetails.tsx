@@ -5,7 +5,8 @@
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+// Custom date picker implementation to avoid native module issues
 import { issuanceService } from '../services/issuanceService';
 import { AreaOption, FormErrors, IssuanceVerificationFormData } from '../types/issuance.types';
 import { AllocationTable } from './AllocationTable';
@@ -23,6 +24,7 @@ interface TransactionDetailsProps {
   showAreaPicker: boolean;
   showItemPicker: boolean;
   showLotPicker: boolean;
+  showDatePicker: boolean;
   isLoadingItems: boolean;
   isLoadingLots: boolean;
   areaSearchQuery: string;
@@ -33,6 +35,7 @@ interface TransactionDetailsProps {
   onShowAreaPickerChange: (show: boolean) => void;
   onShowItemPickerChange: (show: boolean) => void;
   onShowLotPickerChange: (show: boolean) => void;
+  onShowDatePickerChange: (show: boolean) => void;
   onAreaSearchQueryChange: (query: string) => void;
   onItemSearchQueryChange: (query: string) => void;
   onLotSearchQueryChange: (query: string) => void;
@@ -45,6 +48,7 @@ interface TransactionDetailsProps {
   selectedItemNumber?: string;
   onItemSelect?: (itemNumber: string, itemRemarks?: string) => void;
   showItemColumn?: boolean;
+  onDateChange?: (date: string) => void;
   // Quantity props
   isAllocating: boolean;
   allocationResults: any[];
@@ -63,6 +67,12 @@ interface TransactionDetailsProps {
   onScanForkliftOperator?: () => void;
 }
 
+const parseLocalDate = (dateStr: string | null | undefined): Date => {
+  if (!dateStr) return new Date();
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
 export function TransactionDetails({
   colors,
   isTablet,
@@ -76,6 +86,7 @@ export function TransactionDetails({
   showAreaPicker,
   showItemPicker,
   showLotPicker,
+  showDatePicker,
   isLoadingItems,
   isLoadingLots,
   areaSearchQuery,
@@ -86,6 +97,7 @@ export function TransactionDetails({
   onShowAreaPickerChange,
   onShowItemPickerChange,
   onShowLotPickerChange,
+  onShowDatePickerChange,
   onAreaSearchQueryChange,
   onItemSearchQueryChange,
   onLotSearchQueryChange,
@@ -98,6 +110,7 @@ export function TransactionDetails({
   selectedItemNumber,
   onItemSelect,
   showItemColumn = true,
+  onDateChange,
   // Quantity props
   isAllocating,
   allocationResults,
@@ -115,6 +128,9 @@ export function TransactionDetails({
   scrollToField,
   onScanForkliftOperator,
 }: TransactionDetailsProps) {
+  const [tempDate, setTempDate] = React.useState<string | null>(null);
+  const formatLocalDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
   return (
     <>
       {/* Transaction Details Card */}
@@ -298,6 +314,77 @@ export function TransactionDetails({
             </View>
           )}
         </View>
+
+        {/* Date Picker */}
+        {onDateChange && (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>
+              Date
+              <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.inputContainer,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.cardBorder,
+                },
+              ]}
+              onPress={() => {
+                setTempDate(formData.date || formatLocalDate(new Date()));
+                onShowDatePickerChange(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="calendar"
+                size={20}
+                color={colors.textTertiary}
+                style={styles.inputIcon}
+              />
+              <Text style={[styles.input, { color: showDatePicker ? colors.primary : colors.text }]}>
+                {showDatePicker ? tempDate : (formData.date || formatLocalDate(new Date()))}
+              </Text>
+              <MaterialCommunityIcons
+                name={showDatePicker ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Custom Date Picker Modal */}
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setTempDate(null);
+            onShowDatePickerChange(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.datePickerContainer, { backgroundColor: colors.cardBackground }]}>
+              <CustomDatePicker
+                initialDate={parseLocalDate(formData.date)}
+                onDateSelect={(date) => {
+                  const selectedDate = formatLocalDate(date);
+                  onDateChange && onDateChange(selectedDate);
+                  setTempDate(null);
+                  onShowDatePickerChange(false);
+                }}
+                onCancel={() => {
+                  setTempDate(null);
+                  onShowDatePickerChange(false);
+                }}
+                onDateChange={(date) => setTempDate(formatLocalDate(date))}
+                colors={colors}
+                maximumDate={new Date()}
+              />
+            </View>
+          </View>
+        </Modal>
 
         {/* Item Number Dropdown */}
         <View style={styles.inputGroup}>
@@ -599,7 +686,7 @@ onPress={() => {
                         onShowAreaPickerChange(false);
                         // Fetch lots for the selected area and item (full details for allocation)
                         onIsLoadingLotsChange(true);
-                        issuanceService.getLotsByAreaAndItem(option.value, formData.itemNumber, formData.itemRemarks || undefined)
+                        issuanceService.getLotsByAreaAndItem(option.value, formData.itemNumber, formData.itemRemarks || undefined, formData.date)
                           .then(response => {
                             if (response.success && response.data) {
                               onAvailableLotsLoaded(response.data);
@@ -1186,6 +1273,264 @@ onPress={() => {
   );
 }
 
+// Custom Date Picker Component
+interface CustomDatePickerProps {
+  initialDate: Date;
+  onDateSelect: (date: Date) => void;
+  onCancel: () => void;
+  colors: any;
+  maximumDate?: Date;
+  onDateChange?: (date: Date) => void;
+}
+
+function CustomDatePicker({ initialDate, onDateSelect, onCancel, colors, maximumDate, onDateChange }: CustomDatePickerProps) {
+  const [selectedDate, setSelectedDate] = React.useState(initialDate);
+  const [dateError, setDateError] = React.useState<string | null>(null);
+  const monthScrollRef = React.useRef<ScrollView>(null);
+  const dayScrollRef = React.useRef<ScrollView>(null);
+
+  const currentYear = selectedDate.getFullYear();
+  const currentMonth = selectedDate.getMonth();
+  const currentDay = selectedDate.getDate();
+
+  // Generate arrays (must be defined before state initialization)
+  const years = [currentYear];
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  // Track which item is currently in the selection window for each picker
+  const [selectedMonthIndex, setSelectedMonthIndex] = React.useState(initialDate.getMonth());
+  const [selectedDayIndex, setSelectedDayIndex] = React.useState(initialDate.getDate() - 1);
+
+  // Auto-scroll to selected items when component mounts
+  React.useEffect(() => {
+    // Scroll to selected month
+    if (monthScrollRef.current) {
+      const scrollY = selectedMonthIndex * 54;
+      monthScrollRef.current.scrollTo({ y: scrollY, animated: false });
+    }
+
+    // Scroll to selected day
+    if (dayScrollRef.current) {
+      const scrollY = selectedDayIndex * 54;
+      dayScrollRef.current.scrollTo({ y: scrollY, animated: false });
+    }
+  }, []); // Only run on mount
+
+  // Update selected day index when month/year changes (affects available days)
+  React.useEffect(() => {
+    const maxDayIndex = days.length - 1;
+    const clampedDayIndex = Math.min(selectedDayIndex, maxDayIndex);
+    if (clampedDayIndex !== selectedDayIndex) {
+      setSelectedDayIndex(clampedDayIndex);
+      const newDate = new Date(selectedDate);
+      newDate.setDate(days[clampedDayIndex]);
+      setSelectedDate(newDate);
+      onDateChange?.(newDate);
+    }
+  }, [days.length]);
+
+  const handleMonthScroll = (event: any) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    const itemHeight = 54;
+
+    const selectedIndex = Math.round((scrollY) / itemHeight);
+    const clampedIndex = Math.max(0, Math.min(selectedIndex, months.length - 1));
+
+    if (clampedIndex !== selectedMonthIndex) {
+      setSelectedMonthIndex(clampedIndex);
+      const newDate = new Date(selectedDate);
+      newDate.setMonth(clampedIndex);
+      setSelectedDate(newDate);
+      onDateChange?.(newDate);
+    }
+  };
+
+  const handleDayScroll = (event: any) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    const itemHeight = 54;
+
+    const selectedIndex = Math.round((scrollY) / itemHeight);
+    const clampedIndex = Math.max(0, Math.min(selectedIndex, days.length - 1));
+
+    if (clampedIndex !== selectedDayIndex) {
+      setSelectedDayIndex(clampedIndex);
+      const newDate = new Date(selectedDate);
+      newDate.setDate(days[clampedIndex]);
+      setSelectedDate(newDate);
+      onDateChange?.(newDate);
+    }
+  };
+
+
+
+
+
+  const validateDate = (date: Date): string | null => {
+    if (maximumDate && date > maximumDate) {
+      return 'Date cannot be in the future';
+    }
+    return null;
+  };
+
+  const handleConfirm = () => {
+    const error = validateDate(selectedDate);
+    if (error) {
+      setDateError(error);
+    } else {
+      setDateError(null);
+      onDateSelect(selectedDate);
+    }
+  };
+
+  return (
+    <View style={[styles.customDatePicker, { backgroundColor: colors.cardBackground }]}>
+      <Text style={[styles.datePickerTitle, { color: colors.text }]}>Select Date</Text>
+
+      <View style={styles.pickerRow}>
+        {/* Year Picker */}
+        <View style={styles.pickerColumn}>
+          <Text style={[styles.pickerLabel, { color: colors.textSecondary }]}>Year</Text>
+          <View style={styles.pickerContainer}>
+<View style={[styles.selectionWindow, { borderColor: colors.primary }]} />
+            <View style={[styles.pickerScrollSlot, { paddingTop: 73 }]}>
+            {years.map((year, index) => (
+              <View
+                key={year}
+                style={styles.pickerItem}
+              >
+                <Text style={[
+                  styles.pickerItemText,
+                  {
+                    color: colors.primary,
+                    fontWeight: '700'
+                  }
+                ]}>
+                  {year}
+                </Text>
+              </View>
+            ))}
+            </View>
+          </View>
+        </View>
+
+        {/* Month Picker */}
+        <View style={styles.pickerColumn}>
+          <Text style={[styles.pickerLabel, { color: colors.textSecondary }]}>Month</Text>
+          <View style={styles.pickerContainer}>
+            <View style={[styles.selectionWindow, { borderColor: colors.primary }]} />
+            <ScrollView
+              ref={monthScrollRef}
+              style={styles.pickerScrollSlot}
+              showsVerticalScrollIndicator={false}
+              snapToInterval={54}
+              decelerationRate="fast"
+              contentContainerStyle={styles.pickerScrollContent}
+              onMomentumScrollEnd={handleMonthScroll}
+              onScrollEndDrag={handleMonthScroll}
+              scrollEventThrottle={16}
+            >
+            {months.map((month, index) => (
+              <TouchableOpacity
+                key={month}
+                style={styles.pickerItem}
+                onPress={() => {
+                  // Optional: allow manual selection by clicking
+                  const scrollY = index * 54;
+                  monthScrollRef.current?.scrollTo({ y: scrollY, animated: true });
+                }}
+              >
+                <Text style={[
+                  styles.pickerItemText,
+                  {
+                    color: index === selectedMonthIndex ? colors.primary : colors.text,
+                    fontWeight: index === selectedMonthIndex ? '700' : '500'
+                  }
+                ]}>
+                  {month}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* Day Picker */}
+        <View style={styles.pickerColumn}>
+          <Text style={[styles.pickerLabel, { color: colors.textSecondary }]}>Day</Text>
+          <View style={styles.pickerContainer}>
+            <View style={[styles.selectionWindow, { borderColor: colors.primary }]} />
+            <ScrollView
+              ref={dayScrollRef}
+              style={styles.pickerScrollSlot}
+              showsVerticalScrollIndicator={false}
+              snapToInterval={54}
+              decelerationRate="fast"
+              contentContainerStyle={styles.pickerScrollContent}
+              onMomentumScrollEnd={handleDayScroll}
+              onScrollEndDrag={handleDayScroll}
+              scrollEventThrottle={16}
+            >
+            {days.map((day, index) => (
+              <TouchableOpacity
+                key={day}
+                style={styles.pickerItem}
+                onPress={() => {
+                  // Optional: allow manual selection by clicking
+                  const scrollY = index * 54;
+                  dayScrollRef.current?.scrollTo({ y: scrollY, animated: true });
+                }}
+              >
+                <Text style={[
+                  styles.pickerItemText,
+                  {
+                    color: index === selectedDayIndex ? colors.primary : colors.text,
+                    fontWeight: index === selectedDayIndex ? '700' : '500'
+                  }
+                ]}>
+                  {day}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            </ScrollView>
+          </View>
+        </View>
+      </View>
+
+      {dateError && (
+        <View style={[styles.dateErrorContainer, { backgroundColor: colors.error + '15', borderColor: colors.error }]}>
+          <MaterialCommunityIcons name="alert-circle" size={18} color={colors.error} />
+          <Text style={[styles.dateErrorText, { color: colors.error }]}>{dateError}</Text>
+        </View>
+      )}
+
+      <View style={styles.datePickerButtons}>
+        <TouchableOpacity
+          style={[styles.datePickerButton, styles.cancelButton, { borderColor: colors.cardBorder }]}
+          onPress={onCancel}
+        >
+          <Text style={[styles.datePickerButtonText, { color: colors.text }]}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.datePickerButton,
+            styles.confirmButton,
+            { backgroundColor: !validateDate(selectedDate) ? colors.primary : colors.textTertiary }
+          ]}
+          onPress={handleConfirm}
+          disabled={!!validateDate(selectedDate)}
+        >
+          <Text style={styles.confirmButtonText}>Confirm</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   formCard: {
     borderRadius: 20,
@@ -1568,6 +1913,128 @@ const styles = StyleSheet.create({
 
   red: {
     color: '#D32F2F',
-  }
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    width: '100%',
+    maxWidth: 600,
+  },
+  // Custom Date Picker Styles
+  customDatePicker: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 10,
+    width: '100%',
+    maxWidth: 600,
+    maxHeight: '100%',
+  },
+  datePickerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  pickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pickerLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 10,
+  },
+  pickerContainer: {
+    position: 'relative',
+    height: 200,
+    width: 100,
+  },
+  selectionWindow: {
+    position: 'absolute',
+    top: 73, // Center position (200/2 - 54/2 = 73)
+    left: 0,
+    right: 0,
+    height: 54,
+    borderTopWidth: 3,
+    borderBottomWidth: 3,
+    borderColor: '#007AFF',
+    backgroundColor: 'rgba(0, 122, 255, 0.08)',
+    zIndex: 1,
+    pointerEvents: 'none', // Don't interfere with touch events
+    borderRadius: 4,
+  },
+  pickerScrollSlot: {
+    height: 200,
+    width: 100,
+  },
+  pickerScrollContent: {
+    paddingVertical: 73, // Center the selected item (200/2 - 54/2 = 73)
+  },
+  pickerItem: {
+    height: 54,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 0,
+    paddingHorizontal: 8,
+    // Ensure text is perfectly centered
+    textAlign: 'center',
+  },
+  pickerItemText: {
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  datePickerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  datePickerButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1,
+  },
+  confirmButton: {
+    backgroundColor: '#007AFF',
+  },
+  dateErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 8,
+  },
+  dateErrorText: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  datePickerButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
 

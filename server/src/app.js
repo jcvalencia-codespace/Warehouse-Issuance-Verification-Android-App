@@ -54,11 +54,18 @@ const app = express();
 app.use(cors(corsOptions));
 app.use(express.json());
 
+app.use((req, res, next) => {
+  const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+  // console.log(`📱 Client connected: ${clientIP}`);
+  next();
+});
+
 // Import routes and controllers from modules
 const authRoutes = require('./modules/auth/routes/authRoutes');
 const schemaRoutes = require('./modules/schema/routes/schemaRoutes');
 const warehouseRoutes = require('./modules/warehouse/routes/warehouseRoutes');
 const issuanceRoutes = require('./modules/issuance/routes/issuanceRoutes');
+const forkliftOperatorRoutes = require('./modules/forklift-operator/routes/forkliftOperatorRoutes');
 const warehouseController = require('./modules/warehouse/controllers/warehouseController');
 const AuthController = require('./modules/auth/controllers/authController');
 
@@ -69,6 +76,7 @@ app.use('/auth', authRoutes);
 app.use('/schema', schemaRoutes);
 app.use('/warehouse', warehouseRoutes);
 app.use('/issuance', issuanceRoutes);
+app.use('/forklift-operators', forkliftOperatorRoutes);
 
 // Stock balance endpoint (direct route)
 app.get('/stock-balance', warehouseController.getStockBalance);

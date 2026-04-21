@@ -305,7 +305,7 @@ export default function ProfileScreen() {
             Santeh Feeds Corporation - App v1.0.0
           </Text>
           <Text style={[styles.appCopyright, { color: colors.textTertiary }]}>
-            © 2024 MIS-SOFTWARE. All rights reserved.
+            © 2026 MIS-SOFTWARE. All rights reserved.
           </Text>
         </View>
 

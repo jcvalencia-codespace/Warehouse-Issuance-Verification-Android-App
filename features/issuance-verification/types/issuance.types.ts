@@ -6,6 +6,7 @@
 export interface IssuanceVerificationFormData {
   issuanceRefNumber: string;
   transactionRefNumber: string;
+  date: string;
   area: string;
   itemNumber: string;
   itemRemarks: string;

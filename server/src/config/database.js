@@ -31,6 +31,7 @@ function validateDbConfig(dbName) {
     console.warn('⚠️ Missing DB config:', missing.join(', '));
     return false;
   }
+  // console.log('DB Config:', { server: baseConfig.server, user: baseConfig.user, database: dbName });
   return true;
 }
 
@@ -61,7 +62,8 @@ async function getPool(dbName) {
         poolMap[dbName] = null;
       });
 
-      console.log(`✅ Connected to SQL Server database: ${dbName}`);
+      const clientInfo = pool.config.server;
+      console.log(`✅ Connected to SQL Server database: ${dbName} (${clientInfo})`);
       return pool;
     })
     .catch(err => {

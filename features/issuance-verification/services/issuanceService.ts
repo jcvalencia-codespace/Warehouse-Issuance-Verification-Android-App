@@ -223,7 +223,7 @@ export class IssuanceService {
   /**
    * Get lots for area and item (full details for allocation table)
    */
-  async getLotsByAreaAndItem(area: string, itemNumber: string, itemRemarks?: string): Promise<any> {
+  async getLotsByAreaAndItem(area: string, itemNumber: string, itemRemarks?: string, date?: string): Promise<any> {
     try {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
@@ -232,6 +232,9 @@ export class IssuanceService {
       let url = `${this.baseUrl}/issuance/areas/${encodeURIComponent(area)}/lots-by-item?itemNumber=${encodeURIComponent(itemNumber)}`;
       if (itemRemarks) {
         url += `&itemRemarks=${encodeURIComponent(itemRemarks)}`;
+      }
+      if (date) {
+        url += `&date=${encodeURIComponent(date)}`;
       }
 
       const response = await axios.get(url);
@@ -250,13 +253,15 @@ export class IssuanceService {
    * @param itemNumber - Item number to allocate (required)
    * @param lotNumber - Optional lot number to filter allocation
    * @param itemRemarks - Optional remarks to filter allocation
+   * @param date - Optional date to filter allocation (YYYY-MM-DD format)
    */
   async allocateBags(
     requiredBags: number, 
     area: string, 
     itemNumber: string,
     lotNumber?: string,
-    itemRemarks?: string
+    itemRemarks?: string,
+    date?: string
   ): Promise<BagAllocationResponse> {
     try {
       if (!this.baseUrl) {
@@ -271,6 +276,7 @@ export class IssuanceService {
           itemNumber,
           lotNumber,
           itemRemarks,
+          date,
         },
         {
           timeout: 15000,
@@ -302,6 +308,7 @@ export class IssuanceService {
     forkliftOperator?: string;
     floorScale?: string;
     transType?: string;
+    date?: string;
   }): Promise<{ success: boolean; message?: string }> {
     try {
       if (!this.baseUrl) {

@@ -1,4 +1,5 @@
 // server/src/modules/issuance/controllers/issuanceController.js
+const { DateTime } = require('mssql');
 const { getPool } = require('../../../config/database');
 
 /**
@@ -6,7 +7,7 @@ const { getPool } = require('../../../config/database');
  */
 exports.allocateBags = async (req, res) => {
   try {
-    const { requiredBags, area, itemNumber, lotNumber, itemRemarks } = req.body;
+    const { requiredBags, area, itemNumber, lotNumber, itemRemarks, date } = req.body;
 
     // Validate required parameters
     if (!requiredBags || requiredBags <= 0) {
@@ -37,6 +38,11 @@ exports.allocateBags = async (req, res) => {
     let whereClause = `D.AREA = '${area}'`;
     whereClause += ` AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0`;
     whereClause += ` AND D.ITEMNMBR = '${itemNumber}'`;
+
+    // Add date filter if provided - filter transactions on or before the given date
+    if (date) {
+      whereClause += ` AND H.DATETRANS <= '${date}'`;
+    }
 
     // Add remarks filter - always filter by remarks to ensure correct item+remarks combination
     if (itemRemarks && itemRemarks.trim() !== '') {
@@ -161,7 +167,8 @@ exports.postIssuance = async (req, res) => {
   const dbName = process.env.DB_SFC || 'SFC';
   const pool = await getPool(dbName);
 
-  try {
+try {
+    const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
     const {
       transactionRefNumber,
       area,
@@ -172,10 +179,11 @@ exports.postIssuance = async (req, res) => {
       username,
       forkliftOperator,
       floorScale,
-      transType
+      transType,
+      date
     } = req.body;
 
-    if (!transactionRefNumber || !area || !numberOfBags || !weightInKg) {
+    if (!transactionRefNumber || !area || !numberOfBags || !weightInKg || !date) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -209,18 +217,40 @@ exports.postIssuance = async (req, res) => {
       transRefNo = 1;
     }
 
-    const tranDate = new Date();
-    const formattedDate = tranDate.toISOString().split('T')[0];
+    // Use the selected date or default to current date
+    const dateCreated = date || new Date().toISOString().split('T')[0];
+
+    // Check for duplicate using transactionRefNumber and allocation lot
+    const checkDuplicate = await pool.request().query(`
+      SELECT TOP 1 H.TRANSREFNO 
+      FROM [INVENTORY.QUANTITYMASTER4.HEADER] H
+      INNER JOIN [INVENTORY.QUANTITYMASTER4.DETAILS] D ON H.TRANSREFNO = D.TRANSREFNO
+      WHERE D.LOTNUMBER = '${allocation.LOTNUMBER}' 
+        AND H.TRANSREFNO = '${transactionRefNumber}'
+        AND D.TRANSREFNO = '${transactionRefNumber}'
+        AND D.ITEMNMBR = '${allocation.ITEMNMBR}'
+        AND H.DATETRANS = '${dateCreated}'
+    `);
+
+    if (checkDuplicate.recordset.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'This issuance has already been processed. Please check your records.',
+        duplicate: true,
+        existingTransRefNo: checkDuplicate.recordset[0].TRANSREFNO
+      });
+    }
 
     // Use transaction for all database operations
     const transaction = pool.transaction();
+    let isCommitted = false;
     await transaction.begin();
 
     try {
       // Insert into ISSUANCE.HEADER5
       await transaction.request().query(`
         INSERT INTO [INVENTORY.ISSUANCE.HEADER5] (LOCNCODE, ISS_IDNUMBER, DATEISSUED, ISSUANCETYPE, DEPARTMENT, REQUESTEDBY, POSTSTATUS, CREATEDBY, DATECREATED)
-        VALUES ('PAWHRM', ${issIdNumber}, '${formattedDate}', 'Issued', '${floorScale}', 'MIPA', '1', '${username}', GETDATE())
+        VALUES ('PAWHRM', ${issIdNumber}, '${dateCreated}', 'Issued', '${floorScale}', 'MIPA', '1', '${username}', GETDATE())
       `);
 
       // Insert into ISSUANCE.DETAILS5
@@ -240,7 +270,7 @@ exports.postIssuance = async (req, res) => {
       // Insert into QUANTITYMASTER4.HEADER
       await transaction.request().query(`
         INSERT INTO [INVENTORY.QUANTITYMASTER4.HEADER] (LOCNCODE, FROMCOMPANY, FROMLOCNCODE, FROMTRANSNO, ISSUEDBY, DATETRANS, TRANSTYPE, TRANSREFNO, RECEIVEDBY, DATERECEIVED, POSTSTATUS)
-        VALUES ('OPPREP', 'SFC', 'PAWHRM', ${issIdNumber}, '${username}', '${formattedDate}', '${transType}', ${transRefNo}, '${forkliftOperator}', GETDATE(), 1)
+        VALUES ('OPPREP', 'SFC', 'PAWHRM', ${issIdNumber}, '${username}', '${dateCreated}', '${transType}', ${transRefNo}, '${forkliftOperator}', GETDATE(), 1)
       `);
 
       // Calculate actual unit cost - use allocation AMOUNT
@@ -261,8 +291,9 @@ exports.postIssuance = async (req, res) => {
 
       // Commit transaction
       await transaction.commit();
+      isCommitted = true;
 
-      console.log('Issuance posted successfully:', { issIdNumber, transRefNo });
+      console.log('Issuance posted successfully:', { clientIP, issIdNumber, transRefNo, dateCreated });
 
       res.json({
         success: true,
@@ -270,6 +301,7 @@ exports.postIssuance = async (req, res) => {
         data: {
           issIdNumber,
           transRefNo,
+          dateTrans: dateCreated,
           transactionRefNumber,
           area,
           numberOfBags,
@@ -278,8 +310,10 @@ exports.postIssuance = async (req, res) => {
         }
       });
     } catch (transactionError) {
-      // Rollback on error
-      await transaction.rollback();
+      // Rollback on error only if not already committed
+      if (!isCommitted) {
+        await transaction.rollback();
+      }
       throw transactionError;
     }
 
@@ -597,7 +631,7 @@ exports.getLotsByArea = async (req, res) => {
 exports.getLotsByAreaAndItem = async (req, res) => {
   try {
     const { area } = req.params;
-    const { itemNumber, itemRemarks } = req.query;
+    const { itemNumber, itemRemarks, date } = req.query;
 
     if (!area) {
       return res.status(400).json({
@@ -641,6 +675,10 @@ exports.getLotsByAreaAndItem = async (req, res) => {
         AND (D.BAGS_RECV - D.BAGS_ALLOC - D.BAGS_ISS + D.BAGS_RET - D.BAGS_SAL - D.BAGS_ADJ) > 0
     `;
 
+    if (date) {
+      query += ` AND H.DATETRANS <= @date`;
+    }
+
     if (itemRemarks && itemRemarks.trim() !== '') {
       query += ` AND D.REMARKS = @itemRemarks`;
     } else {
@@ -655,6 +693,10 @@ exports.getLotsByAreaAndItem = async (req, res) => {
     
     if (itemRemarks) {
       request.input('itemRemarks', itemRemarks);
+    }
+
+    if (date) {
+      request.input('date', date);
     }
 
     const result = await request.query(query);

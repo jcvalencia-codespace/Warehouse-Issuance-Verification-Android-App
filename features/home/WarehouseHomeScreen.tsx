@@ -38,6 +38,13 @@ const WAREHOUSE_MODULES: ModuleCardData[] = [
     icon: 'package-variant-closed-check',
     color: 'success',
   },
+  {
+    id: 'forklift-operator',
+    title: 'Forklift Operator',
+    description: 'Manage forklift operators',
+    icon: 'account-hard-hat',
+    color: 'warning',
+  },
   // {
   //   id: 'pending',
   //   title: 'Pending Warehouse Issuance Confirmation',
@@ -180,6 +187,8 @@ export function WarehouseHomeScreen({
       router.push('/stock-balance' as any);
     } else if (moduleId === 'receiving') {
       router.push('/posted-warehouse-confirmation/posted-warehouse-confirmation' as any);
+    } else if (moduleId === 'forklift-operator') {
+      router.push('/forklift-operator' as any);
     } else if (onModulePress) {
       onModulePress(moduleId);
     }
