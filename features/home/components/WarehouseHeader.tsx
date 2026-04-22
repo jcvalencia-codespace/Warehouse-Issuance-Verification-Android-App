@@ -1,20 +1,25 @@
 import { Colors } from '@/constants/theme';
+import { useNetworkStatus } from '@/hooks/use-network-status';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { StyleSheet, Text, useColorScheme, useWindowDimensions, View } from 'react-native';
 
 interface WarehouseHeaderProps {
   userName?: string;
   userDepartment?: string;
 }
 
-export function WarehouseHeader({ 
+export function WarehouseHeader({
   userName = 'Warehouse Operator',
   userDepartment = 'Operations'
 }: WarehouseHeaderProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 375;
+  const isMediumScreen = width >= 375 && width < 414;
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { isLocalConnected } = useNetworkStatus();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -46,10 +51,10 @@ export function WarehouseHeader({
       {/* Multiple layered overlays for depth */}
       <View style={styles.gradientOverlay} />
       <View style={styles.patternOverlay} />
-      
+
       {/* Top accent line */}
       <View style={styles.topAccent} />
-      
+
       {/* App Title and Logo Area */}
       <View style={styles.titleSection}>
         <View style={styles.logoWrapper}>
@@ -100,6 +105,7 @@ export function WarehouseHeader({
           </View>
         </View>
 
+        {/* Date, Time, and Network Status */}
         <View style={styles.dateTimeContainer}>
           <View style={styles.dateTimeItem}>
             <View style={styles.iconBadge}>
@@ -127,9 +133,24 @@ export function WarehouseHeader({
               <Text style={styles.dateTimeText}>{formatTime(currentTime)}</Text>
             </View>
           </View>
+          <View style={styles.dateTimeItem}>
+            <View style={[styles.iconBadge, { backgroundColor: isLocalConnected ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)' }]}>
+              <MaterialCommunityIcons
+                name={isLocalConnected ? 'wifi' : 'wifi-off'}
+                size={13}
+                color={isLocalConnected ? '#10b981' : '#ef4444'}
+              />
+            </View>
+            <View style={styles.dateTimeTextContainer}>
+              <Text style={styles.dateTimeLabel}>LOCAL</Text>
+              <Text style={[styles.connectionText, { color: isLocalConnected ? '#10b981' : '#ef4444' }]}>
+                {isLocalConnected ? 'Connected' : 'Disconnected'}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
-      
+
       {/* Bottom decorative accent */}
       <View style={styles.bottomAccent} />
     </View>
@@ -227,16 +248,14 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   infoSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: 12,
   },
   userInfoCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 15,
-    flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     paddingVertical: 25,
     paddingHorizontal: 12,
@@ -295,18 +314,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dateTimeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: 6,
+    flexWrap: 'wrap',
   },
   dateTimeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
+    flex: 1,
+    minWidth: 80,
+    maxWidth: '48%',
   },
   iconBadge: {
     width: 24,
@@ -328,7 +353,12 @@ const styles = StyleSheet.create({
   dateTimeText: {
     fontSize: 14,
     color: '#ffffff',
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  connectionText: {
+    fontSize: 14,
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
   bottomAccent: {

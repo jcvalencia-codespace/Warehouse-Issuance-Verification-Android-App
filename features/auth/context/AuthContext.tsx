@@ -4,6 +4,7 @@ import React, { createContext, ReactNode, useCallback, useState } from 'react';
 interface AuthContextType {
   user: UserAccount | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   setUser: (user: UserAccount | null) => void;
   logout: () => void;
 }
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
+    isAdmin: user?.ISADMIN ?? user?.USERLEVEL === 'ADMINISTRATOR',
     setUser,
     logout,
   };
@@ -42,6 +44,7 @@ export function useAuth(): AuthContextType {
     return {
       user: null,
       isAuthenticated: false,
+      isAdmin: false,
       setUser: () => {},
       logout: () => {},
     };

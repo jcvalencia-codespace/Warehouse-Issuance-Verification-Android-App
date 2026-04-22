@@ -47,7 +47,9 @@ export class AuthService {
       });
 
       if (response.data.success) {
-        return response.data.user as UserAccount;
+        const user = response.data.user;
+        console.log('[AuthService] Login response user:', JSON.stringify(user));
+        return user as any;
       }
 
       return null;

@@ -1,5 +1,7 @@
 import { Colors } from '@/constants/theme';
 
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,8 +18,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useSearchParams } from 'expo-router';
 import { forkliftOperatorService } from '../services/forkliftOperatorService';
 import {
   CreateForkliftOperatorPayload,
@@ -34,10 +34,9 @@ export function ForkliftOperatorFormScreen({ operator: propOperator }: ForkliftO
   const colors = Colors[scheme ?? 'light'];
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const searchParams = useSearchParams();
+  const { rowId: rowIdParam } = useLocalSearchParams();
   
-  const rowIdParam = searchParams.get('rowId');
-  const rowId = rowIdParam ? parseInt(rowIdParam) : null;
+  const rowId = rowIdParam ? parseInt(Array.isArray(rowIdParam) ? rowIdParam[0] : rowIdParam) : null;
 
   const isEdit = !!rowId || !!propOperator?.ROWID;
   const [loading, setLoading] = useState(false);
@@ -166,7 +165,7 @@ export function ForkliftOperatorFormScreen({ operator: propOperator }: ForkliftO
       >
         <View style={styles.header}>
           <TouchableOpacity
-            style={[styles.backButton, { backgroundColor: colors.card }]}
+            style={[styles.backButton, { backgroundColor: colors.cardBackground }]}
             onPress={() => router.back()}
           >
             <MaterialCommunityIcons
@@ -195,7 +194,7 @@ export function ForkliftOperatorFormScreen({ operator: propOperator }: ForkliftO
           <View
             style={[
               styles.inputGroup,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
             ]}
           >
             <Text style={[styles.label, { color: colors.text }]}>
@@ -215,7 +214,7 @@ export function ForkliftOperatorFormScreen({ operator: propOperator }: ForkliftO
           <View
             style={[
               styles.toggleGroup,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
             ]}
           >
             <View style={styles.toggleInfo}>
@@ -239,7 +238,7 @@ export function ForkliftOperatorFormScreen({ operator: propOperator }: ForkliftO
               value={formData.IS_ACTIVE}
               onValueChange={(value) => updateField('IS_ACTIVE', value)}
               trackColor={{ false: colors.textSecondary, true: colors.success }}
-              thumbColor={colors.card}
+              thumbColor={colors.cardBackground}
             />
           </View>
 
@@ -256,9 +255,9 @@ export function ForkliftOperatorFormScreen({ operator: propOperator }: ForkliftO
             <MaterialCommunityIcons
               name={loading ? 'loading' : isEdit ? 'content-save' : 'plus'}
               size={22}
-              color={colors.card}
+              color={colors.cardBackground}
             />
-            <Text style={[styles.submitText, { color: colors.card }]}>
+            <Text style={[styles.submitText, { color: colors.cardBackground }]}>
               {loading
                 ? 'Saving...'
                 : isEdit

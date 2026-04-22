@@ -1,7 +1,8 @@
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -11,10 +12,10 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ModuleCardData, ModuleGrid } from '../home/components/ModuleCard';
-import { SummaryStatItem } from '../home/components/SummaryStats';
-import { WarehouseHeader } from '../home/components/WarehouseHeader';
-import { warehouseMetricsService } from '../home/services/warehouseMetricsService';
+import { ModuleCardData, ModuleGrid } from './components/ModuleCard';
+import { SummaryStatItem } from './components/SummaryStats';
+import { WarehouseHeader } from './components/WarehouseHeader';
+import { warehouseMetricsService } from './services/warehouseMetricsService';
 
 const WAREHOUSE_MODULES: ModuleCardData[] = [
   {
@@ -86,6 +87,14 @@ export function WarehouseHomeScreen({
   const isTablet = width > 800;
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user, isAdmin } = useAuth();
+
+  const filteredModules = useMemo(() => {
+    if (isAdmin) {
+      return WAREHOUSE_MODULES;
+    }
+    return WAREHOUSE_MODULES.filter(module => module.id !== 'forklift-operator');
+  }, [isAdmin]);
 
   // Statistics data with real values from API
   // Initialize with default values that will be updated after mount
@@ -271,7 +280,7 @@ export function WarehouseHomeScreen({
               </Text>
             </View>
             <ModuleGrid
-              modules={WAREHOUSE_MODULES.map(module => ({
+              modules={filteredModules.map(module => ({
                 ...module,
                 color: getModuleColor(module.color || 'primary'),
               }))}

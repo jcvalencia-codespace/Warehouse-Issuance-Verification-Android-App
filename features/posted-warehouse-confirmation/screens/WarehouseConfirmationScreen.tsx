@@ -6,7 +6,6 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -14,26 +13,12 @@ import {
   TextInput,
   TouchableOpacity,
   useColorScheme,
+  useWindowDimensions,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TransactionDetailList } from '../components/TransactionDetailList';
 import { TransactionDetail, TransactionHeader } from '../types/confirmation.types';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const IS_TABLET = SCREEN_WIDTH > 768;
-const IS_PORTRAIT = SCREEN_HEIGHT > SCREEN_WIDTH;
-const IS_LANDSCAPE = !IS_PORTRAIT;
-const IS_SMALL_SCREEN = SCREEN_WIDTH < 380;
-
-// Helper to ensure minimum font size of 14 in landscape mode
-const fontSize = (portraitSize: number, tabletSize?: number) => {
-  const baseSize = IS_TABLET && tabletSize ? tabletSize : portraitSize;
-  return IS_LANDSCAPE ? Math.max(baseSize, 14) : baseSize;
-};
-
-
-
 
 interface WarehouseConfirmationScreenProps {
   navigation?: any;
@@ -44,6 +29,12 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
   const router = useRouter();
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+  
+  const IS_TABLET = SCREEN_WIDTH > 768;
+  const IS_PORTRAIT = SCREEN_HEIGHT > SCREEN_WIDTH;
+  const IS_LANDSCAPE = !IS_PORTRAIT;
+  const IS_SMALL_SCREEN = SCREEN_WIDTH < 380;
 
   const [pendingTransactions, setPendingTransactions] = useState<TransactionHeader[]>([]);
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionHeader | null>(null);
@@ -67,6 +58,37 @@ export function PostedWarehouseConfirmationScreen({ navigation, route }: Warehou
   const [dateFilterVersion, setDateFilterVersion] = useState(0);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+
+  // Computed responsive styles that update on rotation
+  const responsiveStyles = {
+    headerTitle: { fontSize: IS_TABLET ? (IS_LANDSCAPE ? 24 : 26) : (IS_LANDSCAPE ? 20 : 22) },
+    headerSubtitle: { fontSize: IS_SMALL_SCREEN ? 12 : 14 },
+    totalIssuanceValue: { fontSize: IS_TABLET ? 28 : 22 },
+    totalIssuanceLabel: { fontSize: IS_SMALL_SCREEN ? 11 : 13 },
+    searchInput: { fontSize: IS_SMALL_SCREEN ? 14 : 15 },
+    searchHint: { fontSize: IS_SMALL_SCREEN ? 12 : 13 },
+    dateInputText: { fontSize: IS_SMALL_SCREEN ? 12 : 14 },
+    viewButtonText: { fontSize: IS_SMALL_SCREEN ? 12 : 14 },
+    tableHeaderText: { fontSize: IS_SMALL_SCREEN ? 10 : 12 },
+    tableCellText: { fontSize: IS_SMALL_SCREEN ? 11 : 13 },
+    statusText: { fontSize: IS_SMALL_SCREEN ? 12 : 13 },
+    errorText: { fontSize: IS_SMALL_SCREEN ? 13 : 14 },
+    emptySubtitle: { fontSize: IS_SMALL_SCREEN ? 13 : 14 },
+    refreshButtonText: { fontSize: IS_SMALL_SCREEN ? 12 : 14 },
+    detailsTitle: { fontSize: IS_TABLET ? 20 : 18 },
+    detailLabel: { fontSize: IS_SMALL_SCREEN ? 9 : 11 },
+    detailValue: { fontSize: IS_SMALL_SCREEN ? 9 : 11 },
+    detailValueCompact: { fontSize: IS_SMALL_SCREEN ? 8 : 9 },
+    quantityLabel: { fontSize: IS_SMALL_SCREEN ? 12 : 14 },
+    footerLabel: { fontSize: IS_SMALL_SCREEN ? 10 : 12 },
+    footerValue: { fontSize: IS_SMALL_SCREEN ? 11 : 13 },
+    listPadding: { padding: IS_TABLET ? 24 : 16 },
+    tableRowPadding: { paddingVertical: IS_TABLET ? 14 : 10, paddingHorizontal: IS_TABLET ? 12 : 6 },
+    tableCellWidth: { minWidth: IS_SMALL_SCREEN ? 60 : 80 },
+    headerPadding: { paddingHorizontal: IS_TABLET ? 24 : 16, paddingVertical: IS_TABLET ? 20 : 14 },
+    dateRangePadding: { paddingHorizontal: IS_TABLET ? 24 : 16 },
+    searchPadding: { paddingHorizontal: IS_TABLET ? 24 : 16 },
+  };
 
 
   // Fetch pending transactions on mount
@@ -668,8 +690,8 @@ const styles = StyleSheet.create({
   // Header styles
   header: {
     borderBottomWidth: 1,
-    paddingHorizontal: IS_TABLET ? 24 : 16,
-    paddingVertical: IS_TABLET ? 20 : 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     width: '100%',
     alignSelf: 'stretch',
   },
@@ -687,12 +709,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerTitle: {
-    fontSize: IS_TABLET ? 26 : 22,
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: fontSize(14, 15),
+    fontSize: 14,
     marginTop: 4,
   },
   // Total Issuance Styles - Emphasized
@@ -708,13 +730,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalIssuanceValue: {
-    fontSize: IS_TABLET ? 28 : 24,
+    fontSize: 24,
     fontWeight: '800',
-    lineHeight: IS_TABLET ? 32 : 28,
+    lineHeight: 28,
     textAlign: 'center',
   },
   totalIssuanceLabel: {
-    fontSize: fontSize(14),
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
@@ -738,7 +760,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statLabel: {
-    fontSize: fontSize(14),
+    fontSize: 14,
     fontWeight: '500',
   },
   statDivider: {
@@ -747,7 +769,7 @@ const styles = StyleSheet.create({
   },
   // Date range styles
   dateRangeContainer: {
-    paddingHorizontal: IS_TABLET ? 24 : 16,
+    paddingHorizontal: 16,
     paddingTop: 16,
     width: '100%',
     alignSelf: 'stretch',
@@ -755,7 +777,7 @@ const styles = StyleSheet.create({
   dateRangeWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: IS_TABLET ? 16 : 12,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
@@ -785,11 +807,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   dateInputText: {
-    fontSize: fontSize(14),
+    fontSize: 14,
     fontWeight: '600',
   },
   dateRangeSeparator: {
-    fontSize: fontSize(14),
+    fontSize: 14,
     fontWeight: '500',
   },
   dateRangeText: {
@@ -806,7 +828,7 @@ const styles = StyleSheet.create({
   },
   viewButtonText: {
     color: '#ffffff',
-    fontSize: fontSize(14),
+    fontSize: 14,
     fontWeight: '600',
   },
   resetButton: {
@@ -818,7 +840,7 @@ const styles = StyleSheet.create({
   },
   // Search styles
   searchContainer: {
-    paddingHorizontal: IS_TABLET ? 24 : 16,
+    paddingHorizontal: 16,
     paddingTop: 12,
   },
   searchInputWrapper: {
@@ -836,7 +858,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   searchHint: {
-    fontSize: fontSize(14),
+    fontSize: 13,
     fontWeight: '500',
     marginTop: 8,
     marginBottom: 4,
@@ -844,9 +866,9 @@ const styles = StyleSheet.create({
   },
   // List styles
   listContainer: {
-    padding: IS_TABLET ? 24 : 16,
+    padding: 16,
     paddingBottom: 32,
-    gap: IS_TABLET ? 16 : 12,
+    gap: 12,
     width: '100%',
     alignSelf: 'stretch',
   },
@@ -883,13 +905,13 @@ const styles = StyleSheet.create({
   transactionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: IS_TABLET ? 6 : 8,
+    padding: 8,
     gap: 6,
   },
   transactionHeaderPortrait: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    padding: IS_TABLET ? 6 : 6,
+    padding: 6,
     gap: 6,
   },
   transactionTopRow: {
@@ -897,8 +919,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   transactionIconContainer: {
-    width: IS_TABLET ? 36 : 32,
-    height: IS_TABLET ? 36 : 32,
+    width: 32,
+    height: 32,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -910,34 +932,34 @@ const styles = StyleSheet.create({
     flex: 1.2,
   },
   transactionRefNo: {
-    fontSize: IS_TABLET ? 16 : 15,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   transactionItemCode: {
-    fontSize: fontSize(10, 11),
+    fontSize: 11,
     fontWeight: '500',
   },
   chevronContainer: {
-    width: IS_TABLET ? 24 : 20,
-    height: IS_TABLET ? 24 : 20,
+    width: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   divider: {
     height: 1,
-    marginHorizontal: IS_TABLET ? 18 : 14,
+    marginHorizontal: 14,
   },
   transactionDetailsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: IS_TABLET ? 8 : 6,
+    gap: 6,
   },
   transactionDetailsGridPortrait: {
     flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: IS_TABLET ? 8 : 4,
+    gap: 4,
     marginTop: 2,
   },
   detailItemCompact: {
@@ -949,7 +971,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailValueCompact: {
-    fontSize: fontSize(9),
+    fontSize: 9,
     fontWeight: '600',
   },
   detailRow: {
@@ -961,20 +983,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    width: IS_TABLET ? 110 : (IS_PORTRAIT ? '45%' : 90),
-    minWidth: IS_PORTRAIT ? 60 : undefined,
   },
   detailLabel: {
-    fontSize: fontSize(10, 11),
+    fontSize: 11,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: fontSize(10, 11),
+    fontSize: 11,
     fontWeight: '600',
   },
   quantitySection: {
-    paddingHorizontal: IS_TABLET ? 18 : 14,
-    paddingBottom: IS_TABLET ? 18 : 14,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
   },
   quantityBadge: {
     flexDirection: 'row',
@@ -986,7 +1006,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   quantityLabel: {
-    fontSize: fontSize(14),
+    fontSize: 14,
     fontWeight: '500',
   },
   quantityValue: {
@@ -994,7 +1014,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   quantityUnit: {
-    fontSize: fontSize(14),
+    fontSize: 14,
     fontWeight: '500',
   },
   // Loading & Error states
@@ -1108,21 +1128,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   refreshButtonText: {
-    fontSize: fontSize(14),
+    fontSize: 14,
     fontWeight: '600',
   },
   // Details view styles
   detailsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: IS_TABLET ? 24 : 16,
-    paddingVertical: IS_TABLET ? 18 : 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     gap: 12,
   },
   backButton: {
-    width: IS_TABLET ? 44 : 40,
-    height: IS_TABLET ? 44 : 40,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1131,12 +1151,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailsTitle: {
-    fontSize: IS_TABLET ? 20 : 18,
+    fontSize: 18,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
   detailsSubtitle: {
-    fontSize: fontSize(14, 15),
+    fontSize: 14,
     marginTop: 2,
   },
   statusBadge: {
@@ -1148,7 +1168,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusText: {
-    fontSize: fontSize(14),
+    fontSize: 13,
     fontWeight: '600',
   },
   // Table styles
@@ -1156,7 +1176,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: IS_TABLET ? 12 : 8,
+    paddingHorizontal: 8,
     borderBottomWidth: 2,
     borderRadius: 8,
     marginBottom: 4,
@@ -1167,49 +1187,49 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tableHeaderText: {
-    fontSize: fontSize(14, 15),
+    fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: IS_TABLET ? 14 : 12,
-    paddingHorizontal: IS_TABLET ? 12 : 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
   },
   tableCell: {
     justifyContent: 'center',
   },
   tableCellText: {
-    fontSize: fontSize(14, 15),
+    fontSize: 13,
     fontWeight: '500',
   },
   tableStatusCell: {
-    width: IS_TABLET ? 40 : 32,
+    width: 32,
   },
   tableRefNoCell: {
-    flex: IS_TABLET ? 1.2 : 1,
-    minWidth: IS_TABLET ? 100 : 80,
+    flex: 1,
+    minWidth: 80,
   },
   tableDateCell: {
-    flex: IS_TABLET ? 0.9 : 0.8,
-    minWidth: IS_TABLET ? 80 : 70,
+    flex: 0.8,
+    minWidth: 70,
   },
   tableTypeCell: {
-    flex: IS_TABLET ? 1.2 : 1,
-    minWidth: IS_TABLET ? 90 : 80,
+    flex: 1,
+    minWidth: 80,
   },
   tableLocationCell: {
-    flex: IS_TABLET ? 0.8 : 0.7,
-    minWidth: IS_TABLET ? 70 : 60,
+    flex: 0.7,
+    minWidth: 60,
   },
   tableIssuedByCell: {
-    flex: IS_TABLET ? 1 : 0.8,
-    minWidth: IS_TABLET ? 90 : 70,
+    flex: 0.8,
+    minWidth: 70,
   },
   tableActionCell: {
-    width: IS_TABLET ? 32 : 28,
+    width: 28,
     alignItems: 'center',
   },
   statusDot: {

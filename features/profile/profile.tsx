@@ -4,21 +4,17 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useToast } from '@/hooks/use-toast';
 import { router } from 'expo-router';
 import {
-  Bell,
   ChevronRight,
-  HelpCircle,
   History,
   Lock,
   LogOut,
-  Moon,
   Shield,
-  Star,
-  Sun,
   User
 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
-  Alert,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -48,54 +44,35 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Get user info from auth context or use defaults
   const username = user?.NAME || user?.USERNAME || '';
   const email = user?.EMAILADD || '';
   const department = user?.DEPARTMENT || '';
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            setIsLoggingOut(true);
-            try {
-              // Small delay for visual feedback
-              await new Promise(resolve => setTimeout(resolve, 500));
-              authLogout();
-              toast({
-                title: "Signed out successfully",
-                description: "You have been logged out of your account",
-                variant: "default"
-              });
-              router.replace('/auth');
-            } catch (error) {
-              toast({
-                title: "Error",
-                description: "Failed to sign out. Please try again.",
-                variant: "destructive"
-              });
-            } finally {
-              setIsLoggingOut(false);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleThemeToggle = () => {
-    setShowThemeModal(true);
+  const handleLogout = async () => {
+    setShowLogoutModal(false);
+    setIsLoggingOut(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      authLogout();
+      toast({
+        title: "Signed out successfully",
+        description: "You have been logged out of your account",
+        variant: "default"
+      });
+      await new Promise(resolve => setTimeout(resolve, 300));
+      router.replace('/auth');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const MenuItemComponent = ({ item, colors }: { item: MenuItem; colors: typeof Colors.light }) => {
@@ -145,22 +122,22 @@ export default function ProfileScreen() {
     },
   ];
 
-  const preferenceMenuItems: MenuItem[] = [
-    {
-      id: 'appearance',
-      icon: colorScheme === 'dark' ? Moon : Sun,
-      title: 'Appearance',
-      subtitle: colorScheme === 'dark' ? 'Dark mode is on' : 'Light mode is on',
-      onPress: handleThemeToggle,
-    },
-    {
-      id: 'notifications',
-      icon: Bell,
-      title: 'Notifications',
-      subtitle: 'Configure push notifications',
-      onPress: () => toast({ title: "Coming Soon", description: "Notifications settings", variant: "default" }),
-    },
-  ];
+  // const preferenceMenuItems: MenuItem[] = [
+  //   {
+  //     id: 'appearance',
+  //     icon: colorScheme === 'dark' ? Moon : Sun,
+  //     title: 'Appearance',
+  //     subtitle: colorScheme === 'dark' ? 'Dark mode is on' : 'Light mode is on',
+  //     onPress: handleThemeToggle,
+  //   },
+  //   {
+  //     id: 'notifications',
+  //     icon: Bell,
+  //     title: 'Notifications',
+  //     subtitle: 'Configure push notifications',
+  //     onPress: () => toast({ title: "Coming Soon", description: "Notifications settings", variant: "default" }),
+  //   },
+  // ];
 
   const securityMenuItems: MenuItem[] = [
     {
@@ -179,22 +156,22 @@ export default function ProfileScreen() {
     },
   ];
 
-  const supportMenuItems: MenuItem[] = [
-    {
-      id: 'help',
-      icon: HelpCircle,
-      title: 'Help & Support',
-      subtitle: 'Get assistance with issues',
-      onPress: () => toast({ title: "Coming Soon", description: "Help center", variant: "default" }),
-    },
-    {
-      id: 'feedback',
-      icon: Star,
-      title: 'Rate the App',
-      subtitle: 'Share your feedback',
-      onPress: () => toast({ title: "Thank You!", description: "We appreciate your support", variant: "default" }),
-    },
-  ];
+  // const supportMenuItems: MenuItem[] = [
+  //   {
+  //     id: 'help',
+  //     icon: HelpCircle,
+  //     title: 'Help & Support',
+  //     subtitle: 'Get assistance with issues',
+  //     onPress: () => toast({ title: "Coming Soon", description: "Help center", variant: "default" }),
+  //   },
+  //   {
+  //     id: 'feedback',
+  //     icon: Star,
+  //     title: 'Rate the App',
+  //     subtitle: 'Share your feedback',
+  //     onPress: () => toast({ title: "Thank You!", description: "We appreciate your support", variant: "default" }),
+  //   },
+  // ];
 
   const renderSectionHeader = (title: string) => (
     <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
@@ -285,7 +262,7 @@ export default function ProfileScreen() {
         {/* Logout Button */}
         <TouchableOpacity
           style={[styles.logoutButton, { backgroundColor: colors.error }]}
-          onPress={handleLogout}
+          onPress={() => setShowLogoutModal(true)}
           disabled={isLoggingOut}
           activeOpacity={0.8}
         >
@@ -312,6 +289,37 @@ export default function ProfileScreen() {
         {/* Bottom Padding */}
         <View style={{ height: 50 + insets.bottom }} />
       </ScrollView>
+
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowLogoutModal(false)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Sign Out</Text>
+            <Text style={styles.modalMessage}>Are you sure you want to sign out?</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmButton}
+                onPress={handleLogout}
+                disabled={isLoggingOut}
+              >
+                <Text style={styles.modalConfirmText}>
+                  {isLoggingOut ? 'Signing out...' : 'Sign Out'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -464,5 +472,61 @@ const styles = StyleSheet.create({
   },
   appCopyright: {
     fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    maxWidth: 320,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  modalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#ef4444',
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });

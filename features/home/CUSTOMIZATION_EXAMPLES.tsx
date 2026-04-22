@@ -17,48 +17,48 @@ export function WarehouseHomeScreenWithAPI() {
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Fetch real warehouse metrics from your backend
-    const fetchMetrics = async () => {
-      try {
-        const response = await fetch('/api/warehouse/metrics');
-        const data = await response.json();
+  // useEffect(() => {
+  //   // Fetch real warehouse metrics from your backend
+  //   const fetchMetrics = async () => {
+  //     try {
+  //       const response = await fetch('/api/warehouse/metrics');
+  //       const data = await response.json();
         
-        setStats([
-          {
-            icon: 'clock-check',
-            label: 'Pending Confirmations',
-            value: data.pendingCount,
-            trend: data.pendingTrend,
-            color: '#f59e0b',
-          },
-          {
-            icon: 'check-circle',
-            label: 'Completed Today',
-            value: data.completedToday,
-            trend: 'up',
-            color: '#10b981',
-          },
-          {
-            icon: 'archive',
-            label: 'Total Transactions',
-            value: data.totalTransactions,
-            trend: data.transactionTrend,
-            color: '#1e40af',
-          },
-        ]);
-      } catch (error) {
-        console.error('Failed to fetch metrics:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  //       setStats([
+  //         {
+  //           icon: 'clock-check',
+  //           label: 'Pending Confirmations',
+  //           value: data.pendingCount,
+  //           trend: data.pendingTrend,
+  //           color: '#f59e0b',
+  //         },
+  //         {
+  //           icon: 'check-circle',
+  //           label: 'Completed Today',
+  //           value: data.completedToday,
+  //           trend: 'up',
+  //           color: '#10b981',
+  //         },
+  //         {
+  //           icon: 'archive',
+  //           label: 'Total Transactions',
+  //           value: data.totalTransactions,
+  //           trend: data.transactionTrend,
+  //           color: '#1e40af',
+  //         },
+  //       ]);
+  //     } catch (error) {
+  //       console.error('Failed to fetch metrics:', error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-    fetchMetrics();
-    // Refresh metrics every 30 seconds
-    const interval = setInterval(fetchMetrics, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  //   fetchMetrics();
+  //   // Refresh metrics every 30 seconds
+  //   const interval = setInterval(fetchMetrics, 30000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   const handleModulePress = (moduleId: string) => {
     console.log(`Navigate to module: ${moduleId}`);

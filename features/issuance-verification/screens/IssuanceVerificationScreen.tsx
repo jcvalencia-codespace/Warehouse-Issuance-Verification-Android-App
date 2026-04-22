@@ -884,6 +884,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
         onClose={closeBarcodeScanner}
         onScan={handleBarcodeScan}
         title="Scan Forklift Operator Badge"
+        validateForkliftOperator={true}
       />
       
     </SafeAreaView>

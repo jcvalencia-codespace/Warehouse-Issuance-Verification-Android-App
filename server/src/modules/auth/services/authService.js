@@ -35,6 +35,7 @@ class AuthService {
             JOBTITLE: user.JOBTITLE,
             ACTIVE: user.ACTIVE,
             EMAILADD: user.EMAILADD,
+            ISADMIN: user.USERLEVEL === 'ADMINISTRATOR',
           }
         };
       }

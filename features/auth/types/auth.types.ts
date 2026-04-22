@@ -7,6 +7,7 @@ export interface UserAccount {
   JOBTITLE?: string;
   ACTIVE?: number;
   EMAILADD?: string;
+  ISADMIN?: boolean;
 }
 
 export interface LoginRequest {

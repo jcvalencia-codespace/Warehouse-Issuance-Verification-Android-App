@@ -38,12 +38,29 @@ function encodeCode128B(data: string): string {
   return `${START_B}${data}${checksumChar}${STOP}`;
 }
 
+// --- Forklift Operator API ---
+import { forkliftOperatorService } from '@/features/forklift-operator';
+
+async function getActiveForkliftOperators(): Promise<{ FORKLIFT_OPERATOR: string }[]> {
+  try {
+    const result = await forkliftOperatorService.getForkliftOperators({ isActive: true });
+    if (result.success) {
+      return result.data.map(op => ({ FORKLIFT_OPERATOR: op.FORKLIFT_OPERATOR }));
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to fetch forklift operators:', error);
+    return [];
+  }
+}
+
 // --- Component Props ---
 interface BarcodeScannerProps {
   visible: boolean;
   onClose: () => void;
   onScan: (data: string) => void;
   title?: string;
+  validateForkliftOperator?: boolean;
 }
 
 export function BarcodeScanner({
@@ -51,6 +68,7 @@ export function BarcodeScanner({
   onClose,
   onScan,
   title = 'Scan Barcode',
+  validateForkliftOperator = false,
 }: BarcodeScannerProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
@@ -60,9 +78,29 @@ export function BarcodeScanner({
   const [isLoading, setIsLoading] = useState(false);
   const [manualInput, setManualInput] = useState('');
   const [showManualInput, setShowManualInput] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
 
-  const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
-    if (scanned) return;
+  const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+    if (scanned || isValidating) return;
+
+    // Validate against active forklift operators if enabled
+    if (validateForkliftOperator) {
+      setIsValidating(true);
+      const operators = await getActiveForkliftOperators();
+      const isValidOperator = operators.some(
+        op => op.FORKLIFT_OPERATOR.toLowerCase() === data.toLowerCase()
+      );
+      setIsValidating(false);
+
+      if (!isValidOperator) {
+        Alert.alert(
+          'Invalid Operator',
+          'The scanned barcode does not match any active forklift operator. Please scan again.',
+          [{ text: 'OK', onPress: () => setScanned(false) }]
+        );
+        return;
+      }
+    }
 
     setScanned(true);
 
@@ -192,12 +230,21 @@ export function BarcodeScanner({
 
           {/* Instructions */}
           <View style={styles.instructionsContainer}>
-            <Text style={styles.instructionsText}>
-              Position the barcode within the frame
-            </Text>
-            <Text style={styles.instructionsSubtext}>
-              The scanner will automatically detect the barcode
-            </Text>
+            {isValidating ? (
+              <>
+                <ActivityIndicator size="large" color="#fff" />
+                <Text style={styles.instructionsText}>Validating...</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.instructionsText}>
+                  Position the barcode within the frame
+                </Text>
+                <Text style={styles.instructionsSubtext}>
+                  The scanner will automatically detect the barcode
+                </Text>
+              </>
+            )}
           </View>
 
           {/* Display scanned barcode */}
@@ -236,7 +283,6 @@ export function BarcodeScanner({
   );
 }
 
-// --- Styles (same as before) ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   header: { flexDirection: 'row', alignItems: 'center', paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16 },
