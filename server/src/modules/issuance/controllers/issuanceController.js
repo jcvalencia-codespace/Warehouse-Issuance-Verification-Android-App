@@ -167,7 +167,7 @@ exports.postIssuance = async (req, res) => {
   const dbName = process.env.DB_SFC || 'SFC';
   const pool = await getPool(dbName);
 
-try {
+  try {
     const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
     const {
       transactionRefNumber,
@@ -218,7 +218,9 @@ try {
     }
 
     // Use the selected date or default to current date
-    const dateCreated = date || new Date().toISOString().split('T')[0];
+    const dateCreated = date
+      ? `${date} ${new Date().toTimeString().slice(0, 8)}`
+      : new Date().toISOString().replace('T', ' ').slice(0, 19);
 
     // Check for duplicate using transactionRefNumber and allocation lot
     const checkDuplicate = await pool.request().query(`
@@ -456,7 +458,7 @@ exports.getAreasByItem = async (req, res) => {
 
     const request = pool.request()
       .input('itemNumber', itemNumber);
-    
+
     if (itemRemarks) {
       request.input('itemRemarks', itemRemarks);
     }
@@ -615,7 +617,7 @@ exports.getLotsByArea = async (req, res) => {
       data: lots
     });
 
-} catch (error) {
+  } catch (error) {
     console.error('Error fetching available lots:', error);
     res.status(500).json({
       success: false,
@@ -690,7 +692,7 @@ exports.getLotsByAreaAndItem = async (req, res) => {
     const request = pool.request()
       .input('area', area)
       .input('itemNumber', itemNumber);
-    
+
     if (itemRemarks) {
       request.input('itemRemarks', itemRemarks);
     }
@@ -839,7 +841,7 @@ exports.getTransactionReferenceNumber = async (req, res) => {
     const result = await pool.request().query(query);
 
     let nextReferenceNumber = result.recordset[0].NEXT_REF;
-    
+
     // If NEXT_REF is NULL (table is empty or has NULL values), start from 1
     if (nextReferenceNumber === null || nextReferenceNumber === undefined) {
       nextReferenceNumber = 1;
