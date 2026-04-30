@@ -1,5 +1,4 @@
 // server/src/modules/issuance/controllers/issuanceController.js
-const { DateTime } = require('mssql');
 const { getPool } = require('../../../config/database');
 
 /**
@@ -222,6 +221,8 @@ exports.postIssuance = async (req, res) => {
       ? `${date} ${new Date().toTimeString().slice(0, 8)}`
       : new Date().toISOString().replace('T', ' ').slice(0, 19);
 
+    const dateIssued = new Date().toISOString().slice(0, 10);
+
     // Check for duplicate using transactionRefNumber and allocation lot
     const checkDuplicate = await pool.request().query(`
       SELECT TOP 1 H.TRANSREFNO 
@@ -252,7 +253,7 @@ exports.postIssuance = async (req, res) => {
       // Insert into ISSUANCE.HEADER5
       await transaction.request().query(`
         INSERT INTO [INVENTORY.ISSUANCE.HEADER5] (LOCNCODE, ISS_IDNUMBER, DATEISSUED, ISSUANCETYPE, DEPARTMENT, REQUESTEDBY, POSTSTATUS, CREATEDBY, DATECREATED)
-        VALUES ('PAWHRM', ${issIdNumber}, '${dateCreated}', 'Issued', '${floorScale}', 'MIPA', '1', '${username}', GETDATE())
+        VALUES ('PAWHRM', ${issIdNumber}, '${dateIssued}', 'Issued', '${floorScale}', 'MIPA', '1', '${username}', GETDATE())
       `);
 
       // Insert into ISSUANCE.DETAILS5
