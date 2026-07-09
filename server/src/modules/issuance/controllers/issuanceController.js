@@ -221,7 +221,7 @@ exports.postIssuance = async (req, res) => {
       ? `${date} ${new Date().toTimeString().slice(0, 8)}`
       : new Date().toISOString().replace('T', ' ').slice(0, 19);
 
-    const dateCreated = new Date().toISOString().slice(0, 10);
+    const dateCreated = `${new Date().toISOString().replace('T', ' ').slice(0, 10)} ${new Date().toTimeString().slice(0, 8)}`;
 
     // Check for duplicate using transactionRefNumber and allocation lot
     const checkDuplicate = await pool.request().query(`
