@@ -217,11 +217,11 @@ exports.postIssuance = async (req, res) => {
     }
 
     // Use the selected date or default to current date
-    const dateCreated = date
+    const dateIssued = date
       ? `${date} ${new Date().toTimeString().slice(0, 8)}`
       : new Date().toISOString().replace('T', ' ').slice(0, 19);
 
-    const dateIssued = new Date().toISOString().slice(0, 10);
+    const dateCreated = new Date().toISOString().slice(0, 10);
 
     // Check for duplicate using transactionRefNumber and allocation lot
     const checkDuplicate = await pool.request().query(`
@@ -232,7 +232,7 @@ exports.postIssuance = async (req, res) => {
         AND H.TRANSREFNO = '${transactionRefNumber}'
         AND D.TRANSREFNO = '${transactionRefNumber}'
         AND D.ITEMNMBR = '${allocation.ITEMNMBR}'
-        AND H.DATETRANS = '${dateCreated}'
+        AND H.DATETRANS = '${dateIssued}'
     `);
 
     if (checkDuplicate.recordset.length > 0) {
@@ -273,7 +273,7 @@ exports.postIssuance = async (req, res) => {
       // Insert into QUANTITYMASTER4.HEADER
       await transaction.request().query(`
         INSERT INTO [INVENTORY.QUANTITYMASTER4.HEADER] (LOCNCODE, FROMCOMPANY, FROMLOCNCODE, FROMTRANSNO, ISSUEDBY, DATETRANS, TRANSTYPE, TRANSREFNO, RECEIVEDBY, DATERECEIVED, POSTSTATUS)
-        VALUES ('OPPREP', 'SFC', 'PAWHRM', ${issIdNumber}, '${username}', '${dateCreated}', '${transType}', ${transRefNo}, '${forkliftOperator}', GETDATE(), 1)
+        VALUES ('OPPREP', 'SFC', 'PAWHRM', ${issIdNumber}, '${username}', '${dateIssued}', '${transType}', ${transRefNo}, '${forkliftOperator}', '${dateIssued}', 1)
       `);
 
       // Calculate actual unit cost - use allocation AMOUNT
@@ -296,15 +296,14 @@ exports.postIssuance = async (req, res) => {
       await transaction.commit();
       isCommitted = true;
 
-      console.log('Issuance posted successfully:', { clientIP, issIdNumber, transRefNo, dateCreated });
-
+      console.log('Issuance posted successfully:', { clientIP, issIdNumber, transRefNo, dateIssued, dateCreated });
       res.json({
         success: true,
         message: 'Issuance posted successfully',
         data: {
           issIdNumber,
           transRefNo,
-          dateTrans: dateCreated,
+          dateTrans: dateIssued,
           transactionRefNumber,
           area,
           numberOfBags,
