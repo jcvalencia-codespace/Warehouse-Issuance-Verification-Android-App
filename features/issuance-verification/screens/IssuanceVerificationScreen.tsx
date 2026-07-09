@@ -66,6 +66,9 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   // Modal state for web-compatible dialogs
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
+  // Weight mismatch modal state
+  const [showWeightMismatchModal, setShowWeightMismatchModal] = useState(false);
+  const [weightMismatchMessage, setWeightMismatchMessage] = useState('');
 
   // Separate state to track raw weight input (for preserving decimal while typing)
   const [weightInputRaw, setWeightInputRaw] = useState('');
@@ -454,6 +457,16 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
     const allocatedItems = allocationResults.filter(item => item.BAGS !== null);
     if (allocatedItems.length === 0) {
       Alert.alert('No Allocation', 'Please calculate the allocation first before posting.');
+      return;
+    }
+
+    const allocatedKgs = allocationResults.filter(item => item.KGS !== null);
+    const rmToIssue = allocatedKgs.reduce((sum: number, item: any) => sum + (item.KGS || 0), 0);
+    const prepToReceive = (formData.weightInKg || 0) - (formData.palletWeight || 0);
+    const difference = Math.abs(prepToReceive - rmToIssue);
+    if (difference >= 100) {
+      setWeightMismatchMessage(`The difference between PREP TO RECEIVE (${prepToReceive.toFixed(2)} kg) and RM TO ISSUE (${rmToIssue.toFixed(2)} kg) is ${difference.toFixed(2)} kg, which exceeds the 100 kg threshold. Posting is not allowed.`);
+      setShowWeightMismatchModal(true);
       return;
     }
 
@@ -875,6 +888,18 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
         type="warning"
         confirmText="Clear"
         cancelText="Cancel"
+        confirmButtonVariant="destructive"
+      />
+
+      {/* Weight Mismatch Modal */}
+      <ModalDialog
+        visible={showWeightMismatchModal}
+        onClose={() => setShowWeightMismatchModal(false)}
+        onConfirm={() => setShowWeightMismatchModal(false)}
+        title="Weight Mismatch Detected"
+        message={weightMismatchMessage}
+        type="error"
+        showCancelButton={false}
         confirmButtonVariant="destructive"
       />
 
