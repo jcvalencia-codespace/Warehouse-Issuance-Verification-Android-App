@@ -218,8 +218,8 @@ exports.postIssuance = async (req, res) => {
 
     // Use the selected date or default to current date
     const dateIssued = date
-      ? `${date} ${new Date().toTimeString().slice(0, 8)}`
-      : new Date().toISOString().replace('T', ' ').slice(0, 19);
+      ? date
+      : new Date().toISOString().slice(0, 10); // YYYY-MM-DD, no time
 
     const dateCreated = `${new Date().toISOString().replace('T', ' ').slice(0, 10)} ${new Date().toTimeString().slice(0, 8)}`;
 
