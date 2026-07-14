@@ -63,10 +63,10 @@ app.use((req, res, next) => {
 // Import routes and controllers from modules
 const authRoutes = require('./modules/auth/routes/authRoutes');
 const schemaRoutes = require('./modules/schema/routes/schemaRoutes');
-const warehouseRoutes = require('./modules/warehouse/routes/warehouseRoutes');
-const issuanceRoutes = require('./modules/issuance/routes/issuanceRoutes');
-const forkliftOperatorRoutes = require('./modules/forklift-operator/routes/forkliftOperatorRoutes');
-const warehouseController = require('./modules/warehouse/controllers/warehouseController');
+const warehouseRoutes = require('./modules/raw-materials-dept/warehouse/routes/warehouseRoutes');
+const issuanceRoutes = require('./modules/raw-materials-dept/issuance/routes/issuanceRoutes');
+const forkliftOperatorRoutes = require('./modules/raw-materials-dept/forklift-operator/routes/forkliftOperatorRoutes');
+const warehouseController = require('./modules/raw-materials-dept/warehouse/controllers/warehouseController');
 const AuthController = require('./modules/auth/controllers/authController');
 
 // Routes

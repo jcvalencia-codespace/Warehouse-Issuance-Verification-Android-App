@@ -1,5 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { WarehouseHomeScreen } from '@/features/home/WarehouseHomeScreen';
+import { WarehouseHomeScreen } from '@/features/raw-materials-dept/home/WarehouseHomeScreen';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
@@ -23,19 +23,19 @@ export default function HomeScreen() {
     // Navigate to the corresponding module screen
     switch (moduleId) {
       case 'receiving':
-        router.push('/posted-warehouse-confirmation/posted-warehouse-confirmation');
+        router.push('/raw-materials-dept/posted-warehouse-confirmation');
         break;
       case 'pending':
-        router.push('/pending-warehouse-confirmation/pending-warehouse-confirmation');
+        router.push('/raw-materials-dept/pending-warehouse-confirmation');
         break;
       case 'reports':
-        router.push('/reports/reports');
+        router.push('/raw-materials-dept/reports');
         break;
       case 'settings':
-        router.push('/settings/settings');
+        router.push('/raw-materials-dept/settings');
         break;
       case 'help':
-        router.push('/(tabs)/help' as any);
+        router.push('/(tabs)/help');
         break;
       default:
         console.log('Module not implemented:', moduleId);

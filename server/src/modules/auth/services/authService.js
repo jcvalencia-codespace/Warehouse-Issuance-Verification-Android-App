@@ -31,6 +31,7 @@ class AuthService {
             USERLEVEL: user.USERLEVEL,
             EMPLOYEEID: user.EMPLOYEEID,
             NAME: user.NAME,
+            DEPTCODE: user.DEPTCODE,
             DEPARTMENT: user.DEPARTMENT,
             JOBTITLE: user.JOBTITLE,
             ACTIVE: user.ACTIVE,

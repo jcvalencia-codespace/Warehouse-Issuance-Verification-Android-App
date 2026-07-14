@@ -43,7 +43,7 @@ export function useLogin(): UseLoginReturn {
         );
 
         // Navigate to main app screen
-        router.replace('/(tabs)');
+        router.replace('(tabs)');
 
         // Clear form
         setUsername('');
