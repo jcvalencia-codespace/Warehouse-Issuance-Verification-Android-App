@@ -65,6 +65,7 @@ const authRoutes = require('./modules/auth/routes/authRoutes');
 const schemaRoutes = require('./modules/schema/routes/schemaRoutes');
 const warehouseRoutes = require('./modules/raw-materials-dept/warehouse/routes/warehouseRoutes');
 const issuanceRoutes = require('./modules/raw-materials-dept/issuance/routes/issuanceRoutes');
+const suppliesIssuanceRoutes = require('./modules/supplies-dept/issuance/routes/issuanceRoutes');
 const forkliftOperatorRoutes = require('./modules/raw-materials-dept/forklift-operator/routes/forkliftOperatorRoutes');
 const warehouseController = require('./modules/raw-materials-dept/warehouse/controllers/warehouseController');
 const AuthController = require('./modules/auth/controllers/authController');
@@ -76,6 +77,7 @@ app.use('/auth', authRoutes);
 app.use('/schema', schemaRoutes);
 app.use('/warehouse', warehouseRoutes);
 app.use('/issuance', issuanceRoutes);
+app.use('/supplies/issuance', suppliesIssuanceRoutes);
 app.use('/forklift-operators', forkliftOperatorRoutes);
 
 // Stock balance endpoint (direct route)

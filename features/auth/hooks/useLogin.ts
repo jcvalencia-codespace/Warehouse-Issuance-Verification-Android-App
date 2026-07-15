@@ -11,11 +11,13 @@ interface ModalState extends Omit<ModalDialogProps, 'visible' | 'onClose'> {
 interface UseLoginReturn {
   username: string;
   password: string;
+  company: string;
   isLoading: boolean;
   modalState: ModalState;
   setUsername: (username: string) => void;
   setPassword: (password: string) => void;
-  handleLogin: () => Promise<void>;
+  setCompany: (company: string) => void;
+  handleLogin: (company: string, system?: string) => Promise<void>;
   closeModal: () => void;
 }
 
@@ -24,6 +26,7 @@ export function useLogin(): UseLoginReturn {
   const { setUser } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [company, setCompany] = useState('SFC');
   const [isLoading, setIsLoading] = useState(false);
   const [modalState, setModalState] = useState<ModalState>({
     visible: false,
@@ -63,29 +66,28 @@ export function useLogin(): UseLoginReturn {
     }));
   }, []);
 
-  const handleLogin = useCallback(async () => {
-    // Validate credentials
+  const handleLogin = useCallback(async (company: string, system?: string) => {
     const validationError = await AuthService.getInstance().validateCredentials(username, password);
     if (validationError) {
       showModal('Validation Error', validationError, 'warning');
       return;
     }
 
+    if (!company) {
+      showModal('Validation Error', 'Please select a company', 'warning');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const user = await AuthService.getInstance().authenticate(
-        username,
-        password
-      );
+      const user = await AuthService.getInstance().authenticate(username, password, company, system);
 
       if (user) {
-        // Store user in context
         setUser(user);
         
         showModal('Success', 'Login successful!', 'success');
 
-        // Navigate to main app screen after a short delay for modal display
         setTimeout(() => {
           router.replace('/(tabs)');
           setUsername('');
@@ -114,10 +116,12 @@ export function useLogin(): UseLoginReturn {
   return {
     username,
     password,
+    company,
     isLoading,
     modalState,
     setUsername,
     setPassword,
+    setCompany,
     handleLogin,
     closeModal,
   };

@@ -47,6 +47,34 @@ class AuthService {
       throw error;
     }
   }
+  
+  static async postLoginHistory(ipAddress, system, userName, name, company){
+    const pool = await getPool(DB_NAME);
+
+    // Log everything that will be inserted, including what gets truncated
+    const data = {
+      ipAddress: (ipAddress || '').substring(0, 50),
+      system:    (system || '').substring(0, 50),
+      userName:  (userName || '').substring(0, 50),
+      name:      (name || '').substring(0, 100),
+      company:   (company || '').substring(0, 50),
+    };
+    console.log('data to insert:', data);
+
+    const result = await pool.request()
+      .input('ipAddress', sql.VarChar(50), data.ipAddress)
+      .input('system', sql.VarChar(50), data.system)
+      .input('userName', sql.VarChar(50), data.userName)
+      .input('name', sql.VarChar(100), data.name)
+      .input('company', sql.VarChar(50), data.company)
+      .query(`
+        INSERT INTO [SYSTEM.USER_LOGIN_HISTORY] (COMPUTERNAME, EMPLOYEEID, SYSTEM_USERNAME, SYSTEM_NAME, DOMAIN_USERNAME, DOMAIN_NAME, SYSTEM, DATECREATED, COMPANY)
+        VALUES                                  (@ipAddress, @userName, @userName, @name, @userName, @name, @company, GETDATE(), @company)
+      `);
+
+    console.log('insert result:', result.rowsAffected);
+    return result;
+}
 
   /**
    * Get user by username

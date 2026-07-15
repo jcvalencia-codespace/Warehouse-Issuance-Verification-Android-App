@@ -1,10 +1,6 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
-
-export interface UserAccount {
-  USERNAME: string;
-  // Add other fields you expect from backend
-}
+import { LoginHistoryRequest, UserAccount } from '../types/auth.types';
 
 export class AuthService {
   private static instance: AuthService;
@@ -34,7 +30,7 @@ export class AuthService {
     return null;
   }
 
-  async authenticate(username: string, password: string): Promise<UserAccount | null> {
+  async authenticate(username: string, password: string, company?: string, system?: string): Promise<UserAccount | null> {
     try {
       if (!this.baseUrl) {
         throw new Error(`API URL not configured. Using: ${this.baseUrl}`);
@@ -44,6 +40,8 @@ export class AuthService {
       const response = await axios.post(`${this.baseUrl}/login`, {
         username,
         password,
+        company,
+        system,
       });
 
       if (response.data.success) {
@@ -56,7 +54,6 @@ export class AuthService {
     } catch (err: any) {
       if (err.response && err.response.status === 401) return null;
       
-      // Better error diagnostics
       const errorMessage = err.message || 'Unknown error';
       const statusCode = err.response?.status || 'No response';
       const serverError = err.response?.data?.message || '';
@@ -70,6 +67,20 @@ export class AuthService {
       });
       
       throw new Error(`Failed to connect to server (${statusCode}): ${errorMessage}`);
+    }
+  }
+
+  async postLoginHistory(data: LoginHistoryRequest): Promise<boolean> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+
+      const response = await axios.post(`${this.baseUrl}/auth/login-history`, data);
+      return response.data.success === true;
+    } catch (err: any) {
+      console.error('Login history error:', err.message || err);
+      return false;
     }
   }
 }

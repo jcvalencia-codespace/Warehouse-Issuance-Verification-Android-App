@@ -9,29 +9,29 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DropdownOption, IssuanceService } from './services/issuanceService';
 
-interface DropdownOption {
-  label: string;
-  value: string;
-}
+type IssuanceMode = 'manual' | 'realtime';
 
 interface IssuanceFormData {
   referenceNo: string;
   miNo: string;
+  issuanceMode: IssuanceMode;
   dateIssued: Date;
   shift: string;
   timeRequest: Date;
@@ -41,7 +41,7 @@ interface IssuanceFormData {
   contactPerson: string;
   issuedBy: string;
   approvedBy: string;
-  department: string;
+  deptCode: string;
   area: string;
   project: string;
   poNo: string;
@@ -49,23 +49,22 @@ interface IssuanceFormData {
   otherDocNo: string;
 }
 
+const ISSUANCE_MODE_OPTIONS: DropdownOption[] = [
+  { label: 'Realtime Issuance', value: 'realtime' },
+  { label: 'Manual Issuance', value: 'manual' },
+];
+
 const SHIFT_OPTIONS: DropdownOption[] = [
   { label: '1st Shift', value: '1st Shift' },
   { label: '2nd Shift', value: '2nd Shift' },
 ];
 
-const TRANSACTION_TYPE_OPTIONS: DropdownOption[] = [
-  { label: 'Regular', value: 'Regular' },
-  { label: 'Emergency', value: 'Emergency' },
-  { label: 'Transfer', value: 'Transfer' },
-  { label: 'Return', value: 'Return' },
-];
-
 const ISSUANCE_TYPE_OPTIONS: DropdownOption[] = [
-  { label: 'Direct Issuance', value: 'Direct Issuance' },
-  { label: 'Requisition', value: 'Requisition' },
-  { label: 'Consignment', value: 'Consignment' },
-  { label: 'Loan', value: 'Loan' },
+  { label: 'General Used', value: 'General Used' },
+  { label: 'Preventive Maintenance', value: 'Preventive Maintenance' },
+  { label: 'Project/CAPEX', value: 'Project/CAPEX' },
+  { label: 'Regular Repairs and Maintenance', value: 'Regular Repairs and Maintenance' },
+  { label: 'Service Vehicle', value: 'Service Vehicle' },
 ];
 
 const AREA_OPTIONS: DropdownOption[] = [
@@ -105,6 +104,7 @@ export function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenProps) {
   const [formData, setFormData] = useState<IssuanceFormData>({
     referenceNo: '',
     miNo: '',
+    issuanceMode: 'realtime',
     dateIssued: new Date(),
     shift: '',
     timeRequest: new Date(),
@@ -114,7 +114,7 @@ export function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenProps) {
     contactPerson: '',
     issuedBy: user?.NAME || user?.USERNAME || '',
     approvedBy: '',
-    department: user?.DEPARTMENT || '',
+    deptCode: '',
     area: '',
     project: '',
     poNo: '',
@@ -126,13 +126,13 @@ export function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenProps) {
   const [scannerTarget, setScannerTarget] = useState<
     'contactPerson' | 'approvedBy' | null
   >(null);
+  const [transactionTypeOptions, setTransactionTypeOptions] = useState<DropdownOption[]>([]);
 
   useEffect(() => {
     if (user) {
       setFormData((prev) => ({
         ...prev,
         issuedBy: user.NAME || user.USERNAME || prev.issuedBy,
-        department: user.DEPARTMENT || prev.department,
       }));
     }
   }, [user]);
@@ -148,14 +148,50 @@ export function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenProps) {
     }
   };
 
-  const handleScan = (data: string) => {
+  const handleScan = async (data: string) => {
     if (scannerTarget === 'contactPerson') {
       updateField('contactPerson', data);
     } else if (scannerTarget === 'approvedBy') {
       updateField('approvedBy', data);
+      try {
+        const deptCode = await IssuanceService.getInstance().getDeptCodeByScannedApprover(data);
+        if (deptCode) {
+          updateField('deptCode', deptCode);
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to fetch department code for the scanned approver.');
+      }
     }
     setScannerTarget(null);
   };
+
+  const nextReferenceNumber = async () => {
+    try {
+      const referenceNo = await IssuanceService.getInstance().getNextReferenceNumber();
+      if (referenceNo) {
+        updateField('referenceNo', referenceNo);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch next reference number.');
+    }
+  };
+
+  useEffect(() => {
+    nextReferenceNumber();
+  }, []);
+
+  const getTransactionType = async () => {
+    try {
+      const types = await IssuanceService.getInstance().getTransactionTypes();
+      setTransactionTypeOptions(types);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch transaction type.');
+    }
+  }
+
+  useEffect(() => {
+    getTransactionType();
+  }, []);
 
   const handleSubmit = () => {
     const required: { field: keyof IssuanceFormData; label: string }[] = [
@@ -233,7 +269,17 @@ export function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenProps) {
               Fill in the details below to create a new issuance.
             </Text>
 
-            {/* Reference & MI */}
+            {/* Issuance Mode */}
+            <RadioGroup
+              label="Issuance Mode"
+              required
+              options={ISSUANCE_MODE_OPTIONS}
+              value={formData.issuanceMode}
+              onSelect={(v) => updateField('issuanceMode', v as IssuanceMode)}
+              colors={colors}
+            />
+
+            {/* Reference */}
             <View style={styles.row}>
               <View style={styles.halfWidth}>
                 <FormInput
@@ -243,29 +289,6 @@ export function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenProps) {
                   placeholder="Enter reference no."
                   onChangeText={(t) => updateField('referenceNo', t)}
                   error={errors.referenceNo}
-                  colors={colors}
-                />
-              </View>
-              <View style={styles.halfWidth}>
-                <FormInput
-                  label="M. I. No."
-                  value={formData.miNo}
-                  placeholder="Enter M.I. no."
-                  onChangeText={(t) => updateField('miNo', t)}
-                  colors={colors}
-                />
-              </View>
-            </View>
-
-            {/* Date Issued & Shift */}
-            <View style={styles.row}>
-              <View style={styles.halfWidth}>
-                <DateTimeField
-                  label="Date Issued"
-                  required
-                  mode="date"
-                  value={formData.dateIssued}
-                  onChange={(d) => updateField('dateIssued', d)}
                   colors={colors}
                 />
               </View>
@@ -283,27 +306,39 @@ export function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenProps) {
               </View>
             </View>
 
-            {/* Time Request & Time Issued */}
-            <View style={styles.row}>
-              <View style={styles.halfWidth}>
-                <DateTimeField
-                  label="Time Request"
-                  mode="time"
-                  value={formData.timeRequest}
-                  onChange={(d) => updateField('timeRequest', d)}
-                  colors={colors}
-                />
+            {/* Date Issued & Shift */}
+            {formData.issuanceMode === 'manual' && (
+              <View style={styles.row}>
+                <View style={styles.halfWidth}>
+                  <DateTimeField
+                    label="Date Issued"
+                    required
+                    mode="date"
+                    value={formData.dateIssued}
+                    onChange={(d) => updateField('dateIssued', d)}
+                    colors={colors}
+                  />
+                </View>
+                <View style={styles.halfWidth}>
+                  <DateTimeField
+                    label="Time Request"
+                    mode="time"
+                    value={formData.timeRequest}
+                    onChange={(d) => updateField('timeRequest', d)}
+                    colors={colors}
+                  />
+                </View>
+                <View style={styles.halfWidth}>
+                  <DateTimeField
+                    label="Time Issued"
+                    mode="time"
+                    value={formData.timeIssued}
+                    onChange={(d) => updateField('timeIssued', d)}
+                    colors={colors}
+                  />
+                </View>
               </View>
-              <View style={styles.halfWidth}>
-                <DateTimeField
-                  label="Time Issued"
-                  mode="time"
-                  value={formData.timeIssued}
-                  onChange={(d) => updateField('timeIssued', d)}
-                  colors={colors}
-                />
-              </View>
-            </View>
+            )}
 
             {/* Transaction Type & Issuance Type */}
             <View style={styles.row}>
@@ -313,7 +348,7 @@ export function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenProps) {
                   required
                   placeholder="Select type"
                   value={formData.transactionType}
-                  options={TRANSACTION_TYPE_OPTIONS}
+                  options={transactionTypeOptions}
                   onSelect={(v) => updateField('transactionType', v)}
                   error={errors.transactionType}
                   colors={colors}
@@ -332,93 +367,78 @@ export function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenProps) {
                 />
               </View>
             </View>
-
-            {/* Contact Person (scanner) */}
-            <ScannerField
-              label="Contact Person"
-              required
-              value={formData.contactPerson}
-              onScanPress={() => setScannerTarget('contactPerson')}
-              error={errors.contactPerson}
-              colors={colors}
-            />
-
-            {/* Issued By (auto) */}
-            <ReadOnlyField
-              label="Issued By"
-              value={formData.issuedBy}
-              icon="account-arrow-right"
-              colors={colors}
-            />
-
-            {/* Approved By (scanner) */}
-            <ScannerField
-              label="Approved By"
-              required
-              value={formData.approvedBy}
-              onScanPress={() => setScannerTarget('approvedBy')}
-              error={errors.approvedBy}
-              colors={colors}
-            />
-
-            {/* Department (auto) */}
-            <ReadOnlyField
-              label="Department"
-              value={formData.department}
-              icon="office-building"
-              colors={colors}
-            />
-
-            {/* Area & Project */}
             <View style={styles.row}>
+              {/* Contact Person (scanner) */}
               <View style={styles.halfWidth}>
-                <Dropdown
-                  label="Area"
+                <ScannerField
+                  label="Contact Person"
                   required
-                  placeholder="Select area"
-                  value={formData.area}
-                  options={AREA_OPTIONS}
-                  onSelect={(v) => updateField('area', v)}
-                  error={errors.area}
+                  value={formData.contactPerson}
+                  onScanPress={() => setScannerTarget('contactPerson')}
+                  error={errors.contactPerson}
                   colors={colors}
                 />
               </View>
+
+              {/* Issued By (auto) */}
               <View style={styles.halfWidth}>
-                <Dropdown
-                  label="Project"
-                  required
-                  placeholder="Select project"
-                  value={formData.project}
-                  options={PROJECT_OPTIONS}
-                  onSelect={(v) => updateField('project', v)}
-                  error={errors.project}
+                <ReadOnlyField
+                  label="Issued By"
+                  value={formData.issuedBy}
+                  icon="account-arrow-right"
                   colors={colors}
                 />
               </View>
             </View>
 
-            {/* P.O. No., Work Order No., Other Doc No. */}
-            <FormInput
-              label="P.O. No."
-              value={formData.poNo}
-              placeholder="Enter P.O. number"
-              onChangeText={(t) => updateField('poNo', t)}
-              colors={colors}
-            />
-            <FormInput
-              label="Work Order No."
-              value={formData.workOrderNo}
-              placeholder="Enter work order no."
-              onChangeText={(t) => updateField('workOrderNo', t)}
-              colors={colors}
-            />
-            <FormInput
-              label="Other Doc No."
-              value={formData.otherDocNo}
-              placeholder="Enter other document no."
-              onChangeText={(t) => updateField('otherDocNo', t)}
-              colors={colors}
-            />
+            <View style={styles.row}>
+              {/* Approved By (scanner) */}
+              <View style={styles.halfWidth}>
+                <ScannerField
+                  label="Approved By"
+                  required
+                  value={formData.approvedBy}
+                  onScanPress={() => setScannerTarget('approvedBy')}
+                  error={errors.approvedBy}
+                  colors={colors}
+                />
+              </View>
+
+              {/* Department (auto) */}
+              <View style={styles.halfWidth}>
+                <ReadOnlyField
+                  label="Department"
+                  value={formData.deptCode}
+                  icon="office-building"
+                  colors={colors}
+                />
+              </View>
+            </View>
+
+            {/* Area & Project */}
+            <View style={styles.halfWidth}>
+              <Dropdown
+                label="Area"
+                required
+                placeholder="Select area"
+                value={formData.area}
+                options={AREA_OPTIONS}
+                onSelect={(v) => updateField('area', v)}
+                error={errors.area}
+                colors={colors}
+              />
+
+              <Dropdown
+                label="Project"
+                required
+                placeholder="Select project"
+                value={formData.project}
+                options={PROJECT_OPTIONS}
+                onSelect={(v) => updateField('project', v)}
+                error={errors.project}
+                colors={colors}
+              />
+            </View>
           </View>
         </ScrollView>
 
@@ -515,6 +535,69 @@ function FormInput({
   );
 }
 
+function RadioGroup({
+  label,
+  required,
+  options,
+  value,
+  onSelect,
+  colors,
+}: FieldBaseProps & {
+  options: DropdownOption[];
+  value: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <View style={styles.inputGroup}>
+      <FieldLabel label={label} required={required} colors={colors} />
+      <View style={styles.radioRow}>
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.radioOption,
+                {
+                  borderColor: selected ? colors.primary : colors.cardBorder,
+                  backgroundColor: selected
+                    ? colors.primary + '14'
+                    : colors.background,
+                },
+              ]}
+              onPress={() => onSelect(option.value)}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.radioOuter,
+                  {
+                    borderColor: selected ? colors.primary : colors.textTertiary,
+                  },
+                ]}
+              >
+                {selected && (
+                  <View
+                    style={[styles.radioInner, { backgroundColor: colors.primary }]}
+                  />
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.radioLabel,
+                  { color: selected ? colors.primary : colors.text },
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function Dropdown({
   label,
   required,
@@ -532,76 +615,103 @@ function Dropdown({
   error?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef<View>(null);
   const selected = options.find((o) => o.value === value);
+
+  const handleSelect = (optionValue: string) => {
+    onSelect(optionValue);
+    setOpen(false);
+  };
+
+  const toggle = () => {
+    if (triggerRef.current) {
+      triggerRef.current.measure((x, y, width, height, pageX, pageY) => {
+        setMenuPosition({
+          top: pageY + height + 4,
+          left: pageX,
+          width: width,
+        });
+      });
+    }
+    setOpen((prev) => !prev);
+  };
 
   return (
     <View style={styles.inputGroup}>
       <FieldLabel label={label} required={required} colors={colors} />
-      <TouchableOpacity
-        style={[
-          styles.inputContainer,
-          styles.dropdownContainer,
-          {
-            borderColor: error
-              ? colors.error
-              : open
-                ? colors.primary
-                : colors.cardBorder,
-            backgroundColor: colors.background,
-          },
-        ]}
-        onPress={() => setOpen((o) => !o)}
-        activeOpacity={0.7}
-      >
-        <Text
+      <View ref={triggerRef}>
+        <TouchableOpacity
           style={[
-            styles.dropdownText,
-            { color: selected ? colors.text : colors.textTertiary },
+            styles.inputContainer,
+            styles.dropdownContainer,
+            {
+              borderColor: error
+                ? colors.error
+                : open
+                  ? colors.primary
+                  : colors.cardBorder,
+              backgroundColor: colors.background,
+            },
           ]}
+          onPress={toggle}
+          activeOpacity={0.7}
         >
-          {selected ? selected.label : placeholder}
-        </Text>
-        <MaterialCommunityIcons
-          name={open ? 'chevron-up' : 'chevron-down'}
-          size={22}
-          color={colors.textSecondary}
-        />
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.dropdownText,
+              { color: selected ? colors.text : colors.textTertiary },
+            ]}
+          >
+            {selected ? selected.label : placeholder}
+          </Text>
+          <MaterialCommunityIcons
+            name={open ? 'chevron-up' : 'chevron-down'}
+            size={22}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+      </View>
 
-      {open && (
-        <View
-          style={[
-            styles.dropdown,
-            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-          ]}
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setOpen(false)}
         >
-          <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
-            {options.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={styles.dropdownOption}
-                onPress={() => {
-                  onSelect(option.value);
-                  setOpen(false);
-                }}
-              >
-                <Text
-                  style={[styles.dropdownOptionText, { color: colors.text }]}
+          <View
+            style={[
+              styles.dropdown,
+              menuPosition,
+              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
+            <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
+              {options.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={styles.dropdownOption}
+                  onPress={() => handleSelect(option.value)}
                 >
-                  {option.label}
-                </Text>
-                {value === option.value && (
-                  <MaterialCommunityIcons
-                    name="check"
-                    size={20}
-                    color={colors.primary}
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
+                  <Text
+                    style={[styles.dropdownOptionText, { color: colors.text }]}
+                  >
+                    {option.label}
+                  </Text>
+                  {value === option.value && (
+                    <MaterialCommunityIcons
+                      name="check"
+                      size={20}
+                      color={colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {error ? <ErrorText message={error} colors={colors} /> : null}
     </View>
@@ -873,16 +983,8 @@ const styles = StyleSheet.create({
   dropdownContainer: {
     justifyContent: 'space-between',
   },
-  dropdownText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  flex1: {
-    flex: 1,
-  },
   dropdown: {
-    marginTop: 8,
+    position: 'absolute',
     borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
@@ -891,6 +993,27 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
+  modalOverlay: {
+    flex: 1,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  flex1: {
+    flex: 1,
+  },
+  // dropdown: {
+  //   marginTop: 8,
+  //   borderRadius: 14,
+  //   borderWidth: 1,
+  //   overflow: 'hidden',
+  //   shadowOffset: { width: 0, height: 4 },
+  //   shadowOpacity: 0.1,
+  //   shadowRadius: 12,
+  //   elevation: 4,
+  // },
   dropdownScrollView: {
     maxHeight: 220,
   },
@@ -933,6 +1056,37 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 12,
+  },
+  radioRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  radioOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    height: 56,
+    gap: 10,
+  },
+  radioOuter: {
+    height: 22,
+    width: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: {
+    height: 10,
+    width: 10,
+    borderRadius: 5,
+  },
+  radioLabel: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   halfWidth: {
     flex: 1,

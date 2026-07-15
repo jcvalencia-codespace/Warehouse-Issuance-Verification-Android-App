@@ -10,23 +10,38 @@ class AuthController {
       const { username, password } = req.body;
 
       if (!username || !password) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Username and password are required' 
+        return res.status(400).json({
+          success: false,
+          message: 'Username and password are required'
         });
       }
 
       const result = await AuthService.authenticateUser(username, password);
 
       if (result.success) {
-        return res.json(result);
+        const { system, company } = req.body || {};
+        const ipAddress = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || '';
+        
+        res.json(result);
+        
+        if (ipAddress && system) {
+          AuthService.postLoginHistory(
+            ipAddress,
+            system,
+            result.user.USERNAME,
+            result.user.NAME,
+            company || ''
+          ).catch((historyError) => {
+            console.error('Login history error:', historyError.message);
+          });
+        }
       } else {
         return res.status(401).json(result);
       }
     } catch (error) {
       console.error('Login controller error:', error.message);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         message: 'Database error occurred',
         error: error.message,
         hint: 'Check /schema/SYSTEM.USERACCOUNT endpoint to verify column names'
@@ -39,6 +54,32 @@ class AuthController {
    */
   static healthCheck(req, res) {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  }
+
+  /**
+   * Handle login history
+   */
+  static async loginHistory(req, res) {
+    try {
+      const { ipAddress, system, userName, name, company } = req.body;
+
+      if (!ipAddress || !system || !userName) {
+        return res.status(400).json({
+          success: false,
+          message: 'ipAddress, system, and userName are required',
+        });
+      }
+
+      const result = await AuthService.postLoginHistory(ipAddress, system, userName, name || '', company || '');
+      res.json({ success: true, result });
+    } catch (error) {
+      console.error('Login history controller error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Database error occurred',
+        error: error.message,
+      });
+    }
   }
 }
 

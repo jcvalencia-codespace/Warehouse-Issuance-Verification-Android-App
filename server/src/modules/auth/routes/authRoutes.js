@@ -9,5 +9,6 @@ const router = express.Router();
  * Authenticate user with username and password
  */
 router.post('/login', AuthController.login);
+router.post('/login-history', AuthController.loginHistory);
 
 module.exports = router;

@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -30,7 +31,10 @@ import {
   View,
 } from "react-native";
 
+import Constants from 'expo-constants';
+
 import { useLogin } from "../../hooks/useLogin";
+import { CompanyDropdown, CompanyOption } from "./CompanyDropdown";
 import { styles } from "./LoginForm.styles";
 
 const { width, height } = Dimensions.get('window');
@@ -42,8 +46,10 @@ export function LoginForm() {
   const {
     username,
     password,
+    company,
     setUsername,
     setPassword,
+    setCompany,
     isLoading,
     handleLogin,
     modalState,
@@ -72,6 +78,33 @@ export function LoginForm() {
   // Validation states
   const [usernameError, setUsernameError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
+  const [companyError, setCompanyError] = useState(false);
+
+  const companyOptions: CompanyOption[] = [
+    {
+      label: 'Santeh Feeds Corp.',
+      value: 'SFC',
+      logo: require('@/assets/images/SFC.png'),
+      initials: 'SF',
+      color: '#2563eb',
+    },
+    {
+      label: 'ProNatural Feeds Corp.',
+      value: 'FEEDPRO',
+      logo: require('@/assets/images/PNC.png'),
+      initials: 'PN',
+      color: '#16a34a',
+    },
+    {
+      label: 'PetOne Inc.',
+      value: 'PET1',
+      logo: require('@/assets/images/PET1.png'),
+      initials: 'P1',
+      color: '#e6e628',
+    },
+  ];
+
+  const selectedCompany = companyOptions.find((c) => c.value === company);
 
   // Entry animations
   useEffect(() => {
@@ -159,6 +192,12 @@ export function LoginForm() {
   // Validate inputs before login
   const validateInputs = () => {
     let isValid = true;
+    if (!company) {
+      setCompanyError(true);
+      isValid = false;
+    } else {
+      setCompanyError(false);
+    }
     if (!username.trim()) {
       setUsernameError(true);
       isValid = false;
@@ -179,7 +218,10 @@ export function LoginForm() {
   const onLoginPress = () => {
     if (validateInputs()) {
       Keyboard.dismiss();
-      handleLogin();
+      handleLogin(
+        company,
+        `${Platform.OS} ${Constants.systemVersion}`
+      );
     }
   };
 
@@ -254,17 +296,33 @@ export function LoginForm() {
                 ]}
               >
                 <View style={[styles.logoContainer, { 
-                  backgroundColor: isDark ? colors.primary + '20' : colors.primary + '12',
-                  shadowColor: colors.primary,
+                  backgroundColor: selectedCompany ? selectedCompany.color + '18' : (isDark ? colors.primary + '20' : colors.primary + '12'),
+                  shadowColor: selectedCompany ? selectedCompany.color : colors.primary,
                   shadowOpacity: isDark ? 0.4 : 0.2,
                   shadowRadius: 20,
                   shadowOffset: { width: 0, height: 8 },
                   elevation: isDark ? 12 : 6,
                 }]}>
-                  <Warehouse size={36} color={colors.primary} />
+                  {selectedCompany ? (
+                    selectedCompany.logo ? (
+                      <Image 
+                        source={selectedCompany.logo} 
+                        style={styles.companyLogoImage} 
+                        resizeMode="contain" 
+                      />
+                    ) : (
+                      <Text style={[styles.companyInitials, { color: selectedCompany.color }]}>
+                        {selectedCompany.initials}
+                      </Text>
+                    )
+                  ) : (
+                    <Warehouse size={36} color={colors.primary} />
+                  )}
                 </View>
                 <View style={styles.logoTextContainer}>
-                  <Text style={[styles.appName, { color: colors.text }]}>Santeh Feeds Corporation</Text>
+                  <Text style={[styles.appName, { color: colors.text }]}>
+                    {selectedCompany ? selectedCompany.label : 'Santeh Feeds Corporation'}
+                  </Text>
                   <Text style={[styles.appTagline, { color: colors.textSecondary }]}>
                     ERP - MOBILE
                   </Text>
@@ -288,6 +346,34 @@ export function LoginForm() {
                     Sign in to continue
                   </Text>
                 </Animated.View>
+
+                {/* Company Selector */}
+                <View style={styles.companyDropdownWrapper}>
+                  <CompanyDropdown
+                    options={companyOptions}
+                    value={company}
+                    onSelect={(val) => {
+                      setCompany(val);
+                      if (val) setCompanyError(false);
+                    }}
+                    placeholder="Select company"
+                    colors={{
+                      primary: colors.primary,
+                      text: colors.text,
+                      textSecondary: colors.textSecondary,
+                      textTertiary: colors.textTertiary,
+                      background: colors.background,
+                      cardBackground: colors.cardBackground,
+                      cardBorder: colors.cardBorder,
+                      divider: colors.divider,
+                    }}
+                  />
+                  {companyError && (
+                    <Text style={[styles.cardErrorText, { color: colors.error }]}>
+                      Company is required
+                    </Text>
+                  )}
+                </View>
 
                 {/* Username Input */}
                 <Animated.View 

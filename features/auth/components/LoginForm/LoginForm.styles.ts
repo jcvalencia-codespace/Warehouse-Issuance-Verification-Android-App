@@ -79,12 +79,22 @@ export const styles = StyleSheet.create({
     marginBottom: 28,
   },
   logoContainer: {
-    width: 76,
-    height: 76,
-    borderRadius: 22,
+    width: 300,
+    height: 100,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 14,
+    overflow: 'hidden',
+  },
+  companyLogoImage: {
+    width: 210,
+    height: 100,
+  },
+  companyInitials: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   logoTextContainer: {
     alignItems: 'center',
@@ -294,6 +304,20 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     letterSpacing: 0.3,
+  },
+
+  // Company selector
+  companyDropdownWrapper: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  companyDropdownLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   // Legacy/unused styles - keeping for compatibility
