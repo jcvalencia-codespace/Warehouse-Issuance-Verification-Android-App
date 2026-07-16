@@ -10,5 +10,5 @@ const router = express.Router();
  */
 router.post('/login', AuthController.login);
 router.post('/login-history', AuthController.loginHistory);
-
+router.get('/company', AuthController.companyLogin);
 module.exports = router;

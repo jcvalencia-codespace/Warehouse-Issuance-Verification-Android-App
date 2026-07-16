@@ -46,6 +46,9 @@ export class AuthService {
 
       if (response.data.success) {
         const user = response.data.user;
+        if (company && user) {
+          user.COMPANY = company;
+        }
         console.log('[AuthService] Login response user:', JSON.stringify(user));
         return user as any;
       }

@@ -1,4 +1,4 @@
-import { IssuanceScreen } from '@/features/supplies-dept/issuance/IssuanceScreen';
+import IssuanceScreen from '@/features/supplies-dept/issuance/IssuanceScreen';
 import { useRouter } from 'expo-router';
 
 export default function SuppliesIssuanceRoute() {

@@ -21,8 +21,13 @@ class AuthController {
       if (result.success) {
         const { system, company } = req.body || {};
         const ipAddress = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || '';
-        
-        res.json(result);
+
+        const responseBody = {
+          ...result,
+          company: company || result.user?.COMPANY || undefined,
+        };
+
+        res.json(responseBody);
         
         if (ipAddress && system) {
           AuthService.postLoginHistory(
@@ -74,6 +79,22 @@ class AuthController {
       res.json({ success: true, result });
     } catch (error) {
       console.error('Login history controller error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Database error occurred',
+        error: error.message,
+      });
+    }
+  }
+
+  static async companyLogin(req, res){
+    try{
+      const {ipAddress, username} = req.body;
+
+      const result = await AuthService.getCompanyLogin(ipAddress, username);
+      res.json({ success: true, company: result });
+    }catch (error){
+      console.error('failed to get company login:', error.message);
       res.status(500).json({
         success: false,
         message: 'Database error occurred',

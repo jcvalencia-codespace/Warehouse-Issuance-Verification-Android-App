@@ -22,3 +22,9 @@ export interface TransactionTypeResponse {
   transactionTypes: { ISSUANCETYPE: string }[];
   message?: string;
 }
+
+export interface ItemCodeResponse {
+  success: boolean;
+  itemCodes: { 'ITEM CODE': string; DESCRIPTION: string }[];
+  message?: string;
+}

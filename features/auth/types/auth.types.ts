@@ -9,6 +9,7 @@ export interface UserAccount {
   ACTIVE?: number;
   EMAILADD?: string;
   ISADMIN?: boolean;
+  COMPANY?: string;
 }
 
 export interface LoginRequest {
