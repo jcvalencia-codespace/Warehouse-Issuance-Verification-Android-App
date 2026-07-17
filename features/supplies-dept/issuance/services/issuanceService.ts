@@ -1,10 +1,11 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { DeptCodeResponse, ItemCodeResponse, TransactionTypeResponse } from '../types/issuance.types';
+import { AssignQuantityAllocation, AssignQuantityAllocationResponse, DeptCodeResponse, ItemCodeDetails, ItemCodeResponse, TransactionTypeResponse } from '../types/issuance.types';
 
 export interface DropdownOption {
-  label: string;
-  value: string;
+    label: string;
+    value: string;
+    description?: string;
 }
 
 export class IssuanceService {
@@ -67,8 +68,8 @@ export class IssuanceService {
     }
 
     async getTransactionTypes(company?: string): Promise<DropdownOption[]> {
-        if (!this.baseUrl){
-            throw new Error ('API URL not configured');
+        if (!this.baseUrl) {
+            throw new Error('API URL not configured');
         }
         try {
             const response = await axios.get<TransactionTypeResponse>(
@@ -88,8 +89,8 @@ export class IssuanceService {
     }
 
     async getItemCodes(company?: string): Promise<DropdownOption[]> {
-        if (!this.baseUrl){
-            throw new Error ('API URL not configured');
+        if (!this.baseUrl) {
+            throw new Error('API URL not configured');
         }
         try {
             const response = await axios.get<ItemCodeResponse>(
@@ -100,7 +101,44 @@ export class IssuanceService {
                 return response.data.itemCodes.map((item) => ({
                     label: `${item['ITEM CODE'].trim()} - ${item.DESCRIPTION.trim()}`,
                     value: item['ITEM CODE'].trim(),
+                    description: item.DESCRIPTION.trim(),
                 }));
+            }
+            return [];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getItemCodeDetails(itemCode: string, company?: string): Promise<ItemCodeDetails[]> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.get<{ success: boolean; itemDetails: ItemCodeDetails[] }>(
+                `${this.baseUrl}/supplies/issuance/get-item-details/${encodeURIComponent(itemCode)}`,
+                { params: company ? { company } : undefined }
+            );
+            if (response.data.success) {
+                return response.data.itemDetails;
+            }
+            return [];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAssignQuantityAllocation (itemCode: string, assignedQty: number, company?: string): Promise<AssignQuantityAllocation[]>{
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.get<AssignQuantityAllocationResponse>(
+                `${this.baseUrl}/supplies/issuance/get-assigned-quantity-allocation/${encodeURIComponent(itemCode)}`,
+                { params: { assignedQty, ...(company ? { company } : {}) } }
+            );
+            if (response.data.success) {
+                return response.data.allocations;
             }
             return [];
         } catch (error) {

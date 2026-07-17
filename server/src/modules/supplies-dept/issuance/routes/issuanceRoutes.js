@@ -6,5 +6,7 @@ router.get('/dept-code/:scannedApprover', IssuanceController.getDeptCodeByScanne
 router.get('/next-reference-number', IssuanceController.getNextReferenceNo);
 router.get('/get-transaction-type', IssuanceController.getTransactionType);
 router.get('/get-item-code', IssuanceController.getItemCode);
+router.get('/get-item-details/:itemCode', IssuanceController.getItemDetails);
+router.get('/get-assigned-quantity-allocation/:itemCode', IssuanceController.getAssignQuantityAllocation);
 
 module.exports = router;

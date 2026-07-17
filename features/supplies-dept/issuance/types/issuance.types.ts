@@ -28,3 +28,32 @@ export interface ItemCodeResponse {
   itemCodes: { 'ITEM CODE': string; DESCRIPTION: string }[];
   message?: string;
 }
+
+export interface ItemCodeDetails {
+  AREA: string;
+  DATERECEIVED: string;
+  REFERENCENO: string;
+  LINENUMBER: number;
+  LOTNUMBER: string;
+  'ITEM CODE': string;
+  UOFM: string;
+  QUANTITY: number;
+}
+
+export interface AssignQuantityAllocation {
+  AREA: string;
+  DATERECEIVED: string;
+  REFERENCENO: string;
+  LINENUMBER: number;
+  LOTNUMBER: string;
+  ITEMCODE: string;
+  UOFM: string;
+  AVAILABLE_QUANTITY: number;
+  ASSIGNED_QUANTITY: number;
+}
+
+export interface AssignQuantityAllocationResponse {
+  success: boolean;
+  allocations: AssignQuantityAllocation[];
+  message?: string;
+}

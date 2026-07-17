@@ -4,22 +4,24 @@
  */
 
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from 'react-native';
 import { DropdownOption, IssuanceService } from '../services/issuanceService';
-import { useAuth } from '@/features/auth/context/AuthContext';
+import { AssignQuantityAllocation, ItemCodeDetails } from '../types/issuance.types';
+import { ItemCodeModal } from './ItemCodeModal';
+import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner';
 
 interface IssuanceDetailsProps {
   company?: string;
@@ -30,6 +32,8 @@ export interface IssuanceLineItem {
   itemCode: string;
   description: string;
   quantity: string;
+  details: ItemCodeDetails[];
+  allocations: AssignQuantityAllocation[];
 }
 
 export function IssuanceDetails({ company: companyProp, onItemsChange }: IssuanceDetailsProps) {
@@ -40,13 +44,41 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
 
   const [itemCodeOptions, setItemCodeOptions] = useState<DropdownOption[]>([]);
   const [selectedItemCode, setSelectedItemCode] = useState('');
+  const [itemModalVisible, setItemModalVisible] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
   const [quantity, setQuantity] = useState('');
   const [items, setItems] = useState<IssuanceLineItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [itemDetails, setItemDetails] = useState<ItemCodeDetails[]>([]);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
+
+  const selectedItem = itemCodeOptions.find((o) => o.value === selectedItemCode);
+
+  const totalAvailable = itemDetails.reduce((sum, d) => sum + Number(d.QUANTITY), 0);
 
   useEffect(() => {
     loadItemCodes();
   }, [company]);
+
+  useEffect(() => {
+    if (!selectedItemCode) {
+      setItemDetails([]);
+      return;
+    }
+    const fetchDetails = async () => {
+      setDetailsLoading(true);
+      try {
+        const details = await IssuanceService.getInstance().getItemCodeDetails(selectedItemCode, company);
+        setItemDetails(details);
+      } catch (error) {
+        setItemDetails([]);
+      } finally {
+        setDetailsLoading(false);
+      }
+    };
+    fetchDetails();
+  }, [selectedItemCode, company]);
 
   const loadItemCodes = async () => {
     try {
@@ -57,15 +89,21 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
     }
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const newErrors: Record<string, string> = {};
 
     if (!selectedItemCode) {
       newErrors.itemCode = 'Item code is required';
+    } else if (items.some((item) => item.itemCode === selectedItemCode)) {
+      newErrors.itemCode = 'Item code already added';
     }
 
-    if (!quantity.trim() || isNaN(Number(quantity)) || Number(quantity) <= 0) {
+    const quantityValue = Number(quantity);
+
+    if (!quantity.trim() || isNaN(quantityValue) || quantityValue <= 0) {
       newErrors.quantity = 'Enter a valid quantity';
+    } else if (totalAvailable > 0 && quantityValue > totalAvailable) {
+      newErrors.quantity = `Quantity exceeds available stock (${totalAvailable})`;
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -78,10 +116,23 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
     );
     const description = selectedOption?.label.split(' - ')[1] || '';
 
+    let allocations: AssignQuantityAllocation[] = [];
+    try {
+      allocations = await IssuanceService.getInstance().getAssignQuantityAllocation(
+        selectedItemCode,
+        quantityValue,
+        company
+      );
+    } catch (error) {
+      allocations = [];
+    }
+
     const newItem: IssuanceLineItem = {
       itemCode: selectedItemCode,
       description,
       quantity: quantity.trim(),
+      details: itemDetails,
+      allocations,
     };
 
     const updatedItems = [...items, newItem];
@@ -91,41 +142,153 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
     setSelectedItemCode('');
     setQuantity('');
     setErrors({});
+    setItemDetails([]);
+    setExpandedItems({});
   };
 
   const handleRemove = (index: number) => {
     const updatedItems = items.filter((_, i) => i !== index);
     setItems(updatedItems);
+    setExpandedItems((prev) => {
+      const next: Record<number, boolean> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const key = Number(k);
+        if (key < index) next[key] = v;
+        else if (key > index) next[key - 1] = v;
+      });
+      return next;
+    });
     onItemsChange?.(updatedItems);
   };
 
-  const renderItem = ({ item, index }: { item: IssuanceLineItem; index: number }) => (
-    <View style={[styles.itemCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-      <View style={styles.itemHeader}>
-        <View style={styles.itemTitleContainer}>
-          <Text style={[styles.itemCode, { color: colors.text }]}>
-            {item.itemCode}
-          </Text>
-          <Text style={[styles.itemDescription, { color: colors.textSecondary }]} numberOfLines={1}>
-            {item.description}
-          </Text>
+  const handleScanned = (data: string) => {
+    const matched = itemCodeOptions.find((o) => o.value === data);
+    if (matched) {
+      setSelectedItemCode(matched.value);
+      setErrors((prev) => {
+        if (!prev.itemCode) return prev;
+        const next = { ...prev };
+        delete next.itemCode;
+        return next;
+      });
+    } else {
+      Alert.alert('Invalid Item Code', `Scanned code "${data}" is not available.`);
+    }
+    setScannerVisible(false);
+  };
+
+  const renderItem = ({ item, index }: { item: IssuanceLineItem; index: number }) => {
+    const expanded = expandedItems[index];
+    return (
+      <View style={[styles.itemCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+        <View style={styles.itemHeader}>
+          <View style={styles.itemTitleContainer}>
+            <Text style={[styles.itemCode, { color: colors.text }]}>
+              {item.itemCode}
+            </Text>
+            <Text style={[styles.itemDescription, { color: colors.textSecondary }]} numberOfLines={1}>
+              {item.description}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.removeButton, { backgroundColor: colors.error + '14' }]}
+            onPress={() => handleRemove(index)}
+          >
+            <MaterialCommunityIcons name="close" size={18} color={colors.error} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[styles.removeButton, { backgroundColor: colors.error + '14' }]}
-          onPress={() => handleRemove(index)}
-        >
-          <MaterialCommunityIcons name="close" size={18} color={colors.error} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.itemFooter}>
-        <View style={styles.quantityContainer}>
-          <MaterialCommunityIcons name="numeric" size={18} color={colors.textSecondary} />
-          <Text style={[styles.quantityLabel, { color: colors.textSecondary }]}>Qty:</Text>
-          <Text style={[styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text>
+        <View style={styles.itemFooter}>
+          <View style={styles.quantityContainer}>
+            <MaterialCommunityIcons name="numeric" size={18} color={colors.textSecondary} />
+            <Text style={[styles.quantityLabel, { color: colors.textSecondary }]}>Qty:</Text>
+            <Text style={[styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text>
+          </View>
+          {item.details.length > 0 && (
+            <TouchableOpacity
+              style={[styles.detailsToggle, { backgroundColor: colors.primary + '14' }]}
+              onPress={() => setExpandedItems((prev) => ({ ...prev, [index]: !prev[index] }))}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.detailsToggleText, { color: colors.primary }]}>
+                {expanded ? 'Hide' : 'Details'}
+              </Text>
+              <MaterialCommunityIcons
+                name={expanded ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          )}
         </View>
+        {expanded && item.details.length > 0 && (
+          <View style={[styles.itemDetailsTable, { borderColor: colors.cardBorder }]}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>REFERENCE</Text>
+              <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>AREA</Text>
+              <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>UOM</Text>
+              <Text style={[styles.tableHeaderRight, { color: colors.textTertiary }]}>QTY</Text>
+              <Text style={[styles.tableHeaderRight, { color: colors.textTertiary }]}>ASSIGNED</Text>
+            </View>
+            {item.details
+              .map((detail) => ({
+                detail,
+                assigned: item.allocations.find(
+                  (a) =>
+                    a.LOTNUMBER === detail.LOTNUMBER &&
+                    a.REFERENCENO === detail.REFERENCENO &&
+                    a.LINENUMBER === detail.LINENUMBER
+                ),
+              }))
+              .filter(({ assigned }) => assigned && Number(assigned.ASSIGNED_QUANTITY) > 0)
+              .map(({ detail, assigned }, dIndex) => {
+              return (
+                <View
+                  key={`${detail.LOTNUMBER}-${dIndex}`}
+                  style={[
+                    styles.tableRow,
+                    dIndex % 2 === 1 && { backgroundColor: colors.background },
+                  ]}
+                >
+                  <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>
+                    {detail.REFERENCENO}
+                  </Text>
+                  <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {detail.AREA}
+                  </Text>
+                  <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {detail.UOFM}
+                  </Text>
+                  <View style={[styles.qtyPill, { backgroundColor: colors.primary + '14' }]}>
+                    <Text style={[styles.qtyPillText, { color: colors.primary }]}>{detail.QUANTITY}</Text>
+                  </View>
+                  <Text style={[styles.tableCellRight, { color: colors.text }]} numberOfLines={1}>
+                    {assigned ? assigned.ASSIGNED_QUANTITY : '0'}
+                  </Text>
+                </View>
+              );
+            })}
+            {item.details.every(
+              (detail) =>
+                !item.allocations.some(
+                  (a) =>
+                    a.LOTNUMBER === detail.LOTNUMBER &&
+                    a.REFERENCENO === detail.REFERENCENO &&
+                    a.LINENUMBER === detail.LINENUMBER &&
+                    Number(a.ASSIGNED_QUANTITY) > 0
+                )
+            ) && (
+              <View style={styles.detailsEmpty}>
+                <MaterialCommunityIcons name="package-variant" size={32} color={colors.textTertiary} />
+                <Text style={[styles.detailsEmptyText, { color: colors.textSecondary }]}>
+                  No assigned quantity for this item
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -136,13 +299,117 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
           <Text style={[styles.label, { color: colors.text }]}>
             Item Code <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
           </Text>
-          <ItemCodeDropdown
-            options={itemCodeOptions}
-            selectedValue={selectedItemCode}
-            onSelect={setSelectedItemCode}
-            error={errors.itemCode}
-            colors={colors}
-          />
+          <View style={styles.itemCodeRow}>
+            <TouchableOpacity
+              style={[
+                styles.inputContainer,
+                styles.itemCodeField,
+                {
+                  borderColor: errors.itemCode ? colors.error : colors.cardBorder,
+                  backgroundColor: colors.background,
+                },
+              ]}
+              onPress={() => setItemModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="barcode" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+              <Text
+                style={[
+                  styles.dropdownText,
+                  { color: selectedItemCode ? colors.text : colors.textTertiary },
+                ]}
+                numberOfLines={1}
+              >
+                {selectedItemCode || 'Select item code'}
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.scanButton, { borderColor: colors.cardBorder, backgroundColor: colors.background }]}
+              onPress={() => setScannerVisible(true)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="barcode-scan" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {errors.itemCode ? (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>{errors.itemCode}</Text>
+            </View>
+          ) : null}
+
+          {selectedItem && selectedItem.description ? (
+            <View style={[styles.readOnlyField, { borderColor: colors.cardBorder, backgroundColor: colors.background }]}>
+              <MaterialCommunityIcons name="text" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <Text style={[styles.readOnlyText, { color: colors.textSecondary }]}>
+                {selectedItem.description}
+              </Text>
+            </View>
+          ) : null}
+
+          {selectedItemCode ? (
+            <View style={[styles.detailsTable, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+              <View style={[styles.detailsTitleRow, { borderBottomColor: colors.cardBorder }]}>
+                <View style={styles.detailsTitleWrap}>
+                  <MaterialCommunityIcons name="package-variant-closed" size={18} color={colors.primary} />
+                  <Text style={[styles.detailsTitle, { color: colors.text }]}>Item Details</Text>
+                </View>
+                <View style={[styles.detailsCountBadge, { backgroundColor: colors.primary + '18' }]}>
+                  <Text style={[styles.detailsCountText, { color: colors.primary }]}>{itemDetails.length}</Text>
+                </View>
+              </View>
+
+              {detailsLoading ? (
+                <View style={styles.detailsLoading}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.detailsLoadingText, { color: colors.textSecondary }]}>Loading Item Details…</Text>
+                </View>
+              ) : itemDetails.length > 0 ? (
+                <View>
+                  <View style={styles.tableHeaderRow}>
+                    <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>REFERENCE</Text>
+                    {/* <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>AREA</Text> */}
+                    <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>UOM</Text>
+                    <Text style={[styles.tableHeaderRight, { color: colors.textTertiary }]}>QTY</Text>
+                  </View>
+                  <FlatList
+                    data={itemDetails}
+                    keyExtractor={(_, index) => `detail-${index}`}
+                    scrollEnabled={false}
+                    renderItem={({ item, index }) => (
+                      <View
+                        style={[
+                          styles.tableRow,
+                          index % 2 === 1 && { backgroundColor: colors.background },
+                        ]}
+                      >
+                        <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>
+                          {item.REFERENCENO}
+                        </Text>
+                        {/* <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {item.AREA}
+                        </Text> */}
+                        <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {item.UOFM}
+                        </Text>
+                        <View style={[styles.qtyPill, { backgroundColor: colors.primary + '14' }]}>
+                          <Text style={[styles.qtyPillText, { color: colors.primary }]}>{item.QUANTITY}</Text>
+                        </View>
+                      </View>
+                    )}
+                  />
+                </View>
+              ) : (
+                <View style={styles.detailsEmpty}>
+                  <MaterialCommunityIcons name="package-variant" size={32} color={colors.textTertiary} />
+                  <Text style={[styles.detailsEmptyText, { color: colors.textSecondary }]}>No available lots for this item</Text>
+                </View>
+              )}
+            </View>
+          ) : null}
         </View>
 
         {/* Quantity Input */}
@@ -212,128 +479,29 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
           />
         </View>
       )}
-    </View>
-  );
-}
 
-function ItemCodeDropdown({
-  options,
-  selectedValue,
-  onSelect,
-  error,
-  colors,
-}: {
-  options: DropdownOption[];
-  selectedValue: string;
-  onSelect: (value: string) => void;
-  error?: string;
-  colors: typeof Colors.light;
-}) {
-  const [open, setOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
-  const triggerRef = React.useRef<View>(null);
-  const selected = options.find((o) => o.value === selectedValue);
+      <ItemCodeModal
+        visible={itemModalVisible}
+        options={itemCodeOptions}
+        selectedValue={selectedItemCode}
+        onSelect={(value) => {
+          setSelectedItemCode(value);
+          setErrors((prev) => {
+            if (!prev.itemCode) return prev;
+            const next = { ...prev };
+            delete next.itemCode;
+            return next;
+          });
+        }}
+        onClose={() => setItemModalVisible(false)}
+      />
 
-  const handleSelect = (optionValue: string) => {
-    onSelect(optionValue);
-    setOpen(false);
-  };
-
-  const toggle = () => {
-    if (triggerRef.current) {
-      triggerRef.current.measure((x, y, width, height, pageX, pageY) => {
-        setMenuPosition({
-          top: pageY + height + 4,
-          left: pageX,
-          width: width,
-        });
-      });
-    }
-    setOpen((prev) => !prev);
-  };
-
-  return (
-    <View>
-      <View ref={triggerRef}>
-        <TouchableOpacity
-          style={[
-            styles.inputContainer,
-            {
-              borderColor: error
-                ? colors.error
-                : open
-                  ? colors.primary
-                  : colors.cardBorder,
-              backgroundColor: colors.background,
-            },
-          ]}
-          onPress={toggle}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="barcode" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-          <Text
-            style={[
-              styles.dropdownText,
-              { color: selected ? colors.text : colors.textTertiary },
-            ]}
-            numberOfLines={1}
-          >
-            {selected ? selected.label : 'Select item code'}
-          </Text>
-          <MaterialCommunityIcons
-            name={open ? 'chevron-up' : 'chevron-down'}
-            size={22}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setOpen(false)}
-        >
-          <View
-            style={[
-              styles.dropdown,
-              menuPosition,
-              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-            ]}
-            onStartShouldSetResponder={() => true}
-          >
-            <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
-              {options.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={styles.dropdownOption}
-                  onPress={() => handleSelect(option.value)}
-                >
-                  <Text
-                    style={[styles.dropdownOptionText, { color: colors.text }]}
-                  >
-                    {option.label}
-                  </Text>
-                  {selectedValue === option.value && (
-                    <MaterialCommunityIcons
-                      name="check"
-                      size={20}
-                      color={colors.primary}
-                    />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {error ? (
-        <View style={styles.errorContainer}>
-          <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-        </View>
-      ) : null}
+      <BarcodeScanner
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onScan={handleScanned}
+        title="Scan Item Code"
+      />
     </View>
   );
 }
@@ -377,8 +545,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 56,
   },
+  itemCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  itemCodeField: {
+    flex: 1,
+  },
   inputIcon: {
     marginRight: 12,
+  },
+  scanButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,
@@ -391,34 +575,128 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  modalOverlay: {
-    flex: 1,
-  },
-  dropdown: {
-    position: 'absolute',
+  readOnlyField: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 12,
+  },
+  readOnlyText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  detailsTable: {
+    marginTop: 12,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
   },
-  dropdownScrollView: {
-    maxHeight: 220,
-  },
-  dropdownOption: {
+  detailsTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  detailsTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailsTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  detailsCountBadge: {
+    minWidth: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  detailsCountText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  detailsLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 28,
+  },
+  detailsLoadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  detailsEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 28,
+  },
+  detailsEmptyText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  tableHeader: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  tableHeaderRight: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textAlign: 'right',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
-  dropdownOptionText: {
-    fontSize: 16,
+  tableCell: {
+    flex: 1,
+    fontSize: 14,
     fontWeight: '500',
+  },
+  tableCellRight: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  qtyPill: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  qtyPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    overflow: 'hidden',
+    textAlign: 'right',
   },
   errorContainer: {
     flexDirection: 'row',
@@ -488,6 +766,7 @@ const styles = StyleSheet.create({
   itemFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   quantityContainer: {
     flexDirection: 'row',
@@ -501,5 +780,23 @@ const styles = StyleSheet.create({
   quantityValue: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  detailsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  detailsToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  itemDetailsTable: {
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
 });
