@@ -57,3 +57,11 @@ export interface AssignQuantityAllocationResponse {
   allocations: AssignQuantityAllocation[];
   message?: string;
 }
+
+export interface AreaOption {
+  AREA: string;
+}
+
+export interface ProjectNameOption {
+  PROJECTNAME: string;
+}

@@ -2,24 +2,23 @@
  * Supplies Issuance Header Form
  */
 
-import { DatePickerModal } from '@/components/DatePickerModal';
 import { TimePickerModal } from '@/components/TimePickerModal';
 import { Colors } from '@/constants/theme';
+import { CustomDatePicker } from './CustomDatePicker';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from 'react-native';
 import { DropdownOption, IssuanceService } from '../services/issuanceService';
 
@@ -72,28 +71,21 @@ const ISSUANCE_TYPE_OPTIONS: DropdownOption[] = [
   { label: 'Service Vehicle', value: 'Service Vehicle' },
 ];
 
-const AREA_OPTIONS: DropdownOption[] = [
-  { label: 'Warehouse A', value: 'Warehouse A' },
-  { label: 'Warehouse B', value: 'Warehouse B' },
-  { label: 'Production Floor', value: 'Production Floor' },
-  { label: 'Maintenance', value: 'Maintenance' },
-];
-
-const PROJECT_OPTIONS: DropdownOption[] = [
-  { label: 'Project Alpha', value: 'Project Alpha' },
-  { label: 'Project Beta', value: 'Project Beta' },
-  { label: 'General Operations', value: 'General Operations' },
-];
-
-const formatDate = (date: Date) =>
-  date.toISOString().split('T')[0];
-
 const formatTime = (date: Date) =>
   date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
   });
+
+const formatLocalDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+const parseLocalDate = (dateStr: string | null | undefined): Date => {
+  if (!dateStr) return new Date();
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
 
 export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>(
   ({ onSubmit }, ref) => {
@@ -127,6 +119,11 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
       'contactPerson' | 'approvedBy' | null
     >(null);
     const [transactionTypeOptions, setTransactionTypeOptions] = useState<DropdownOption[]>([]);
+    const [areaOptions, setAreaOptions] = useState<DropdownOption[]>([]);
+    const [projectOptions, setProjectOptions] = useState<DropdownOption[]>([]);
+    const [projectNameOptions, setProjectNameOptions] = useState<DropdownOption[]>([]);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [tempDate, setTempDate] = useState<Date | null>(null);
 
     useEffect(() => {
       if (user) {
@@ -193,9 +190,80 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
       getTransactionType();
     }, []);
 
+    const getAreaOptions = async (department: string) => {
+      if (!department) {
+        setAreaOptions([]);
+        return;
+      }
+      try {
+        const areas = await IssuanceService.getInstance().getAreaOption(department, user?.COMPANY);
+        setAreaOptions(
+          areas.map((item) => ({
+            label: item.AREA.trim(),
+            value: item.AREA.trim(),
+          }))
+        );
+      } catch (error) {
+        setAreaOptions([]);
+      }
+    };
+
+    useEffect(() => {
+      getAreaOptions(formData.deptCode);
+      if (!formData.deptCode) {
+        updateField('area', '');
+      }
+    }, [formData.deptCode]);
+
+    const getProjectOptions = async (department: string, area: string) => {
+      if (!department || !area) {
+        setProjectOptions([]);
+        return;
+      }
+      try {
+        const projects = await IssuanceService.getInstance().getProjectNameOption(department, area, user?.COMPANY);
+        setProjectOptions(
+          projects.map((item) => ({
+            label: item.PROJECTNAME.trim(),
+            value: item.PROJECTNAME.trim(),
+          }))
+        );
+      } catch (error) {
+        setProjectOptions([]);
+      }
+    };
+
+    useEffect(() => {
+      getProjectOptions(formData.deptCode, formData.area);
+      if (!formData.area) {
+        updateField('project', '');
+      }
+    }, [formData.deptCode, formData.area]);
+
+    const getProjectNameOption = async (department: string, area: string) => {
+      if(!department) {
+        setProjectNameOptions([]);
+        return;
+      }
+      try{
+        const projectNames = await IssuanceService.getInstance().getProjectNameOption(department, area, user?.COMPANY);
+        setProjectNameOptions(
+          projectNames.map((item) => ({
+            label: item.PROJECTNAME.trim(),
+            value: item.PROJECTNAME.trim(),
+          }))
+        );
+      } catch (error) {
+        setProjectNameOptions([]);
+      }
+    }
+
+    useEffect(() => {
+      getProjectNameOption(formData.deptCode, formData.area);
+    }, [formData.deptCode, formData.area]);
+
     const handleSubmit = () => {
       const required: { field: keyof IssuanceFormData; label: string }[] = [
-        { field: 'referenceNo', label: 'Reference No.' },
         { field: 'shift', label: 'Shift' },
         { field: 'transactionType', label: 'Transaction Type' },
         { field: 'issuanceType', label: 'Issuance Type' },
@@ -269,13 +337,10 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
           {/* Reference */}
           <View style={styles.row}>
             <View style={styles.halfWidth}>
-              <FormInput
+              <ReadOnlyField
                 label="Reference No."
-                required
                 value={formData.referenceNo}
-                placeholder="Enter reference no."
-                onChangeText={(t) => updateField('referenceNo', t)}
-                error={errors.referenceNo}
+                icon="identifier"
                 colors={colors}
               />
             </View>
@@ -300,9 +365,11 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
                 <DateTimeField
                   label="Date Issued"
                   required
-                  mode="date"
                   value={formData.dateIssued}
-                  onChange={(d) => updateField('dateIssued', d)}
+                  onPress={() => {
+                    setTempDate(formData.dateIssued || new Date());
+                    setShowDatePicker(true);
+                  }}
                   colors={colors}
                 />
               </View>
@@ -404,23 +471,23 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
 
           {/* Area & Project */}
           <View style={styles.halfWidth}>
-            <Dropdown
-              label="Area"
-              required
-              placeholder="Select area"
-              value={formData.area}
-              options={AREA_OPTIONS}
-              onSelect={(v) => updateField('area', v)}
-              error={errors.area}
-              colors={colors}
-            />
+              <Dropdown
+                label="Area"
+                required
+                placeholder={formData.deptCode ? "Select area" : "Select department first"}
+                value={formData.area}
+                options={areaOptions}
+                onSelect={(v) => updateField('area', v)}
+                error={errors.area}
+                colors={colors}
+              />
 
             <Dropdown
               label="Project"
               required
-              placeholder="Select project"
+              placeholder={formData.area ? "Select project" : "Select area first"}
               value={formData.project}
-              options={PROJECT_OPTIONS}
+              options={projectOptions}
               onSelect={(v) => updateField('project', v)}
               error={errors.project}
               colors={colors}
@@ -439,6 +506,42 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
               : 'Scan Contact Person Badge'
           }
           validateForkliftOperator={false}
+        />
+
+        {/* Custom Date Picker Modal for Date Issued */}
+        <CustomDatePicker
+          visible={showDatePicker}
+          initialDate={formData.dateIssued}
+          onDateSelect={async (date) => {
+            const month = date.getMonth() + 1;
+            const year = date.getFullYear();
+            try {
+              const posted = await IssuanceService.getInstance().isMonthPosted(
+                month,
+                year,
+                user?.COMPANY
+              );
+              if (posted) {
+                Alert.alert(
+                  'Month Already Posted',
+                  `The selected month (${month}/${year}) has already been posted and cannot be used.`
+                );
+                setTempDate(null);
+                return;
+              }
+            } catch (error) {
+              // Allow selection if the check fails (network/backend issue)
+            }
+            updateField('dateIssued', date);
+            setTempDate(null);
+            setShowDatePicker(false);
+          }}
+          onCancel={() => {
+            setTempDate(null);
+            setShowDatePicker(false);
+          }}
+          colors={colors}
+          maximumDate={new Date()}
         />
       </>
     );
@@ -564,21 +667,31 @@ function Dropdown({
   onSelect,
   error,
   colors,
+  searchable = true,
 }: FieldBaseProps & {
   placeholder?: string;
   value: string;
   options: DropdownOption[];
   onSelect: (value: string) => void;
   error?: string;
+  searchable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [search, setSearch] = useState('');
   const triggerRef = useRef<View>(null);
   const selected = options.find((o) => o.value === value);
+
+  const filteredOptions = search.trim() === ''
+    ? options
+    : options.filter((o) =>
+        o.label.toLowerCase().includes(search.trim().toLowerCase())
+      );
 
   const handleSelect = (optionValue: string) => {
     onSelect(optionValue);
     setOpen(false);
+    setSearch('');
   };
 
   const toggle = () => {
@@ -592,6 +705,7 @@ function Dropdown({
       });
     }
     setOpen((prev) => !prev);
+    setSearch('');
   };
 
   return (
@@ -644,27 +758,53 @@ function Dropdown({
             ]}
             onStartShouldSetResponder={() => true}
           >
+            {searchable && (
+              <View style={[styles.dropdownSearchContainer, { borderColor: colors.cardBorder }]}>
+                <MaterialCommunityIcons name="magnify" size={18} color={colors.textSecondary} />
+                <TextInput
+                  style={[styles.dropdownSearchInput, { color: colors.text }]}
+                  placeholder="Search..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={search}
+                  onChangeText={setSearch}
+                  autoFocus
+                />
+                {search.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
+                    <MaterialCommunityIcons name="close-circle" size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
             <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
-              {options.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={styles.dropdownOption}
-                  onPress={() => handleSelect(option.value)}
-                >
-                  <Text
-                    style={[styles.dropdownOptionText, { color: colors.text }]}
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={styles.dropdownOption}
+                    onPress={() => handleSelect(option.value)}
                   >
-                    {option.label}
+                    <Text
+                      style={[styles.dropdownOptionText, { color: colors.text }]}
+                    >
+                      {option.label}
+                    </Text>
+                    {value === option.value && (
+                      <MaterialCommunityIcons
+                        name="check"
+                        size={20}
+                        color={colors.primary}
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.dropdownEmpty}>
+                  <Text style={[styles.dropdownOptionText, { color: colors.textSecondary }]}>
+                    No results found
                   </Text>
-                  {value === option.value && (
-                    <MaterialCommunityIcons
-                      name="check"
-                      size={20}
-                      color={colors.primary}
-                    />
-                  )}
-                </TouchableOpacity>
-              ))}
+                </View>
+              )}
             </ScrollView>
           </View>
         </TouchableOpacity>
@@ -681,32 +821,15 @@ function DateTimeField({
   mode,
   value,
   onChange,
+  onPress,
   colors,
 }: FieldBaseProps & {
-  mode: 'date' | 'time';
+  mode?: 'date' | 'time';
   value: Date;
-  onChange: (date: Date) => void;
+  onChange?: (date: Date) => void;
+  onPress?: () => void;
 }) {
-  const [show, setShow] = useState(false);
-  const display = mode === 'date' ? formatDate(value) : formatTime(value);
-
-  if (Platform.OS === 'web') {
-    return (
-      <View style={styles.inputGroup}>
-        <FieldLabel label={label} required={required} colors={colors} />
-        <View
-          style={[
-            styles.inputContainer,
-            { borderColor: colors.cardBorder, backgroundColor: colors.background },
-          ]}
-        >
-          <Text style={[styles.dropdownText, { color: colors.text }]}>
-            {display}
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  const display = mode === 'time' ? formatTime(value) : formatLocalDate(value);
 
   return (
     <View style={styles.inputGroup}>
@@ -717,11 +840,11 @@ function DateTimeField({
           styles.dropdownContainer,
           { borderColor: colors.cardBorder, backgroundColor: colors.background },
         ]}
-        onPress={() => setShow(true)}
+        onPress={onPress ?? (() => {})}
         activeOpacity={0.7}
       >
         <MaterialCommunityIcons
-          name={mode === 'date' ? 'calendar-blank' : 'clock-outline'}
+          name={mode === 'time' ? 'clock-outline' : 'calendar-blank'}
           size={20}
           color={colors.textSecondary}
           style={styles.inputIcon}
@@ -731,27 +854,12 @@ function DateTimeField({
         </Text>
       </TouchableOpacity>
 
-      {mode === 'date' ? (
-        <DatePickerModal
-          visible={show}
-          mode="start"
-          selectedDate={value}
-          onClose={() => setShow(false)}
-          onConfirm={(date) => onChange(date)}
-          colors={{
-            primary: colors.primary,
-            cardBackground: colors.cardBackground,
-            divider: colors.divider,
-            text: colors.text,
-            textSecondary: colors.textSecondary,
-          }}
-        />
-      ) : (
+      {mode === 'time' && (
         <TimePickerModal
-          visible={show}
+          visible={false}
           selectedTime={value}
-          onClose={() => setShow(false)}
-          onConfirm={(date) => onChange(date)}
+          onClose={() => {}}
+          onConfirm={(date) => onChange?.(date)}
           colors={{
             primary: colors.primary,
             cardBackground: colors.cardBackground,
@@ -952,6 +1060,25 @@ const styles = StyleSheet.create({
   
   dropdownScrollView: {
     maxHeight: 220,
+  },
+  dropdownSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  dropdownSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    paddingVertical: 0,
+  },
+  dropdownEmpty: {
+    paddingHorizontal: 18,
+    paddingVertical: 16,
   },
   dropdownOption: {
     flexDirection: 'row',

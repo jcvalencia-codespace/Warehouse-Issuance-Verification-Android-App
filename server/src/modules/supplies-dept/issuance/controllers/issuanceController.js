@@ -5,13 +5,13 @@ exports.getDeptCodeByScannedApprover = async (req, res) => {
     const { scannedApprover } = req.params;
     const { company } = req.query;
 
-    const query = `SELECT DEPTCODE FROM [SYSTEM.USERACCOUNT] WHERE NAME = @scannedApprover`;
-    const dbName = getCompanyDbName(company);
+    const query = `SELECT DEPARTMENT FROM [SYSTEM.USERACCOUNT] WHERE NAME = @scannedApprover`;
+    const dbName = process.env.DB_GDB;
     const pool = await getPool(dbName);
     const result = await pool.request().input('scannedApprover', scannedApprover).query(query);
 
     if (result.recordset.length > 0) {
-        const deptCode = result.recordset[0].DEPTCODE;
+        const deptCode = result.recordset[0].DEPARTMENT;
         res.json({ success: true, deptCode });
     } else {
         res.status(404).json({ success: false, message: 'Approver not found' });
@@ -152,4 +152,87 @@ exports.getAssignQuantityAllocation = async (req, res) => {
         .query(query);
 
     res.json({ success: true, allocations: result.recordset });
+}
+
+exports.getAreaOption = async (req, res) => {
+    const { company } = req.query;
+
+    const companyColumn = {
+        SFC: 'SFC',
+        FEEDPRO: 'PNC',
+        PNC: 'PNC',
+        PET1: 'PET',
+        PET: 'PET'
+    };
+
+    if (!company || !companyColumn[company]) {
+        return res.status(400).json({ success: false, message: 'Invalid or missing company' });
+    }
+    const { department } = req.params;
+    if (!department) {
+        return res.status(400).json({ success: false, message: 'Missing department' });
+    }
+    const query = `SELECT DISTINCT AREA FROM [SETTINGS.PROJECTNAME] WHERE DEPARTMENT = @department AND ${companyColumn[company]} = 1 AND ACTIVE = 1 ORDER BY AREA`;
+    const dbName = process.env.DB_GDB || 'GDB';
+    const pool = await getPool(dbName);
+    const result = await pool.request()
+        .input('department', department)
+        .query(query);
+
+    res.json({ success: true, areas: result.recordset });
+}
+
+exports.getProjectNameOption = async (req, res) => {
+    const { company } = req.query;
+    const { department, area } = req.params;
+    if (!department || !area) {
+        return res.status(400).json({ success: false, message: 'Missing department or area' });
+    }
+    const query = `SELECT DISTINCT PROJECTNAME FROM [INVENTORY.ISSUANCEHEADER3] WHERE TRANSFER_LOCNCODE = @DEPARTMENT AND AREATRANSFER = @AREA ORDER BY PROJECTNAME`;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+    const result = await pool.request()
+        .input('department', department)
+        .input('area', area)
+        .query(query);
+
+    res.json({ success: true, projects: result.recordset });
+}
+
+exports.getUserLocnCode = async (req, res) => {
+    const { userName } = req.params;
+
+    const query = `SELECT DEPTCODE FROM [SYSTEM.USERACCOUNT] WHERE USERNAME = @userName`
+    const dbName = process.env.DB_GDB || 'GDB'
+    const pool = await getPool(dbName);
+    const result = await pool.request()
+        .input('USERNAME', userName)
+        .query(query);
+
+    if (result.recordset.length > 0) {
+        const deptCode = result.recordset[0].DEPTCODE;
+        res.json({ success: true, deptCode });
+    } else {
+        res.status(404).json({ success: false, message: 'User not found' });
+    }
+}
+
+exports.isMonthPosted = async (req, res) => {
+    const { company } = req.query;
+    const { locationCode, month, year } = req.params;
+
+    const query = `SELECT TOP 1 MONTHPOST, YEARPOST FROM [POSTINVENTORY.YEARANDMONTH2] WHERE LOCNCODE = @LOCNCODE ORDER BY YEARPOST DESC, MONTHPOST DESC`;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+    const result = await pool.request()
+        .input('LOCNCODE', locationCode)
+        .query(query);
+
+    if (result.recordset.length > 0) {
+        const { MONTHPOST, YEARPOST } = result.recordset[0];
+        const isPosted = MONTHPOST === parseInt(month) && YEARPOST === parseInt(year);
+        res.json({ success: true, isPosted });
+    } else {
+        res.json({ success: true, isPosted: false });
+    }
 }

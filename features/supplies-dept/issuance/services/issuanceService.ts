@@ -1,6 +1,15 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { AssignQuantityAllocation, AssignQuantityAllocationResponse, DeptCodeResponse, ItemCodeDetails, ItemCodeResponse, TransactionTypeResponse } from '../types/issuance.types';
+import {
+    AreaOption,
+    AssignQuantityAllocation,
+    AssignQuantityAllocationResponse,
+    DeptCodeResponse,
+    ItemCodeDetails,
+    ItemCodeResponse,
+    ProjectNameOption,
+    TransactionTypeResponse
+} from '../types/issuance.types';
 
 export interface DropdownOption {
     label: string;
@@ -128,7 +137,7 @@ export class IssuanceService {
         }
     }
 
-    async getAssignQuantityAllocation (itemCode: string, assignedQty: number, company?: string): Promise<AssignQuantityAllocation[]>{
+    async getAssignQuantityAllocation(itemCode: string, assignedQty: number, company?: string): Promise<AssignQuantityAllocation[]> {
         try {
             if (!this.baseUrl) {
                 throw new Error('API URL not configured');
@@ -141,6 +150,57 @@ export class IssuanceService {
                 return response.data.allocations;
             }
             return [];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAreaOption(department: string, company?: string): Promise<AreaOption[]> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.get<{ success: boolean; areas: AreaOption[] }>(
+                `${this.baseUrl}/supplies/issuance/get-area-option/${encodeURIComponent(department)}`,
+                { params: company ? { company } : undefined }
+            );
+            if (response.data.success) {
+                return response.data.areas;
+            }
+            return [];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getProjectNameOption(department: string, area: string, company?: string): Promise<ProjectNameOption[]> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.get<{ success: boolean; projects: ProjectNameOption[] }>(
+                `${this.baseUrl}/supplies/issuance/get-project-name/${encodeURIComponent(department)}/${encodeURIComponent(area)}`,
+                { params: company ? { company } : undefined }
+            );
+            if (response.data.success) {
+                return response.data.projects;
+            }
+            return [];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async isMonthPosted(month: number, year: number, company?: string): Promise<boolean> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.get<{ success: boolean; isPosted: boolean }>(
+                `${this.baseUrl}/supplies/issuance/is-month-posted/PAWHSP/${month}/${year}`,
+                { params: company ? { company } : undefined }
+            );
+            return response.data.success ? !!response.data.isPosted : false;
         } catch (error) {
             throw error;
         }
