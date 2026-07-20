@@ -2,9 +2,7 @@
  * Supplies Issuance Header Form
  */
 
-import { TimePickerModal } from '@/components/TimePickerModal';
 import { Colors } from '@/constants/theme';
-import { CustomDatePicker } from './CustomDatePicker';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,6 +19,9 @@ import {
   View,
 } from 'react-native';
 import { DropdownOption, IssuanceService } from '../services/issuanceService';
+import { ValidPersonnel } from '../types/issuance.types';
+import { CustomDatePicker } from './CustomDatePicker';
+import { TimeField } from './TimeField';
 
 type IssuanceMode = 'manual' | 'realtime';
 
@@ -47,6 +48,7 @@ interface IssuanceFormData {
 
 interface IssuanceHeaderProps {
   onSubmit?: (data: IssuanceFormData) => void;
+  onValidSubmit?: (data: IssuanceFormData) => void;
 }
 
 export interface IssuanceHeaderRef {
@@ -71,13 +73,6 @@ const ISSUANCE_TYPE_OPTIONS: DropdownOption[] = [
   { label: 'Service Vehicle', value: 'Service Vehicle' },
 ];
 
-const formatTime = (date: Date) =>
-  date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-
 const formatLocalDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
@@ -88,7 +83,7 @@ const parseLocalDate = (dateStr: string | null | undefined): Date => {
 };
 
 export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>(
-  ({ onSubmit }, ref) => {
+  ({ onSubmit, onValidSubmit }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
@@ -124,6 +119,9 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
     const [projectNameOptions, setProjectNameOptions] = useState<DropdownOption[]>([]);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [tempDate, setTempDate] = useState<Date | null>(null);
+    const [departmentOptions, setDepartmentOptions] = useState<DropdownOption[]>([]);
+    const [isDeptFromScan, setIsDeptFromScan] = useState(false);
+    const [validPersonnel, setValidPersonnel] = useState<ValidPersonnel[]>([]);
 
     useEffect(() => {
       if (user) {
@@ -133,6 +131,35 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
         }));
       }
     }, [user]);
+
+    useEffect(() => {
+      if (formData.issuanceMode === 'realtime') {
+        const now = new Date();
+        setFormData((prev) => ({
+          ...prev,
+          dateIssued: now,
+          timeRequest: now,
+          timeIssued: now,
+        }));
+      }
+    }, [formData.issuanceMode]);
+
+    useEffect(() => {
+      if (formData.dateIssued && formData.timeIssued) {
+        const dateOnly = new Date(formData.dateIssued);
+        dateOnly.setHours(0, 0, 0, 0);
+        const synced = new Date(dateOnly);
+        synced.setHours(
+          formData.timeIssued.getHours(),
+          formData.timeIssued.getMinutes(),
+          formData.timeIssued.getSeconds(),
+          formData.timeIssued.getMilliseconds()
+        );
+        if (synced.getTime() !== formData.dateIssued.getTime()) {
+          updateField('dateIssued', synced);
+        }
+      }
+    }, [formData.timeIssued]);
 
     const updateField = (field: keyof IssuanceFormData, value: string | Date) => {
       setFormData((prev) => ({ ...prev, [field]: value }));
@@ -146,20 +173,56 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
     };
 
     const handleScan = async (data: string) => {
+      const scanned = data.trim();
+      const isPersonnelValid = validPersonnel.some(
+        (p) => p.NAME.trim().toLowerCase() === scanned.toLowerCase()
+      );
+
       if (scannerTarget === 'contactPerson') {
-        updateField('contactPerson', data);
+        if (isPersonnelValid) {
+          updateField('contactPerson', scanned);
+          setErrors((prev) => {
+            if (!prev.contactPerson) return prev;
+            const next = { ...prev };
+            delete next.contactPerson;
+            return next;
+          });
+        } else {
+          Alert.alert('Invalid Contact Person', `Scanned code "${data}" is not a valid personnel.`);
+        }
+        setScannerTarget(null);
       } else if (scannerTarget === 'approvedBy') {
-        updateField('approvedBy', data);
+        if (!isPersonnelValid) {
+          Alert.alert('Invalid Approver', `Scanned code "${data}" is not a valid personnel.`);
+          setScannerTarget(null);
+          return;
+        }
         try {
           const deptCode = await IssuanceService.getInstance().getDeptCodeByScannedApprover(data, user?.COMPANY);
           if (deptCode) {
-            updateField('deptCode', deptCode);
+            const trimmedApprover = scanned;
+            const trimmed = deptCode.trim();
+            updateField('approvedBy', trimmedApprover);
+            setErrors((prev) => {
+              if (!prev.approvedBy) return prev;
+              const next = { ...prev };
+              delete next.approvedBy;
+              return next;
+            });
+            setDepartmentOptions((prev) => {
+              if (prev.some((o) => o.value === trimmed)) return prev;
+              return [...prev, { label: trimmed, value: trimmed }];
+            });
+            setIsDeptFromScan(true);
+            updateField('deptCode', trimmed);
+          } else {
+            Alert.alert('Invalid Approver', `Scanned code "${data}" is not a valid approver.`);
           }
         } catch (error) {
-          Alert.alert('Error', 'Failed to fetch department code for the scanned approver.');
+          Alert.alert('Invalid Approver', `Scanned code "${data}" is not a valid approver.`);
         }
+        setScannerTarget(null);
       }
-      setScannerTarget(null);
     };
 
     const nextReferenceNumber = async () => {
@@ -188,6 +251,49 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
 
     useEffect(() => {
       getTransactionType();
+    }, []);
+
+    const getDepartmentOption = async () => {
+      try {
+        const departments = await IssuanceService.getInstance().getDepartmentOption(user?.COMPANY);
+        if (departments && departments.length > 0) {
+          const seen = new Set<string>();
+          const unique = departments
+            .map((dept) => dept.trim())
+            .filter((dept) => {
+              if (!dept || seen.has(dept)) return false;
+              seen.add(dept);
+              return true;
+            });
+          setDepartmentOptions(
+            unique.map((dept) => ({
+              label: dept,
+              value: dept,
+            }))
+          );
+        } else {
+          setDepartmentOptions([]);
+        }
+      } catch (error) {
+        setDepartmentOptions([]);
+      }
+    };
+
+    useEffect(() => {
+      getDepartmentOption();
+    }, []);
+
+    const getValidPersonnel = async () => {
+      try {
+        const personnel = await IssuanceService.getInstance().getValidPersonnel();
+        setValidPersonnel(personnel);
+      } catch (error) {
+        setValidPersonnel([]);
+      }
+    };
+
+    useEffect(() => {
+      getValidPersonnel();
     }, []);
 
     const getAreaOptions = async (department: string) => {
@@ -269,8 +375,8 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
         { field: 'issuanceType', label: 'Issuance Type' },
         { field: 'contactPerson', label: 'Contact Person' },
         { field: 'approvedBy', label: 'Approved By' },
+        { field: 'deptCode', label: 'Department' },
         { field: 'area', label: 'Area' },
-        { field: 'project', label: 'Project' },
       ];
 
       const newErrors: Record<string, string> = {};
@@ -295,12 +401,8 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
         return;
       }
 
-      Alert.alert('Success', 'Supplies issuance submitted successfully.', [
-        {
-          text: 'OK',
-          onPress: () => onSubmit?.(formData),
-        },
-      ]);
+      onValidSubmit?.(formData);
+      onSubmit?.(formData);
     };
 
     useImperativeHandle(ref, () => ({
@@ -374,18 +476,16 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
                 />
               </View>
               <View style={styles.halfWidth}>
-                <DateTimeField
+                <TimeField
                   label="Time Request"
-                  mode="time"
                   value={formData.timeRequest}
                   onChange={(d) => updateField('timeRequest', d)}
                   colors={colors}
                 />
               </View>
               <View style={styles.halfWidth}>
-                <DateTimeField
+                <TimeField
                   label="Time Issued"
-                  mode="time"
                   value={formData.timeIssued}
                   onChange={(d) => updateField('timeIssued', d)}
                   colors={colors}
@@ -458,12 +558,19 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
               />
             </View>
 
-            {/* Department (auto) */}
+            {/* Department (selectable) */}
             <View style={styles.halfWidth}>
-              <ReadOnlyField
+              <Dropdown
                 label="Department"
+                required
+                placeholder="Select department"
                 value={formData.deptCode}
-                icon="office-building"
+                options={departmentOptions}
+                onSelect={(v) => {
+                  setIsDeptFromScan(false);
+                  updateField('deptCode', v);
+                }}
+                error={errors.deptCode}
                 colors={colors}
               />
             </View>
@@ -484,7 +591,6 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
 
             <Dropdown
               label="Project"
-              required
               placeholder={formData.area ? "Select project" : "Select area first"}
               value={formData.project}
               options={projectOptions}
@@ -778,9 +884,9 @@ function Dropdown({
             )}
             <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
               {filteredOptions.length > 0 ? (
-                filteredOptions.map((option) => (
+                filteredOptions.map((option, index) => (
                   <TouchableOpacity
-                    key={option.value}
+                    key={`${option.value}-${index}`}
                     style={styles.dropdownOption}
                     onPress={() => handleSelect(option.value)}
                   >
@@ -818,19 +924,15 @@ function Dropdown({
 function DateTimeField({
   label,
   required,
-  mode,
   value,
-  onChange,
   onPress,
   colors,
+  placeholder,
 }: FieldBaseProps & {
-  mode?: 'date' | 'time';
   value: Date;
-  onChange?: (date: Date) => void;
   onPress?: () => void;
+  placeholder?: string;
 }) {
-  const display = mode === 'time' ? formatTime(value) : formatLocalDate(value);
-
   return (
     <View style={styles.inputGroup}>
       <FieldLabel label={label} required={required} colors={colors} />
@@ -844,31 +946,15 @@ function DateTimeField({
         activeOpacity={0.7}
       >
         <MaterialCommunityIcons
-          name={mode === 'time' ? 'clock-outline' : 'calendar-blank'}
+          name="calendar-blank"
           size={20}
           color={colors.textSecondary}
           style={styles.inputIcon}
         />
         <Text style={[styles.dropdownText, { color: colors.text }]}>
-          {display}
+          {formatLocalDate(value)}
         </Text>
       </TouchableOpacity>
-
-      {mode === 'time' && (
-        <TimePickerModal
-          visible={false}
-          selectedTime={value}
-          onClose={() => {}}
-          onConfirm={(date) => onChange?.(date)}
-          colors={{
-            primary: colors.primary,
-            cardBackground: colors.cardBackground,
-            divider: colors.divider,
-            text: colors.text,
-            textSecondary: colors.textSecondary,
-          }}
-        />
-      )}
     </View>
   );
 }

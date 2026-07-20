@@ -5,6 +5,7 @@
 
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
@@ -21,10 +22,11 @@ import {
 import { DropdownOption, IssuanceService } from '../services/issuanceService';
 import { AssignQuantityAllocation, ItemCodeDetails } from '../types/issuance.types';
 import { ItemCodeModal } from './ItemCodeModal';
-import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner';
+import { MachineNoModal } from './MachineNoModal';
 
 interface IssuanceDetailsProps {
   company?: string;
+  value?: IssuanceLineItem[];
   onItemsChange?: (items: IssuanceLineItem[]) => void;
 }
 
@@ -32,11 +34,13 @@ export interface IssuanceLineItem {
   itemCode: string;
   description: string;
   quantity: string;
+  machineNo: string;
+  remarks: string;
   details: ItemCodeDetails[];
   allocations: AssignQuantityAllocation[];
 }
 
-export function IssuanceDetails({ company: companyProp, onItemsChange }: IssuanceDetailsProps) {
+export function IssuanceDetails({ company: companyProp, value, onItemsChange }: IssuanceDetailsProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
   const { user } = useAuth();
@@ -47,11 +51,16 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
   const [itemModalVisible, setItemModalVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [quantity, setQuantity] = useState('');
-  const [items, setItems] = useState<IssuanceLineItem[]>([]);
+  const [items, setItems] = useState<IssuanceLineItem[]>(value ?? []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [itemDetails, setItemDetails] = useState<ItemCodeDetails[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
+  const [machineNoOptions, setMachineNoOptions] = useState<DropdownOption[]>([]);
+  const [selectedMachineNo, setSelectedMachineNo] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [machineModalVisible, setMachineModalVisible] = useState(false);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
 
   const selectedItem = itemCodeOptions.find((o) => o.value === selectedItemCode);
 
@@ -62,8 +71,16 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
   }, [company]);
 
   useEffect(() => {
+    if (value !== undefined) {
+      setItems(value);
+    }
+  }, [value]);
+
+  useEffect(() => {
     if (!selectedItemCode) {
       setItemDetails([]);
+      setMachineNoOptions([]);
+      setSelectedMachineNo('');
       return;
     }
     const fetchDetails = async () => {
@@ -77,7 +94,16 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
         setDetailsLoading(false);
       }
     };
+    const fetchMachineNos = async () => {
+      try {
+        const options = await IssuanceService.getInstance().getMachineNoOptions();
+        setMachineNoOptions(options);
+      } catch (error) {
+        setMachineNoOptions([]);
+      }
+    };
     fetchDetails();
+    fetchMachineNos();
   }, [selectedItemCode, company]);
 
   const loadItemCodes = async () => {
@@ -94,7 +120,10 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
 
     if (!selectedItemCode) {
       newErrors.itemCode = 'Item code is required';
-    } else if (items.some((item) => item.itemCode === selectedItemCode)) {
+    } else if (
+      editIndex === null &&
+      items.some((item) => item.itemCode === selectedItemCode)
+    ) {
       newErrors.itemCode = 'Item code already added';
     }
 
@@ -131,11 +160,18 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
       itemCode: selectedItemCode,
       description,
       quantity: quantity.trim(),
+      machineNo: selectedMachineNo,
+      remarks: remarks.trim(),
       details: itemDetails,
       allocations,
     };
 
-    const updatedItems = [...items, newItem];
+    let updatedItems: IssuanceLineItem[];
+    if (editIndex !== null) {
+      updatedItems = items.map((item, i) => (i === editIndex ? newItem : item));
+    } else {
+      updatedItems = [...items, newItem];
+    }
     setItems(updatedItems);
     onItemsChange?.(updatedItems);
 
@@ -144,6 +180,19 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
     setErrors({});
     setItemDetails([]);
     setExpandedItems({});
+    setSelectedMachineNo('');
+    setRemarks('');
+    setEditIndex(null);
+  };
+
+  const handleEdit = (index: number) => {
+    const item = items[index];
+    if (!item) return;
+    setSelectedItemCode(item.itemCode);
+    setQuantity(item.quantity);
+    setSelectedMachineNo(item.machineNo);
+    setRemarks(item.remarks);
+    setEditIndex(index);
   };
 
   const handleRemove = (index: number) => {
@@ -180,28 +229,51 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
   const renderItem = ({ item, index }: { item: IssuanceLineItem; index: number }) => {
     const expanded = expandedItems[index];
     return (
-      <View style={[styles.itemCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+      <View style={[styles.itemCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderLeftColor: colors.primary }]}>
         <View style={styles.itemHeader}>
+          <View style={[styles.itemAvatar, { backgroundColor: colors.primary + '14' }]}>
+            <MaterialCommunityIcons name="package-variant-closed" size={22} color={colors.primary} />
+          </View>
           <View style={styles.itemTitleContainer}>
             <Text style={[styles.itemCode, { color: colors.text }]}>
               {item.itemCode}
             </Text>
             <Text style={[styles.itemDescription, { color: colors.textSecondary }]} numberOfLines={1}>
-              {item.description}
+              {item.description || 'No description'}
             </Text>
           </View>
-          <TouchableOpacity
-            style={[styles.removeButton, { backgroundColor: colors.error + '14' }]}
-            onPress={() => handleRemove(index)}
-          >
-            <MaterialCommunityIcons name="close" size={18} color={colors.error} />
-          </TouchableOpacity>
+          <View style={styles.itemActions}>
+            <TouchableOpacity
+              style={[styles.iconButton, { backgroundColor: colors.primary + '14' }]}
+              onPress={() => handleEdit(index)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <MaterialCommunityIcons name="pencil-outline" size={18} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.iconButton, { backgroundColor: colors.error + '14' }]}
+              onPress={() => handleRemove(index)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <MaterialCommunityIcons name="close" size={18} color={colors.error} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.itemFooter}>
-          <View style={styles.quantityContainer}>
-            <MaterialCommunityIcons name="numeric" size={18} color={colors.textSecondary} />
-            <Text style={[styles.quantityLabel, { color: colors.textSecondary }]}>Qty:</Text>
-            <Text style={[styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text>
+
+        <View style={styles.itemMetaRow}>
+          <View style={[styles.metaChip, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+            <MaterialCommunityIcons name="numeric" size={16} color={colors.primary} />
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Qty</Text>
+            <Text style={[styles.metaValue, { color: colors.text }]}>{item.quantity}</Text>
+          </View>
+          <View style={[styles.metaChip, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+            <MaterialCommunityIcons name="cog-outline" size={16} color={colors.primary} />
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Machine</Text>
+            <Text style={[styles.metaValue, { color: item.machineNo ? colors.text : colors.textTertiary }]}>
+              {item.machineNo || '—'}
+            </Text>
           </View>
           {item.details.length > 0 && (
             <TouchableOpacity
@@ -412,6 +484,78 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
           ) : null}
         </View>
 
+        {/* Machine No */}
+        {selectedItemCode ? (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>
+              Machine No
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.inputContainer,
+                {
+                  borderColor: colors.cardBorder,
+                  backgroundColor: colors.background,
+                },
+              ]}
+              onPress={() => setMachineModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="cog-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+              <Text
+                style={[
+                  styles.dropdownText,
+                  { color: selectedMachineNo ? colors.text : colors.textTertiary },
+                ]}
+                numberOfLines={1}
+              >
+                {selectedMachineNo || 'Select machine no'}
+              </Text>
+              {selectedMachineNo ? (
+                <TouchableOpacity
+                  onPress={() => setSelectedMachineNo('')}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="close-circle" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              ) : (
+                <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {/* Remarks */}
+        {selectedItemCode ? (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>
+              Remarks
+            </Text>
+            <View
+              style={[
+                styles.inputContainer,
+                styles.remarksField,
+                {
+                  borderColor: colors.cardBorder,
+                  backgroundColor: colors.background,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons name="text-box-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, styles.remarksInput, { color: colors.text }]}
+                value={remarks}
+                placeholder="Add remarks (optional)"
+                placeholderTextColor={colors.textTertiary}
+                multiline
+                numberOfLines={2}
+                onChangeText={setRemarks}
+              />
+            </View>
+          </View>
+        ) : null}
+
         {/* Quantity Input */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: colors.text }]}>
@@ -453,14 +597,14 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
           ) : null}
         </View>
 
-        {/* Add Button */}
+        {/* Add / Update Button */}
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={handleAdd}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="plus" size={20} color="#ffffff" />
-          <Text style={styles.addButtonText}>Add Item</Text>
+          <MaterialCommunityIcons name={editIndex !== null ? 'check' : 'plus'} size={20} color="#ffffff" />
+          <Text style={styles.addButtonText}>{editIndex !== null ? 'Update Item' : 'Add Item'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -494,6 +638,14 @@ export function IssuanceDetails({ company: companyProp, onItemsChange }: Issuanc
           });
         }}
         onClose={() => setItemModalVisible(false)}
+      />
+
+      <MachineNoModal
+        visible={machineModalVisible}
+        options={machineNoOptions}
+        selectedValue={selectedMachineNo}
+        onSelect={(value) => setSelectedMachineNo(value)}
+        onClose={() => setMachineModalVisible(false)}
       />
 
       <BarcodeScanner
@@ -569,6 +721,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     paddingVertical: 0,
+  },
+  remarksField: {
+    height: 'auto',
+    minHeight: 56,
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
+  remarksInput: {
+    textAlignVertical: 'top',
+    marginTop: 2,
   },
   dropdownText: {
     flex: 1,
@@ -736,16 +898,24 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
+    borderLeftWidth: 4,
   },
   itemHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
+  },
+  itemAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   itemTitleContainer: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 8,
   },
   itemCode: {
     fontSize: 16,
@@ -763,22 +933,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  itemFooter: {
+  itemActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
   },
-  quantityContainer: {
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  metaChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  quantityLabel: {
-    fontSize: 14,
+  metaLabel: {
+    fontSize: 13,
     fontWeight: '600',
   },
-  quantityValue: {
-    fontSize: 16,
+  metaValue: {
+    fontSize: 14,
     fontWeight: '700',
   },
   detailsToggle: {
@@ -786,8 +973,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 10,
+    marginLeft: 'auto',
   },
   detailsToggleText: {
     fontSize: 13,

@@ -1,3 +1,4 @@
+const sql = require('mssql');
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
 
@@ -16,6 +17,26 @@ exports.getDeptCodeByScannedApprover = async (req, res) => {
     } else {
         res.status(404).json({ success: false, message: 'Approver not found' });
     }
+}
+
+exports.getDepartmentOption = async (req, res) => {
+    const { company } = req.query;
+
+    const query = `SELECT DISTINCT DEPARTMENT FROM [SYSTEM.USERACCOUNT]`
+    const dbName = process.env.DB_GDB;
+    const pool = await getPool(dbName);
+    const result = await pool.request().query(query);
+
+    res.json({ success: true, departments: result.recordset });
+}
+
+exports.getValidPersonnel = async (req, res) => {
+    const query = `SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE ACTIVE = 1`
+    const dbName = process.env.DB_GDB;
+    const pool = await getPool(dbName);
+    const result = await pool.request().query(query);
+
+    res.json({success: true, personnel: result.recordset});
 }
 
 exports.getNextReferenceNo = async (req, res) => {
@@ -199,6 +220,15 @@ exports.getProjectNameOption = async (req, res) => {
     res.json({ success: true, projects: result.recordset });
 }
 
+exports.getMachineNo = async (req, res) => {
+    const query = `SELECT MACHINENO FROM [SETTINGS.MACHINE] WHERE ACTIVE = 1 ORDER BY MACHINENO`;
+    const dbName = process.env.DB_SFC;
+    const pool = await getPool(dbName);
+    const result = await pool.request().query(query);
+
+    res.json({ success: true, machineNos: result.recordset });
+}
+
 exports.getUserLocnCode = async (req, res) => {
     const { userName } = req.params;
 
@@ -221,7 +251,7 @@ exports.isMonthPosted = async (req, res) => {
     const { company } = req.query;
     const { locationCode, month, year } = req.params;
 
-    const query = `SELECT TOP 1 MONTHPOST, YEARPOST FROM [POSTINVENTORY.YEARANDMONTH2] WHERE LOCNCODE = @LOCNCODE ORDER BY YEARPOST DESC, MONTHPOST DESC`;
+    const query = `SELECT TOP 1 MONTHPOST, YEARPOST FROM [POSTINVENTORY.YEARANDMONTH2] WHERE LOCNCODE = 'PAWHSP' ORDER BY YEARPOST DESC, MONTHPOST DESC`;
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
     const result = await pool.request()
@@ -234,5 +264,103 @@ exports.isMonthPosted = async (req, res) => {
         res.json({ success: true, isPosted });
     } else {
         res.json({ success: true, isPosted: false });
+    }
+}
+
+exports.postIssuance = async (req, res) => {
+    const { company } = req.query;
+    const {
+        referenceNo, locnCode, transactionType, issuanceType, dateIssued,
+        shift, contactPerson, transferLocnCode, projectName, areaTransfer,
+        issuedBy, approvedBy, timeRequest, timeIssued, dateCreated,
+        dateModified, userName, postStatus, details,
+    } = req.body;
+
+    let lineItems = [];
+    try {
+        lineItems = details ? (Array.isArray(details) ? details : JSON.parse(details)) : [];
+        if (!Array.isArray(lineItems)) lineItems = [];
+    } catch (e) {
+        lineItems = [];
+    }
+
+    const headerQuery = `INSERT INTO [INVENTORY.ISSUANCEHEADER3]
+                        (REFERENCENO, MINO, LOCNCODE, TRANSACTIONTYPE, ISSUANCETYPE, DATEISSUED, 
+                        SHIFT, CONTACTPERSON, TRANSFER_LOCNCODE, PROJECTNAME, AREATRANSFER,
+                        MACHINENAME, ISSUEDBY, APPROVEBY, TIMEREQUEST, TIMEISSUED, DATECREATED,
+                        DATEMODIFIED, USERNAME, POSTSTATUS,
+                        PONUMBER, WORKORDERNO, OTHERDOCNO)
+                    VALUES (@referenceNo, '', @locnCode, @transactionType, @issuanceType, @dateIssued, 
+                            @shift, @contactPerson, @TRANSFER_LOCNCODE, @projectName, @areaTransfer,
+                            '', @issuedBy, @approvedBy, @timeRequest, @timeIssued, @dateCreated,
+                            @dateModified, @userName, @postStatus,
+                            '', '', '')`
+
+    const detailsQuery = `INSERT INTO [INVENTORY.ISSUANCEDETAILS3]
+                        (REFERENCENO, REFNORECV, LOTNUMBER, ITEMNMBR, QUANTITY, 
+                        UOFM, MACHINENO, LINENUMRECV, REMARKS, TRANSACTIONTYPE, ISSUANCETYPE)
+                    VALUES (@dReferenceNo, @dRefNoRecv, @dLotNumber, @dItemNmbr, @dQuantity, 
+                        @dUofm, @dMachineNo, @dLineNumRecv, @dRemarks, @dTransactionType, @dIssuanceType)`
+
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const transaction = new sql.Transaction(pool);
+    try {
+        await transaction.begin();
+        const headerRequest = new sql.Request(transaction);
+        await headerRequest
+            .input('REFERENCENO', referenceNo)
+            .input('LOCNCODE', locnCode)
+            .input('TRANSACTIONTYPE', transactionType)
+            .input('ISSUANCETYPE', issuanceType)
+            .input('DATEISSUED', dateIssued)
+            .input('SHIFT', shift)
+            .input('CONTACTPERSON', contactPerson)
+            .input('TRANSFER_LOCNCODE', transferLocnCode)
+            .input('PROJECTNAME', projectName)
+            .input('AREATRANSFER', areaTransfer)
+            .input('ISSUEDBY', issuedBy)
+            .input('APPROVEDBY', approvedBy)
+            .input('TIMEREQUEST', timeRequest)
+            .input('TIMEISSUED', timeIssued)
+            .input('DATECREATED', dateCreated)
+            .input('DATEMODIFIED', dateModified)
+            .input('USERNAME', userName)
+            .input('POSTSTATUS', postStatus)
+            .query(headerQuery);
+
+        for (const line of lineItems) {
+            const detailRequest = new sql.Request(transaction);
+            await detailRequest
+                .input('dReferenceNo', referenceNo)
+                .input('dRefNoRecv', line.refNoRecv ?? line.REFNORECV ?? null)
+                .input('dLotNumber', line.lotNumber ?? line.LOTNUMBER ?? null)
+                .input('dItemNmbr', line.itemCode ?? line.ITEMNMBR ?? null)
+                .input('dQuantity', line.quantity ?? line.QUANTITY ?? 0)
+                .input('dUofm', line.uofm ?? line.UOFM ?? null)
+                .input('dMachineNo', line.machineNo ?? line.MACHINENO ?? null)
+                .input('dLineNumRecv', line.lineNumRecv ?? line.LINENUMRECV ?? null)
+                .input('dRemarks', line.remarks ?? line.REMARKS ?? null)
+                .input('dTransactionType', transactionType)
+                .input('dIssuanceType', issuanceType)
+                .query(detailsQuery);
+        }
+
+        await transaction.commit();
+        res.json({ success: true, insertedDetails: lineItems.length });
+    } catch (error) {
+        try {
+            if (transaction.active) {
+                await transaction.rollback();
+            }
+        } catch (rollbackError) {
+            // Transaction may already be aborted by mssql; ignore EABORT here
+            if ((rollbackError)?.code !== 'EABORT') {
+                console.error('Rollback failed:', rollbackError);
+            }
+        }
+        console.error('postIssuance failed:', error);
+        res.status(500).json({ success: false, message: 'Failed to post issuance', error: error.message });
     }
 }

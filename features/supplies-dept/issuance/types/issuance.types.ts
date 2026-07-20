@@ -17,6 +17,12 @@ export interface DeptCodeResponse {
   message?: string;
 }
 
+export interface DepartmentOption {
+  success: boolean;
+  departments: { DEPARTMENT: string }[];
+  message?: string;
+}
+
 export interface TransactionTypeResponse {
   success: boolean;
   transactionTypes: { ISSUANCETYPE: string }[];
@@ -64,4 +70,46 @@ export interface AreaOption {
 
 export interface ProjectNameOption {
   PROJECTNAME: string;
+}
+
+export interface MachineNoOption {
+  MACHINENO: string;
+}
+
+export interface ValidPersonnel{
+  NAME: string;
+}
+
+export interface PostIssuanceDetail {
+  itemCode: string;
+  description?: string;
+  quantity: string;
+  machineNo: string;
+  lotNumber?: string | null;
+  uofm?: string | null;
+  refNoRecv?: string | null;
+  lineNumRecv?: number | null;
+  remarks?: string | null;
+}
+
+export interface PostIssuancePayload {
+  referenceNo: string;
+  locnCode: string;
+  transactionType: string;
+  issuanceType: string;
+  dateIssued: string;
+  shift: string;
+  contactPerson: string;
+  transferLocnCode: string;
+  projectName: string;
+  areaTransfer: string;
+  issuedBy: string;
+  approvedBy: string;
+  timeRequest: string;
+  timeIssued: string;
+  dateCreated: string;
+  dateModified: string;
+  userName: string;
+  postStatus: number;
+  details: PostIssuanceDetail[];
 }

@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
   Modal,
   Pressable,
@@ -46,6 +46,17 @@ export function TimePickerModal({
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
   const minutes = useMemo(() => Array.from({ length: 60 }, (_, i) => i), []);
 
+  const ITEM_HEIGHT = 44;
+  const hourScrollRef = useRef<ScrollView>(null);
+  const minuteScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    const centerOffset = (200 - ITEM_HEIGHT) / 2;
+    hourScrollRef.current?.scrollTo({ y: selectedHour * ITEM_HEIGHT - centerOffset, animated: false });
+    minuteScrollRef.current?.scrollTo({ y: selectedMinute * ITEM_HEIGHT - centerOffset, animated: false });
+  }, [visible, selectedHour, selectedMinute]);
+
   const pad = (n: number) => n.toString().padStart(2, '0');
 
   const handleConfirm = () => {
@@ -88,6 +99,7 @@ export function TimePickerModal({
                   <Text style={[styles.pickerLabel, { color: primary }]}>Hour</Text>
                 </View>
                 <ScrollView
+                  ref={hourScrollRef}
                   style={styles.pickerScroll}
                   showsVerticalScrollIndicator
                   snapToInterval={44}
@@ -120,6 +132,7 @@ export function TimePickerModal({
                   <Text style={[styles.pickerLabel, { color: primary }]}>Minute</Text>
                 </View>
                 <ScrollView
+                  ref={minuteScrollRef}
                   style={styles.pickerScroll}
                   showsVerticalScrollIndicator
                   snapToInterval={44}

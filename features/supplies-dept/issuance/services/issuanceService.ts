@@ -4,11 +4,15 @@ import {
     AreaOption,
     AssignQuantityAllocation,
     AssignQuantityAllocationResponse,
+    DepartmentOption,
     DeptCodeResponse,
     ItemCodeDetails,
     ItemCodeResponse,
+    MachineNoOption,
+    PostIssuancePayload,
     ProjectNameOption,
-    TransactionTypeResponse
+    TransactionTypeResponse,
+    ValidPersonnel
 } from '../types/issuance.types';
 
 export interface DropdownOption {
@@ -55,6 +59,19 @@ export class IssuanceService {
 
             throw error;
         }
+    }
+
+    async getDepartmentOption(company?: string): Promise<string[]> {
+        const response = await axios.get<DepartmentOption>(
+            `${this.baseUrl}/supplies/issuance/dept-option/`,
+            { params: company ? { company } : undefined }
+        );
+        if (response.data.success && response.data.departments.length > 0) {
+            return response.data.departments
+                .map((d) => d.DEPARTMENT.trim())
+                .filter((d) => d.length > 0);
+        }
+        return [];
     }
 
     async getNextReferenceNumber(company?: string): Promise<string | null> {
@@ -191,6 +208,31 @@ export class IssuanceService {
         }
     }
 
+    async getMachineNo(): Promise<MachineNoOption[]> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.get<{ success: boolean; machineNos: MachineNoOption[] }>(
+                `${this.baseUrl}/supplies/issuance/get-machine-no`
+            );
+            if (response.data.success) {
+                return response.data.machineNos;
+            }
+            return [];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getMachineNoOptions(): Promise<DropdownOption[]> {
+        const machineNos = await this.getMachineNo();
+        return machineNos.map((item) => ({
+            label: item.MACHINENO.trim(),
+            value: item.MACHINENO.trim(),
+        }));
+    }
+
     async isMonthPosted(month: number, year: number, company?: string): Promise<boolean> {
         try {
             if (!this.baseUrl) {
@@ -201,6 +243,39 @@ export class IssuanceService {
                 { params: company ? { company } : undefined }
             );
             return response.data.success ? !!response.data.isPosted : false;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getValidPersonnel(): Promise<ValidPersonnel[]> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.get<{ success: boolean; personnel: ValidPersonnel[] }>(
+                `${this.baseUrl}/supplies/issuance/get-valid-personnel`,
+            );
+            if (response.data.success) {
+                return response.data.personnel;
+            }
+            return [];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async postIssuance(payload: PostIssuancePayload, company?: string): Promise<{ success: boolean; insertedDetails?: number; message?: string }> {
+        if (!this.baseUrl) {
+            throw new Error('API URL not configured');
+        }
+        try {
+            const response = await axios.post<{ success: boolean; insertedDetails?: number; message?: string }>(
+                `${this.baseUrl}/supplies/issuance/post`,
+                payload,
+                { params: company ? { company } : undefined }
+            );
+            return response.data;
         } catch (error) {
             throw error;
         }
