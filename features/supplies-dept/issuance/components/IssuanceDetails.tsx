@@ -7,7 +7,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -40,7 +40,12 @@ export interface IssuanceLineItem {
   allocations: AssignQuantityAllocation[];
 }
 
-export function IssuanceDetails({ company: companyProp, value, onItemsChange }: IssuanceDetailsProps) {
+export interface IssuanceDetailsRef {
+  clear: () => void;
+}
+
+export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsProps>(
+  ({ company: companyProp, value, onItemsChange }: IssuanceDetailsProps, ref) => {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
   const { user } = useAuth();
@@ -362,6 +367,21 @@ export function IssuanceDetails({ company: companyProp, value, onItemsChange }: 
     );
   };
 
+  useImperativeHandle(ref, () => ({
+    clear: () => {
+      setItems([]);
+      setSelectedItemCode('');
+      setQuantity('');
+      setErrors({});
+      setItemDetails([]);
+      setExpandedItems({});
+      setSelectedMachineNo('');
+      setRemarks('');
+      setEditIndex(null);
+      onItemsChange?.([]);
+    },
+  }));
+
   return (
     <View style={styles.container}>
 
@@ -655,8 +675,10 @@ export function IssuanceDetails({ company: companyProp, value, onItemsChange }: 
         title="Scan Item Code"
       />
     </View>
-  );
-}
+    );
+});
+
+IssuanceDetails.displayName = 'IssuanceDetails';
 
 const styles = StyleSheet.create({
   container: {

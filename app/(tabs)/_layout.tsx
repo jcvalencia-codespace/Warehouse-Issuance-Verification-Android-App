@@ -27,7 +27,7 @@ export default function TabLayout() {
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const router = useRouter();
 
   const [activeIndex, setActiveIndex] = useState(1);
@@ -174,6 +174,10 @@ export default function TabLayout() {
                 e.preventDefault();
                 handleIndexChange(1);
                 setShowHomeMenu(true);
+              } else if (user?.DEPTCODE === 'PAWHSP') {
+                e.preventDefault();
+                handleIndexChange(1);
+                router.push('/(tabs)/supplies-dept');
               } else {
                 handleIndexChange(1);
               }

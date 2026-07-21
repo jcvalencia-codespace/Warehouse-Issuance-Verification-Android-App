@@ -23,8 +23,8 @@ export default function SuppliesIssuanceScreen() {
       case 'issuance':
         router.push('/supplies-issuance' as any);
         break;
-      case 'supplies-dept-posted':
-        router.push('/posted-warehouse-confirmation' as any);
+      case 'supplies-issuance-posted':
+        router.push('/posted-issuance' as any);
         break;
       case 'supplies-stock-balance':
         router.push('/stock-balance' as any);

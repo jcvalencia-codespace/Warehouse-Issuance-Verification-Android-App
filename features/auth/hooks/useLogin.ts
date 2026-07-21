@@ -86,10 +86,13 @@ export function useLogin(): UseLoginReturn {
       if (user) {
         setUser(user);
         
+        const homeRoute = user.DEPTCODE === 'PAWHSP' ? '/(tabs)/supplies-dept' : '/(tabs)';
+        router.replace(homeRoute);
+
         showModal('Success', 'Login successful!', 'success');
 
         setTimeout(() => {
-          router.replace('/(tabs)');
+          router.replace(homeRoute);
           setUsername('');
           setPassword('');
           closeModal();

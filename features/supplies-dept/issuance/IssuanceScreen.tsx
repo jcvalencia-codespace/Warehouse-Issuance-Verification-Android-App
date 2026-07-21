@@ -23,6 +23,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   IssuanceDetails,
+  IssuanceDetailsRef,
   IssuanceLineItem,
 } from './components/IssuanceDetails';
 import { IssuanceHeader, IssuanceHeaderRef } from './components/IssuanceHeader';
@@ -50,11 +51,17 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const headerRef = useRef<IssuanceHeaderRef>(null);
+  const detailsRef = useRef<IssuanceDetailsRef>(null);
 
   const [items, setItems] = useState<IssuanceLineItem[]>([]);
   const [pendingHeader, setPendingHeader] = useState<any>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const handleClear = () => {
+    headerRef.current?.clear();
+    detailsRef.current?.clear();
+  };
 
   const handleValidSubmit = (headerData: any) => {
     if (items.length === 0) {
@@ -189,7 +196,7 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
           keyboardShouldPersistTaps="handled"
         >
           <IssuanceHeader ref={headerRef} onValidSubmit={handleValidSubmit} />
-          <IssuanceDetails value={items} onItemsChange={setItems} />
+          <IssuanceDetails ref={detailsRef} value={items} onItemsChange={setItems} />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -208,9 +215,22 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
           ]}
           onPress={onCancel}
         >
-          <MaterialCommunityIcons name="close" size={20} color={colors.text} />
+          <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
           <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-            Cancel
+            Back
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.clearButton,
+            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+          ]}
+          onPress={handleClear}
+        >
+          <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
+          <Text style={[styles.clearButtonText, { color: colors.text }]}>
+            Clear
           </Text>
         </TouchableOpacity>
 
@@ -317,6 +337,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cancelButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  clearButton: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  clearButtonText: {
     fontSize: 17,
     fontWeight: '700',
   },

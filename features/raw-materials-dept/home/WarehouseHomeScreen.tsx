@@ -8,29 +8,29 @@ import { warehouseMetricsService } from '@/features/raw-materials-dept/home/serv
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    useColorScheme,
-    useWindowDimensions,
-    View
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  useWindowDimensions,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const WAREHOUSE_MODULES: ModuleCardData[] = [
-  {
-    id: 'stock-balance',
-    title: 'Current Balance',
-    description: 'View warehouse current stocks',
-    icon: 'package-variant',
-    color: 'warning',
-  },
   {
     id: 'issuance-verification',
     title: 'New Issuance Verification',
     description: 'Create new issuance verification',
     icon: 'file-check-outline',
     color: 'primary',
+  },
+  {
+    id: 'stock-balance',
+    title: 'Current Balance',
+    description: 'View warehouse current stocks',
+    icon: 'package-variant',
+    color: 'warning',
   },
   {
     id: 'receiving',
@@ -238,7 +238,7 @@ export function WarehouseHomeScreen({
                   { color: colors.text },
                 ]}
               >
-                Quick Actions
+                Raw Material Modules
               </Text>
               <Text
                 style={[
@@ -246,7 +246,7 @@ export function WarehouseHomeScreen({
                   { color: colors.textSecondary },
                 ]}
               >
-                Access warehouse operations
+                Manage your RM operations
               </Text>
             </View>
             <ModuleGrid

@@ -10,12 +10,15 @@ export default function HomeScreen() {
   const [userDepartment, setUserDepartment] = useState('Operations');
 
   useEffect(() => {
-    // Update user info when authenticated user changes
     if (user) {
       setUserName(user.NAME || user.USERNAME || 'Warehouse Operator');
       setUserDepartment(user.DEPARTMENT || 'Operations');
     }
-  }, [user]);
+
+    if (user?.DEPTCODE === 'PAWHSP') {
+      router.replace('/(tabs)/supplies-dept');
+    }
+  }, [user, router]);
 
   const handleModulePress = (moduleId: string) => {
     console.log('Module pressed:', moduleId);

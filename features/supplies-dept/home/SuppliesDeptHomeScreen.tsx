@@ -22,20 +22,20 @@ const SUPPLIES_MODULES: ModuleCardData[] = [
     icon: 'package-variant-closed-check',
     color: 'success',
   },
-  {
-    id: 'supplies-stock-balance',
-    title: 'Supplies Stock Balance',
-    description: 'View current supplies stock levels',
-    icon: 'package-variant',
-    color: 'warning',
-  },
-  {
-    id: 'supplies-reports',
-    title: 'Supplies Reports',
-    description: 'View supplies reports and analytics',
-    icon: 'chart-line',
-    color: 'error',
-  },
+  // {
+  //   id: 'supplies-stock-balance',
+  //   title: 'Supplies Stock Balance',
+  //   description: 'View current supplies stock levels',
+  //   icon: 'package-variant',
+  //   color: 'warning',
+  // },
+  // {
+  //   id: 'supplies-reports',
+  //   title: 'Supplies Reports',
+  //   description: 'View supplies reports and analytics',
+  //   icon: 'chart-line',
+  //   color: 'error',
+  // },
 ];
 
 interface SuppliesDeptHomeScreenProps {
@@ -80,8 +80,6 @@ export function SuppliesDeptHomeScreen({
   const handleModulePress = (moduleId: string) => {
     if (onModulePress) {
       onModulePress(moduleId);
-    } else {
-      console.log('Supplies module pressed:', moduleId);
     }
   };
 
@@ -102,7 +100,7 @@ export function SuppliesDeptHomeScreen({
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Supplies Issuance
+                Supplies Modules
               </Text>
               <Text
                 style={[
@@ -110,7 +108,7 @@ export function SuppliesDeptHomeScreen({
                   { color: colors.textSecondary },
                 ]}
               >
-                Manage your supplies issuance operations
+                Manage your supplies operations
               </Text>
             </View>
             <ModuleGrid

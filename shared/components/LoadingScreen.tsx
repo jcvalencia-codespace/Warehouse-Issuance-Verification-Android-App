@@ -303,7 +303,7 @@ export function LoadingScreen({
 
         {/* Version Info */}
         <Text style={[styles.version, { color: colors.textTertiary }]}>
-          Version 1.0.0
+          Version 2.7.21.26
         </Text>
       </Animated.View>
 

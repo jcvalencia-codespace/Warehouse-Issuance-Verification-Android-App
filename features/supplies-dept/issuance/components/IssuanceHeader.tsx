@@ -53,6 +53,7 @@ interface IssuanceHeaderProps {
 
 export interface IssuanceHeaderRef {
   submit: () => void;
+  clear: () => void;
 }
 
 const ISSUANCE_MODE_OPTIONS: DropdownOption[] = [
@@ -407,6 +408,30 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
 
     useImperativeHandle(ref, () => ({
       submit: handleSubmit,
+      clear: () => {
+        setFormData((prev) => ({
+          ...prev,
+          miNo: '',
+          issuanceMode: 'realtime',
+          dateIssued: new Date(),
+          shift: '',
+          timeRequest: new Date(),
+          timeIssued: new Date(),
+          transactionType: '',
+          issuanceType: '',
+          contactPerson: '',
+          issuedBy: user?.NAME || user?.USERNAME || prev.issuedBy,
+          approvedBy: '',
+          deptCode: '',
+          area: '',
+          project: '',
+          poNo: '',
+          workOrderNo: '',
+          otherDocNo: '',
+        }));
+        setErrors({});
+        nextReferenceNumber();
+      },
     }));
 
     return (

@@ -279,7 +279,7 @@ export default function ProfileScreen() {
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={[styles.appVersion, { color: colors.textTertiary }]}>
-            Santeh Feeds Corporation - App v1.0.0
+            Santeh Feeds Corporation - App v2.7.21.26
           </Text>
           <Text style={[styles.appCopyright, { color: colors.textTertiary }]}>
             © 2026 MIS-SOFTWARE. All rights reserved.

@@ -16,7 +16,7 @@ function RootLayoutNav() {
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const router = useRouter();
   const segments = useSegments();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [isMounted, setIsMounted] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
   const [initProgress, setInitProgress] = useState(0);
@@ -65,8 +65,8 @@ function RootLayoutNav() {
       // Redirect to login if not authenticated and not already on auth page
       router.replace('/auth');
     } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to main app if authenticated and on auth page
-      router.replace('/(tabs)');
+      const homeRoute = user?.DEPTCODE === 'PAWHSP' ? '/(tabs)/supplies-dept' : '/(tabs)';
+      router.replace(homeRoute);
     }
   }, [isAuthenticated, segments, router, isMounted, isAppReady]);
 

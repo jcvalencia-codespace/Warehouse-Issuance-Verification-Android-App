@@ -37,6 +37,7 @@ class AuthService {
             ACTIVE: user.ACTIVE,
             EMAILADD: user.EMAILADD,
             ISADMIN: user.USERLEVEL === 'ADMINISTRATOR',
+            DEPTCODE: user.DEPTCODE,
             COMPANY: company,
           }
         };
@@ -124,8 +125,8 @@ class AuthService {
         .input('ipAddress', sql.VarChar, ipAddress)
         .input('username', sql.VarChar, username)
         .query(`SELECT TOP 1 COMPANY FROM [SYSTEM.USER_LOGIN_HISTORY] WHERE COMPUTERNAME = @ipAddress AND SYSTEM_USERNAME = @username`);
-        
-        return result.recordset.length > 0 ? result.recordset[0].COMPANY : null;
+
+      return result.recordset.length > 0 ? result.recordset[0].COMPANY : null;
     } catch (error) {
       console.error('Get Company Login error:', error);
       throw error;

@@ -36,7 +36,7 @@ exports.getValidPersonnel = async (req, res) => {
     const pool = await getPool(dbName);
     const result = await pool.request().query(query);
 
-    res.json({success: true, personnel: result.recordset});
+    res.json({ success: true, personnel: result.recordset });
 }
 
 exports.getNextReferenceNo = async (req, res) => {
@@ -363,4 +363,48 @@ exports.postIssuance = async (req, res) => {
         console.error('postIssuance failed:', error);
         res.status(500).json({ success: false, message: 'Failed to post issuance', error: error.message });
     }
+}
+
+exports.getPostedIssuanceHeader = async (req, res) => {
+    const { company } = req.query;
+    const { year, skip = 0, take = 50 } = req.query;
+
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+    const request = pool.request();
+
+    const columns = `REFERENCENO, TRANSACTIONTYPE, ISSUANCETYPE, DATEISSUED, SHIFT, CONTACTPERSON, 
+                     TRANSFER_LOCNCODE, PROJECTNAME, AREATRANSFER, ISSUEDBY, APPROVEBY, 
+                     TIMEREQUEST, TIMEISSUED, POSTSTATUS, COUNT(*) OVER() AS totalCount`;
+
+    let query = `SELECT ${columns} FROM [INVENTORY.ISSUANCEHEADER3] WHERE POSTSTATUS = 1`;
+
+    if (year) {
+        const yearStart = `${year}-01-01`;
+        const yearEnd = `${parseInt(year) + 1}-01-01`;
+        query += ` AND DATEISSUED >= @yearStart AND DATEISSUED < @yearEnd`;
+        request.input('yearStart', yearStart);
+        request.input('yearEnd', yearEnd);
+    }
+
+    query += ` ORDER BY REFERENCENO DESC OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY`;
+    request.input('skip', parseInt(skip, 10));
+    request.input('take', parseInt(take, 10));
+
+    const totalCount = result.recordset.length > 0 ? result.recordset[0].totalCount : 0;
+    const records = result.recordset.map(({ totalCount: _tc, ...rest }) => rest);
+    res.json({ success: true, issueduances: records, totalCount });
+}
+
+exports.getPostedIssuanceDetails= async (req, res) => {
+    const { company } = req.query;
+    const { referenceNo } = req.params;
+
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+    const result = await pool.request()
+        .input('referenceNo', referenceNo)
+        .query(`SELECT * FROM [INVENTORY.ISSUANCEDETAILS3] WHERE REFERENCENO = @referenceNo ORDER BY REFERENCENO DESC`);
+
+    res.json({ success: true, issueduances: result.recordset });
 }
