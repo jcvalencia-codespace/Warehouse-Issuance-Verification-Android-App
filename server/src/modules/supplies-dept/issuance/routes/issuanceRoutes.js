@@ -4,7 +4,11 @@ const IssuanceController = require('../controllers/issuanceController');
 
 router.get('/dept-code/:scannedApprover', IssuanceController.getDeptCodeByScannedApprover);
 router.get('/dept-option', IssuanceController.getDepartmentOption);
-router.get('/next-reference-number', IssuanceController.getNextReferenceNo);
+router.get('/next-reference-number', async (req, res) => {
+    const { company } = req.query;
+    const nextReferenceNo = await IssuanceController.getNextReferenceNo(company);
+    res.json({ success: true, nextReferenceNo });
+});
 router.get('/get-transaction-type', IssuanceController.getTransactionType);
 router.get('/get-item-code', IssuanceController.getItemCode);
 router.get('/get-item-details/:itemCode', IssuanceController.getItemDetails);
@@ -14,6 +18,7 @@ router.get('/get-project-name/:department/:area', IssuanceController.getProjectN
 router.get('/get-machine-no', IssuanceController.getMachineNo);
 router.get('/is-month-posted/:locationCode/:month/:year', IssuanceController.isMonthPosted);
 router.get('/get-valid-personnel', IssuanceController.getValidPersonnel);
+router.get('/validate-date-issuance', IssuanceController.validatedDate);
 router.post('/post', IssuanceController.postIssuance);
 
 router.get('/posted-header', IssuanceController.getPostedIssuanceHeader);

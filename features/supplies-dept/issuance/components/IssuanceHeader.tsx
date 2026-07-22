@@ -49,11 +49,13 @@ interface IssuanceFormData {
 interface IssuanceHeaderProps {
   onSubmit?: (data: IssuanceFormData) => void;
   onValidSubmit?: (data: IssuanceFormData) => void;
+  referenceNo?: string;
 }
 
 export interface IssuanceHeaderRef {
   submit: () => void;
   clear: () => void;
+  updateTimeRequest: (date: Date) => void;
 }
 
 const ISSUANCE_MODE_OPTIONS: DropdownOption[] = [
@@ -77,14 +79,8 @@ const ISSUANCE_TYPE_OPTIONS: DropdownOption[] = [
 const formatLocalDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-const parseLocalDate = (dateStr: string | null | undefined): Date => {
-  if (!dateStr) return new Date();
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-};
-
 export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>(
-  ({ onSubmit, onValidSubmit }, ref) => {
+  ({ onSubmit, onValidSubmit, referenceNo }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
@@ -162,6 +158,12 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
       }
     }, [formData.timeIssued]);
 
+    useEffect(() => {
+      if (referenceNo && referenceNo !== formData.referenceNo) {
+        updateField('referenceNo', referenceNo);
+      }
+    }, [referenceNo]);
+
     const updateField = (field: keyof IssuanceFormData, value: string | Date) => {
       setFormData((prev) => ({ ...prev, [field]: value }));
       if (errors[field]) {
@@ -188,6 +190,7 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
             delete next.contactPerson;
             return next;
           });
+          updateField('timeRequest', new Date());
         } else {
           Alert.alert('Invalid Contact Person', `Scanned code "${data}" is not a valid personnel.`);
         }
@@ -216,6 +219,7 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
             });
             setIsDeptFromScan(true);
             updateField('deptCode', trimmed);
+            updateField('timeRequest', new Date());
           } else {
             Alert.alert('Invalid Approver', `Scanned code "${data}" is not a valid approver.`);
           }
@@ -431,6 +435,9 @@ export const IssuanceHeader = forwardRef<IssuanceHeaderRef, IssuanceHeaderProps>
         }));
         setErrors({});
         nextReferenceNumber();
+      },
+      updateTimeRequest: (date: Date) => {
+        updateField('timeRequest', date);
       },
     }));
 

@@ -2,18 +2,20 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    useWindowDimensions,
-    View
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  useWindowDimensions,
+  View,
+  Modal,
+  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PostedIssuanceDetailList } from './components/PostedIssuanceDetailList';
@@ -23,6 +25,21 @@ import { IssuanceDetail, PostedIssuance } from './types/posted-issuance.types';
 interface PostedIssuanceScreenProps {
   onBack?: () => void;
 }
+
+const MONTHS = [
+  { label: 'January', value: 1 },
+  { label: 'February', value: 2 },
+  { label: 'March', value: 3 },
+  { label: 'April', value: 4 },
+  { label: 'May', value: 5 },
+  { label: 'June', value: 6 },
+  { label: 'July', value: 7 },
+  { label: 'August', value: 8 },
+  { label: 'September', value: 9 },
+  { label: 'October', value: 10 },
+  { label: 'November', value: 11 },
+  { label: 'December', value: 12 },
+];
 
 export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenProps) {
   const scheme = useColorScheme();
@@ -47,7 +64,13 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredIssuances, setFilteredIssuances] = useState<PostedIssuance[]>([]);
 
-  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
+  const [selectedMonth, setSelectedMonth] = useState<number | undefined>(undefined);
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+
+  const yearPickerRef = useRef<View>(null);
+  const monthPickerRef = useRef<View>(null);
 
   const responsiveStyles = {
     headerTitle: { fontSize: IS_TABLET ? (IS_LANDSCAPE ? 24 : 26) : (IS_LANDSCAPE ? 20 : 22) },
@@ -80,13 +103,6 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
   useEffect(() => {
     let filtered = postedIssuances;
 
-    filtered = filtered.filter((issuance) => {
-      if (!issuance.DATEISSUED) return false;
-      const transDate = new Date(issuance.DATEISSUED);
-      if (isNaN(transDate.getTime())) return false;
-      return transDate.getFullYear() === selectedYear;
-    });
-
     if (searchQuery) {
       filtered = filtered.filter(
         (issuance) =>
@@ -115,10 +131,8 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
       );
     }
 
-    if (searchQuery || selectedYear !== new Date().getFullYear()) {
-      setFilteredIssuances(filtered);
-    }
-  }, [searchQuery, postedIssuances, selectedYear]);
+    setFilteredIssuances(filtered);
+  }, [searchQuery, postedIssuances]);
 
   useEffect(() => {
     if (selectedIssuance) {
@@ -130,7 +144,7 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
     try {
       setLoading(true);
       setError(null);
-      const result = await postedIssuanceService.getPostedIssuances(0, 100, selectedYear, user?.COMPANY);
+      const result = await postedIssuanceService.getPostedIssuances(user?.COMPANY, selectedYear, selectedMonth);
 
       if (result !== null) {
         setPostedIssuances(result.data);
@@ -192,18 +206,6 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
     }
   };
 
-  const goToPreviousYear = () => {
-    setSelectedYear(prev => prev - 1);
-  };
-
-  const goToNextYear = () => {
-    setSelectedYear(prev => prev + 1);
-  };
-
-  const resetYearFilter = () => {
-    setSelectedYear(new Date().getFullYear());
-  };
-
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
@@ -211,6 +213,155 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
   const clearSearch = () => {
     setSearchQuery('');
   };
+
+  const applyFilter = () => {
+    setShowYearPicker(false);
+    setShowMonthPicker(false);
+    fetchPostedIssuances();
+  };
+
+  const clearFilter = () => {
+    setSelectedYear(undefined);
+    setSelectedMonth(undefined);
+    setShowYearPicker(false);
+    setShowMonthPicker(false);
+    fetchPostedIssuances();
+  };
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
+
+  const renderYearPicker = () => (
+    <Modal visible={showYearPicker} transparent animationType="fade" onRequestClose={() => setShowYearPicker(false)}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowYearPicker(false)}>
+        <View style={[styles.pickerContainer, { backgroundColor: colors.cardBackground }]}>
+          <View style={[styles.pickerHeader, { borderBottomColor: colors.cardBorder }]}>
+            <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Year</Text>
+            <TouchableOpacity onPress={() => setShowYearPicker(false)}>
+              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={years}
+            keyExtractor={(item) => String(item)}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.pickerItem,
+                  selectedYear === item && { backgroundColor: colors.primary + '12' },
+                  { borderBottomColor: colors.cardBorder }
+                ]}
+                onPress={() => {
+                  setSelectedYear(item);
+                  setShowYearPicker(false);
+                }}
+              >
+                <Text style={[
+                  styles.pickerItemText,
+                  { color: selectedYear === item ? colors.primary : colors.text }
+                ]}>
+                  {item}
+                </Text>
+                {selectedYear === item && (
+                  <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            )}
+            style={styles.pickerList}
+          />
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+
+  const renderMonthPicker = () => (
+    <Modal visible={showMonthPicker} transparent animationType="fade" onRequestClose={() => setShowMonthPicker(false)}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowMonthPicker(false)}>
+        <View style={[styles.pickerContainer, { backgroundColor: colors.cardBackground }]}>
+          <View style={[styles.pickerHeader, { borderBottomColor: colors.cardBorder }]}>
+            <Text style={[styles.pickerTitle, { color: colors.text }]}>Select Month</Text>
+            <TouchableOpacity onPress={() => setShowMonthPicker(false)}>
+              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={MONTHS}
+            keyExtractor={(item) => String(item.value)}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.pickerItem,
+                  selectedMonth === item.value && { backgroundColor: colors.primary + '12' },
+                  { borderBottomColor: colors.cardBorder }
+                ]}
+                onPress={() => {
+                  setSelectedMonth(item.value);
+                  setShowMonthPicker(false);
+                }}
+              >
+                <Text style={[
+                  styles.pickerItemText,
+                  { color: selectedMonth === item.value ? colors.primary : colors.text }
+                ]}>
+                  {item.label}
+                </Text>
+                {selectedMonth === item.value && (
+                  <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            )}
+            style={styles.pickerList}
+          />
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+
+  const renderFilterBar = () => (
+    <View style={[styles.filterContainer, { backgroundColor: colors.background }]}>
+      <View style={[styles.filterInputWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+        <MaterialCommunityIcons name="calendar" size={20} color={colors.textTertiary} />
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowYearPicker(true)}
+        >
+          <Text style={[styles.filterButtonText, { color: selectedYear ? colors.text : colors.textTertiary }]}>
+            {selectedYear || 'Year'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.filterInputWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+        <MaterialCommunityIcons name="calendar-month" size={20} color={colors.textTertiary} />
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowMonthPicker(true)}
+        >
+          <Text style={[styles.filterButtonText, { color: selectedMonth ? colors.text : colors.textTertiary }]}>
+            {selectedMonth ? MONTHS.find(m => m.value === selectedMonth)?.label : 'Month'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.filterActionButton, { backgroundColor: colors.primary }]}
+        onPress={applyFilter}
+      >
+        <MaterialCommunityIcons name="filter" size={18} color="#ffffff" />
+        <Text style={styles.filterActionButtonText}>Apply</Text>
+      </TouchableOpacity>
+
+      {(selectedYear || selectedMonth) && (
+        <TouchableOpacity
+          style={[styles.filterActionButton, { backgroundColor: colors.cardBackground, borderWidth: 1, borderColor: colors.cardBorder }]}
+          onPress={clearFilter}
+        >
+          <MaterialCommunityIcons name="close" size={18} color={colors.textSecondary} />
+          <Text style={[styles.filterActionButtonText, { color: colors.textSecondary }]}>Clear</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   const renderTableHeader = () => (
     <View style={[styles.tableHeader, { backgroundColor: colors.primary + '12', borderBottomColor: colors.primary }]}>
@@ -348,7 +499,7 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
               </Text>
             </View>
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              View and inspect posted supplies issuance transactions
+              View and inspect posted supplies issuance transactions from the last 2 months
             </Text>
           </View>
           <View style={[styles.totalIssuanceContainer, { backgroundColor: colors.success + '12' }]}>
@@ -364,33 +515,7 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
           </View>
         </View>
       </View>
-
-      <View style={[styles.yearFilterContainer, { backgroundColor: colors.background }]}>
-        <View style={[styles.yearFilterWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-          <TouchableOpacity
-            style={[styles.yearArrowButton, { backgroundColor: colors.primary + '15' }]}
-            onPress={goToPreviousYear}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name="chevron-left" size={22} color={colors.primary} />
-          </TouchableOpacity>
-
-          <View style={styles.yearDisplay}>
-            <MaterialCommunityIcons name="calendar-outline" size={18} color={colors.primary} />
-            <Text style={[styles.yearText, { color: colors.text }]}>
-              {selectedYear}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.yearArrowButton, { backgroundColor: colors.primary + '15' }]}
-            onPress={goToNextYear}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {renderFilterBar()}
 
       <View style={[styles.searchContainer, { backgroundColor: colors.background }]}>
         <View style={[styles.searchInputWrapper, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
@@ -464,7 +589,7 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
         </View>
       ) : (
         <FlatList
-          data={searchQuery || selectedYear !== new Date().getFullYear() ? filteredIssuances : postedIssuances}
+          data={searchQuery ? filteredIssuances : postedIssuances}
           keyExtractor={(item) => String(item.REFERENCENO)}
           renderItem={renderIssuanceItem}
           ListHeaderComponent={renderTableHeader}
@@ -507,6 +632,8 @@ export default function PostedIssuanceScreen({ onBack }: PostedIssuanceScreenPro
           }
         />
       )}
+      {renderYearPicker()}
+      {renderMonthPicker()}
     </SafeAreaView>
   );
 }
@@ -639,40 +766,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  yearFilterContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  yearFilterWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 16,
-  },
-  yearArrowButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  yearDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  yearText: {
-    fontSize: 16,
-    fontWeight: '700',
-    minWidth: 60,
-    textAlign: 'center',
   },
   searchContainer: {
     paddingHorizontal: 16,
@@ -887,5 +980,86 @@ const styles = StyleSheet.create({
   refreshButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  filterInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    minWidth: 100,
+    flex: 1,
+  },
+  filterButton: {
+    flex: 1,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+  },
+  filterActionButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: '#00000055',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  pickerContainer: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: 16,
+    overflow: 'hidden',
+    maxHeight: Dimensions.get('window').height * 0.5,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pickerList: {
+    maxHeight: Dimensions.get('window').height * 0.4,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  pickerItemText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

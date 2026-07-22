@@ -97,6 +97,7 @@ export interface PostIssuancePayload {
   locnCode: string;
   transactionType: string;
   issuanceType: string;
+  otherDocNo: string;
   dateIssued: string;
   shift: string;
   contactPerson: string;

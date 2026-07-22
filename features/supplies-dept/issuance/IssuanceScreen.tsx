@@ -56,18 +56,44 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
   const [items, setItems] = useState<IssuanceLineItem[]>([]);
   const [pendingHeader, setPendingHeader] = useState<any>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
+  const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [issuedReferenceNo, setIssuedReferenceNo] = useState<string>('');
 
   const handleClear = () => {
-    headerRef.current?.clear();
-    detailsRef.current?.clear();
+    setClearConfirmVisible(true);
   };
 
-  const handleValidSubmit = (headerData: any) => {
+  const handleConfirmClear = () => {
+    headerRef.current?.clear();
+    detailsRef.current?.clear();
+    setIssuedReferenceNo('');
+    setClearConfirmVisible(false);
+  };
+
+  const handleValidSubmit = async (headerData: any) => {
     if (items.length === 0) {
       Alert.alert('No Items', 'Please add at least one item before submitting.');
       return;
     }
+
+    try {
+      const validation = await IssuanceService.getInstance().validateIssuanceDate(user?.COMPANY);
+      if (!validation.canIssue) {
+        Alert.alert(
+          'Cannot Submit Transaction',
+          validation.lastUnpostedDate
+            ? `Post or Delete All Pending/Floating Transactions\n(R.R., Issuance, Sales, Adj.)\nbefore Encoding New Transactions!`
+            : 'Issuance is currently blocked due to an old unposted record.'
+        );
+        return;
+      }
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error.message || 'Failed to validate issuance date';
+      Alert.alert('Error', message);
+      return;
+    }
+
     setPendingHeader(headerData);
     setConfirmVisible(true);
   };
@@ -76,7 +102,7 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
     const now = new Date();
     const dateIssued = new Date(headerData.dateIssued);
     const timeRequest = new Date(headerData.timeRequest);
-    const timeIssued = new Date(headerData.timeIssued);
+    const timeIssued = new Date();
 
     const dateOnly = new Date(dateIssued);
     dateOnly.setHours(0, 0, 0, 0);
@@ -125,6 +151,7 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
       locnCode: 'PAWHSP',
       transactionType: headerData.transactionType,
       issuanceType: headerData.issuanceType,
+      otherDocNo: headerData.issuanceMode === 'manual' ? 'ERP MOBILE -MANUAL' : 'ERP MOBILE',
       dateIssued: formatLocalDateTime(dateIssuedWithTimeIssued),
       shift: headerData.shift,
       contactPerson: headerData.contactPerson,
@@ -156,13 +183,23 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
         setConfirmVisible(false);
         setSubmitting(false);
         setPendingHeader(null);
-        Alert.alert('Success', 'Supplies issuance submitted successfully.', [
+        const updatedPayload = result.referenceNo && result.referenceNo !== payload.referenceNo
+          ? { ...payload, referenceNo: result.referenceNo }
+          : payload;
+        if (result.referenceNo && result.referenceNo !== payload.referenceNo) {
+          setIssuedReferenceNo(result.referenceNo);
+        }
+        const message = result.referenceNo && result.referenceNo !== payload.referenceNo
+          ? `Reference number has been changed to ${result.referenceNo}. Supplies issuance submitted successfully.`
+          : 'Supplies issuance submitted successfully.';
+        Alert.alert('Success', message, [
           {
             text: 'OK',
-            onPress: () => onSubmit?.(payload),
+            onPress: () => onSubmit?.(updatedPayload),
           },
         ]);
       } else {
+        setConfirmVisible(false);
         setSubmitting(false);
         Alert.alert('Error', result.message || 'Failed to submit issuance.');
       }
@@ -195,8 +232,8 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <IssuanceHeader ref={headerRef} onValidSubmit={handleValidSubmit} />
-          <IssuanceDetails ref={detailsRef} value={items} onItemsChange={setItems} />
+          <IssuanceHeader ref={headerRef} onValidSubmit={handleValidSubmit} referenceNo={issuedReferenceNo} />
+          <IssuanceDetails ref={detailsRef} value={items} onItemsChange={setItems} onTimeRequestUpdate={(date) => headerRef.current?.updateTimeRequest(date)} />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -297,6 +334,59 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
                 ) : (
                   <Text style={styles.confirmSubmitText}>Submit</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Clear Confirmation Modal */}
+      <Modal visible={clearConfirmVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setClearConfirmVisible(false)}
+        >
+          <View
+            style={[
+              styles.confirmCard,
+              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+            ]}
+          >
+            <View
+              style={[
+                styles.confirmIcon,
+                { backgroundColor: colors.warning + '14' },
+              ]}
+            >
+              <MaterialCommunityIcons name="alert-outline" size={28} color={colors.warning} />
+            </View>
+            <Text style={[styles.confirmTitle, { color: colors.text }]}>
+              Clear All Data
+            </Text>
+            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+              Are you sure you want to clear all issuance details? This action cannot be undone.
+            </Text>
+
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.confirmCancel,
+                  { borderColor: colors.cardBorder, backgroundColor: colors.background },
+                ]}
+                onPress={() => setClearConfirmVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.confirmCancelText, { color: colors.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmSubmit, { backgroundColor: colors.warning }]}
+                onPress={handleConfirmClear}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmSubmitText}>Clear</Text>
               </TouchableOpacity>
             </View>
           </View>

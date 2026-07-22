@@ -39,15 +39,12 @@ exports.getValidPersonnel = async (req, res) => {
     res.json({ success: true, personnel: result.recordset });
 }
 
-exports.getNextReferenceNo = async (req, res) => {
-    const { company } = req.query;
+exports.getNextReferenceNo = async (company) => {
     const query = `SELECT ISNULL(MAX(REFERENCENO), 0) + 1 AS LASTNUM FROM [INVENTORY.ISSUANCEHEADER3] WHERE LOCNCODE = 'PAWHSP'`;
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
     const result = await pool.request().query(query);
-
-    const nextReferenceNo = result.recordset[0].LASTNUM;
-    res.json({ success: true, nextReferenceNo });
+    return result.recordset[0].LASTNUM;
 }
 
 exports.getTransactionType = async (req, res) => {
@@ -267,11 +264,33 @@ exports.isMonthPosted = async (req, res) => {
     }
 }
 
+exports.validatedDate = async (req, res) => {
+    const { company } = req.query;
+    try {
+        const query = `SELECT TOP 1 DATEISSUED FROM [INVENTORY.ISSUANCEHEADER3] WHERE POSTSTATUS = 0 ORDER BY REFERENCENO DESC`;
+        const dbName = getCompanyDbName(company);
+        const pool = await getPool(dbName);
+        const result = await pool.request().query(query);
+
+        if (result.recordset.length > 0) {
+            const lastDateIssued = result.recordset[0].DATEISSUED;
+            const diffDays = Math.floor((Date.now() - new Date(lastDateIssued).getTime()) / (1000 * 60 * 60 * 24));
+            const canIssue = diffDays < 3;
+            res.json({ success: true, lastDateIssued, canIssue, diffDays });
+        } else {
+            res.json({ success: true, lastDateIssued: null, canIssue: true, diffDays: 0 });
+        }
+    } catch (error) {
+        console.error('validatedDate error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to validate issuance date' });
+    }
+}
+
 exports.postIssuance = async (req, res) => {
     const { company } = req.query;
     const {
-        referenceNo, locnCode, transactionType, issuanceType, dateIssued,
-        shift, contactPerson, transferLocnCode, projectName, areaTransfer,
+        referenceNo, locnCode, transactionType, issuanceType, otherDocNo,
+        dateIssued, shift, contactPerson, transferLocnCode, projectName, areaTransfer,
         issuedBy, approvedBy, timeRequest, timeIssued, dateCreated,
         dateModified, userName, postStatus, details,
     } = req.body;
@@ -294,7 +313,7 @@ exports.postIssuance = async (req, res) => {
                             @shift, @contactPerson, @TRANSFER_LOCNCODE, @projectName, @areaTransfer,
                             '', @issuedBy, @approvedBy, @timeRequest, @timeIssued, @dateCreated,
                             @dateModified, @userName, @postStatus,
-                            '', '', '')`
+                            '', '', @otherDocNo )`
 
     const detailsQuery = `INSERT INTO [INVENTORY.ISSUANCEDETAILS3]
                         (REFERENCENO, REFNORECV, LOTNUMBER, ITEMNMBR, QUANTITY, 
@@ -302,15 +321,69 @@ exports.postIssuance = async (req, res) => {
                     VALUES (@dReferenceNo, @dRefNoRecv, @dLotNumber, @dItemNmbr, @dQuantity, 
                         @dUofm, @dMachineNo, @dLineNumRecv, @dRemarks, @dTransactionType, @dIssuanceType)`
 
+    const updateQM2 = `UPDATE [INVENTORY.QUANTITYMASTER2] 
+                       SET QUANTITYISSUANCE = QUANTITYISSUANCE + @dQuantity, USERNAME = @userName, DATEMODIFIED = GETDATE()
+                       WHERE LOTNUMBER = @dLotNumber`
+
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
+
+    const validateQuery = `SELECT TOP 1 DATEISSUED FROM [INVENTORY.ISSUANCEHEADER3] WHERE POSTSTATUS = 0 ORDER BY REFERENCENO DESC`;
+    const validateResult = await pool.request().query(validateQuery);
+    if (validateResult.recordset.length > 0) {
+        const lastDateIssued = validateResult.recordset[0].DATEISSUED;
+        const diffDays = Math.floor((Date.now() - new Date(lastDateIssued).getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 3) {
+            const err = new Error(`Cannot issue new transaction. The last unposted issuance (${new Date(lastDateIssued).toISOString().split('T')[0]}) is ${diffDays} days old.`);
+            err.statusCode = 400;
+            throw err;
+        }
+    }
+
+    let referenceNoToUse = referenceNo;
+    if (!referenceNoToUse) {
+        referenceNoToUse = await getNextReferenceNo(company);
+    }
+
+    if (referenceNoToUse) {
+        let existsResult = await pool.request()
+            .input('referenceNo', referenceNoToUse)
+            .input('locnCode', locnCode)
+            .query(`SELECT 1 FROM [INVENTORY.ISSUANCEHEADER3] WHERE REFERENCENO = @referenceNo AND LOCNCODE = @locnCode`);
+
+        while (existsResult.recordset.length > 0) {
+            referenceNoToUse = parseInt(referenceNoToUse) + 1;
+            existsResult = await pool.request()
+                .input('referenceNo', referenceNoToUse)
+                .input('locnCode', locnCode)
+                .query(`SELECT 1 FROM [INVENTORY.ISSUANCEHEADER3] WHERE REFERENCENO = @referenceNo AND LOCNCODE = @locnCode`);
+        }
+    }
 
     const transaction = new sql.Transaction(pool);
     try {
         await transaction.begin();
+
+        for (const line of lineItems) {
+            const dLotNumber = line.lotNumber ?? line.LOTNUMBER ?? null;
+            const dQuantity = line.quantity ?? line.QUANTITY ?? 0;
+            const dItemCode = line.itemCode ?? line.ITEMNMBR ?? 'Unknown';
+
+            const availableResult = await (new sql.Request(transaction))
+                .input('dLotNumber', dLotNumber)
+                .query(`SELECT (QUANTITY + QUANTITYADJ - QUANTITYISSUANCE) AS AVAILABLE FROM [INVENTORY.QUANTITYMASTER2] WHERE LOTNUMBER = @dLotNumber`);
+
+            const available = availableResult.recordset[0]?.AVAILABLE ?? 0;
+            if (available < dQuantity) {
+                const err = new Error(`Item ${dItemCode} (Lot: ${dLotNumber}) is not available. Available: ${available}, Requested: ${dQuantity}`);
+                err.statusCode = 400;
+                throw err;
+            }
+        }
+
         const headerRequest = new sql.Request(transaction);
         await headerRequest
-            .input('REFERENCENO', referenceNo)
+            .input('REFERENCENO', referenceNoToUse)
             .input('LOCNCODE', locnCode)
             .input('TRANSACTIONTYPE', transactionType)
             .input('ISSUANCETYPE', issuanceType)
@@ -328,12 +401,13 @@ exports.postIssuance = async (req, res) => {
             .input('DATEMODIFIED', dateModified)
             .input('USERNAME', userName)
             .input('POSTSTATUS', postStatus)
+            .input('OTHERDOCNO', otherDocNo)
             .query(headerQuery);
 
         for (const line of lineItems) {
             const detailRequest = new sql.Request(transaction);
             await detailRequest
-                .input('dReferenceNo', referenceNo)
+                .input('dReferenceNo', referenceNoToUse)
                 .input('dRefNoRecv', line.refNoRecv ?? line.REFNORECV ?? null)
                 .input('dLotNumber', line.lotNumber ?? line.LOTNUMBER ?? null)
                 .input('dItemNmbr', line.itemCode ?? line.ITEMNMBR ?? null)
@@ -347,8 +421,17 @@ exports.postIssuance = async (req, res) => {
                 .query(detailsQuery);
         }
 
+        for (const line of lineItems) {
+            const updateRequest = new sql.Request(transaction);
+            await updateRequest
+                .input('dQuantity', line.quantity ?? line.QUANTITY ?? 0)
+                .input('dLotNumber', line.lotNumber ?? line.LOTNUMBER ?? null)
+                .input('userName', userName)
+                .query(updateQM2);
+        }
+
         await transaction.commit();
-        res.json({ success: true, insertedDetails: lineItems.length });
+        res.json({ success: true, insertedDetails: lineItems.length, referenceNo: referenceNoToUse });
     } catch (error) {
         try {
             if (transaction.active) {
@@ -361,42 +444,68 @@ exports.postIssuance = async (req, res) => {
             }
         }
         console.error('postIssuance failed:', error);
-        res.status(500).json({ success: false, message: 'Failed to post issuance', error: error.message });
+        const statusCode = error.statusCode || 500;
+        res.status(statusCode).json({ success: false, message: error.message || 'Failed to post issuance' });
     }
 }
 
 exports.getPostedIssuanceHeader = async (req, res) => {
     const { company } = req.query;
-    const { year, skip = 0, take = 50 } = req.query;
-
+    const { year, month } = req.query;
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
     const request = pool.request();
 
-    const columns = `REFERENCENO, TRANSACTIONTYPE, ISSUANCETYPE, DATEISSUED, SHIFT, CONTACTPERSON, 
-                     TRANSFER_LOCNCODE, PROJECTNAME, AREATRANSFER, ISSUEDBY, APPROVEBY, 
+    const columns = `REFERENCENO, TRANSACTIONTYPE, ISSUANCETYPE, DATEISSUED, SHIFT, CONTACTPERSON,
+                     TRANSFER_LOCNCODE, PROJECTNAME, AREATRANSFER, ISSUEDBY, APPROVEBY,
                      TIMEREQUEST, TIMEISSUED, POSTSTATUS, COUNT(*) OVER() AS totalCount`;
 
-    let query = `SELECT ${columns} FROM [INVENTORY.ISSUANCEHEADER3] WHERE POSTSTATUS = 1`;
+    let baseDateFrom = new Date();
+    baseDateFrom.setMonth(baseDateFrom.getMonth() - 2);
+    let dateFromValue = baseDateFrom.toISOString().split('T')[0];
 
     if (year) {
-        const yearStart = `${year}-01-01`;
-        const yearEnd = `${parseInt(year) + 1}-01-01`;
-        query += ` AND DATEISSUED >= @yearStart AND DATEISSUED < @yearEnd`;
-        request.input('yearStart', yearStart);
-        request.input('yearEnd', yearEnd);
+        dateFromValue = `${year}-01-01`;
+        request.input('year', parseInt(year));
+        if (month) {
+            const monthStr = String(month).padStart(2, '0');
+            dateFromValue = `${year}-${monthStr}-01`;
+            request.input('month', parseInt(month));
+        }
     }
 
-    query += ` ORDER BY REFERENCENO DESC OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY`;
-    request.input('skip', parseInt(skip, 10));
-    request.input('take', parseInt(take, 10));
+    request.input('dateFrom', dateFromValue);
 
+    let query = `SELECT ${columns} FROM [INVENTORY.ISSUANCEHEADER3]
+                   WHERE POSTSTATUS = 1 AND DATEISSUED >= @dateFrom`;
+
+    if (year && !month) {
+        const nextYear = parseInt(year) + 1;
+        query += ` AND DATEISSUED < @dateTo`;
+        request.input('dateTo', `${nextYear}-01-01`);
+    } else if (year && month) {
+        const nextMonth = month === 12 ? 1 : parseInt(month) + 1;
+        const nextMonthYear = month === 12 ? parseInt(year) + 1 : parseInt(year);
+        const nextMonthStr = String(nextMonth).padStart(2, '0');
+        query += ` AND DATEISSUED < @dateTo`;
+        request.input('dateTo', `${nextMonthYear}-${nextMonthStr}-01`);
+    } else if (month && !year) {
+        const currentYear = new Date().getFullYear();
+        const nextMonth = month === 12 ? 1 : parseInt(month) + 1;
+        const nextMonthYear = month === 12 ? currentYear + 1 : currentYear;
+        const nextMonthStr = String(nextMonth).padStart(2, '0');
+        query += ` AND DATEISSUED < @dateTo`;
+        request.input('dateTo', `${nextMonthYear}-${nextMonthStr}-01`);
+    }
+
+    query += ` ORDER BY REFERENCENO DESC`;
+
+    const result = await request.query(query);
     const totalCount = result.recordset.length > 0 ? result.recordset[0].totalCount : 0;
     const records = result.recordset.map(({ totalCount: _tc, ...rest }) => rest);
     res.json({ success: true, issueduances: records, totalCount });
 }
-
-exports.getPostedIssuanceDetails= async (req, res) => {
+exports.getPostedIssuanceDetails = async (req, res) => {
     const { company } = req.query;
     const { referenceNo } = req.params;
 

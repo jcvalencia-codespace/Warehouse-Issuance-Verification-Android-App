@@ -28,6 +28,7 @@ interface IssuanceDetailsProps {
   company?: string;
   value?: IssuanceLineItem[];
   onItemsChange?: (items: IssuanceLineItem[]) => void;
+  onTimeRequestUpdate?: (date: Date) => void;
 }
 
 export interface IssuanceLineItem {
@@ -45,7 +46,7 @@ export interface IssuanceDetailsRef {
 }
 
 export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsProps>(
-  ({ company: companyProp, value, onItemsChange }: IssuanceDetailsProps, ref) => {
+  ({ company: companyProp, value, onItemsChange, onTimeRequestUpdate }: IssuanceDetailsProps, ref) => {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
   const { user } = useAuth();
@@ -225,6 +226,7 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
         delete next.itemCode;
         return next;
       });
+      onTimeRequestUpdate?.(new Date());
     } else {
       Alert.alert('Invalid Item Code', `Scanned code "${data}" is not available.`);
     }
@@ -233,6 +235,7 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
 
   const renderItem = ({ item, index }: { item: IssuanceLineItem; index: number }) => {
     const expanded = expandedItems[index];
+    const totalItemAvailable = item.details.reduce((sum, d) => sum + Number(d.QUANTITY), 0);
     return (
       <View style={[styles.itemCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderLeftColor: colors.primary }]}>
         <View style={styles.itemHeader}>
@@ -274,13 +277,28 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
             <Text style={[styles.metaValue, { color: colors.text }]}>{item.quantity}</Text>
           </View>
           <View style={[styles.metaChip, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+            <MaterialCommunityIcons name="warehouse" size={16} color={colors.primary} />
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Available</Text>
+            <Text style={[styles.metaValue, { color: colors.text }]}>{totalItemAvailable}</Text>
+          </View>
+          <View style={[styles.metaChip, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
             <MaterialCommunityIcons name="cog-outline" size={16} color={colors.primary} />
             <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Machine</Text>
             <Text style={[styles.metaValue, { color: item.machineNo ? colors.text : colors.textTertiary }]}>
               {item.machineNo || '—'}
             </Text>
+        </View>
+
+        {item.remarks ? (
+          <View style={styles.itemRemarksRow}>
+            <MaterialCommunityIcons name="text-box-outline" size={18} color={colors.textSecondary} />
+            <Text style={[styles.itemRemarksText, { color: colors.textSecondary }]} numberOfLines={2}>
+              {item.remarks}
+            </Text>
           </View>
-          {item.details.length > 0 && (
+        ) : null}
+
+        {item.details.length > 0 && (
             <TouchableOpacity
               style={[styles.detailsToggle, { backgroundColor: colors.primary + '14' }]}
               onPress={() => setExpandedItems((prev) => ({ ...prev, [index]: !prev[index] }))}
@@ -1002,6 +1020,18 @@ const styles = StyleSheet.create({
   detailsToggleText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  itemRemarksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingHorizontal: 4,
+  },
+  itemRemarksText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
   },
   itemDetailsTable: {
     marginTop: 12,

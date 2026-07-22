@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs , useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -15,7 +15,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useRouter } from 'expo-router';
 
 const TAB_SIZE_ACTIVE = 60;
 const TAB_SIZE_INACTIVE = 48;

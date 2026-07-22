@@ -265,12 +265,12 @@ export class IssuanceService {
         }
     }
 
-    async postIssuance(payload: PostIssuancePayload, company?: string): Promise<{ success: boolean; insertedDetails?: number; message?: string }> {
+    async postIssuance(payload: PostIssuancePayload, company?: string): Promise<{ success: boolean; insertedDetails?: number; referenceNo?: string; message?: string }> {
         if (!this.baseUrl) {
             throw new Error('API URL not configured');
         }
         try {
-            const response = await axios.post<{ success: boolean; insertedDetails?: number; message?: string }>(
+            const response = await axios.post<{ success: boolean; insertedDetails?: number; referenceNo?: string; message?: string }>(
                 `${this.baseUrl}/supplies/issuance/post`,
                 payload,
                 { params: company ? { company } : undefined }
@@ -278,6 +278,25 @@ export class IssuanceService {
             return response.data;
         } catch (error) {
             throw error;
+        }
+    }
+
+    async validateIssuanceDate(company?: string): Promise<{ success: boolean; canIssue: boolean; lastUnpostedDate: string | null }> {
+        if (!this.baseUrl) {
+            throw new Error('API URL not configured');
+        }
+        try {
+            const response = await axios.get<{ success: boolean; canIssue: boolean; lastDateIssued: string | null; message?: string }>(
+                `${this.baseUrl}/supplies/issuance/validate-date-issuance`,
+                { params: company ? { company } : undefined }
+            );
+            if (!response.data.success) {
+                throw new Error(response.data.message || 'Validation failed');
+            }
+            return { success: response.data.success, canIssue: response.data.canIssue, lastUnpostedDate: response.data.lastDateIssued };
+        } catch (error: any) {
+            const message = error?.response?.data?.message || error.message || 'Failed to validate issuance date';
+            throw new Error(message);
         }
     }
 }

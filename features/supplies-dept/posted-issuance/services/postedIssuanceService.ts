@@ -19,16 +19,17 @@ class PostedIssuanceService {
     }
   }
 
-  async getPostedIssuances(skip = 0, take = 100, year?: number, company?: string): Promise<{ data: PostedIssuance[]; totalCount: number } | null> {
+  async getPostedIssuances(company?: string, year?: number, month?: number): Promise<{ data: PostedIssuance[]; totalCount: number } | null> {
     try {
       if (!this.baseUrl) {
         console.error('API URL not configured');
         return null;
       }
 
-      const params: Record<string, any> = { skip, take };
-      if (year) params.year = year;
+      const params: Record<string, any> = {};
       if (company) params.company = company;
+      if (year) params.year = year;
+      if (month) params.month = month;
 
       const response = await axios.get<PostedIssuanceResponse>(
         `${this.baseUrl}/supplies/issuance/posted-header`,

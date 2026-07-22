@@ -241,7 +241,7 @@ export function LoginForm() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={[styles.keyboardView, { backgroundColor: colors.background }]}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <TouchableWithoutFeedback>
           <View style={styles.container}>
             {/* Animated Gradient Background */}
             <Animated.View 
