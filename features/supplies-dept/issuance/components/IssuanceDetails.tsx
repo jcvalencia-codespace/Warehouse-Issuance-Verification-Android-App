@@ -43,6 +43,7 @@ export interface IssuanceLineItem {
 
 export interface IssuanceDetailsRef {
   clear: () => void;
+  refreshItemQuantities: () => Promise<void>;
 }
 
 export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsProps>(
@@ -385,6 +386,43 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
     );
   };
 
+  const refreshItemQuantities = async () => {
+    if (items.length === 0) return;
+
+    const updatedItems = [...items];
+    const uniqueItemCodes = [...new Set(updatedItems.map((item) => item.itemCode))];
+
+    for (const itemCode of uniqueItemCodes) {
+      const existingItem = updatedItems.find((i) => i.itemCode === itemCode);
+      if (!existingItem) continue;
+
+      try {
+        const [details, allocations] = await Promise.all([
+          IssuanceService.getInstance().getItemCodeDetails(itemCode, company),
+          IssuanceService.getInstance().getAssignQuantityAllocation(
+            itemCode,
+            Number(existingItem.quantity) || 0,
+            company
+          ),
+        ]);
+
+        const itemIndex = updatedItems.findIndex((i) => i.itemCode === itemCode);
+        if (itemIndex !== -1) {
+          updatedItems[itemIndex] = {
+            ...updatedItems[itemIndex],
+            details,
+            allocations,
+          };
+        }
+      } catch (error) {
+        console.error(`Failed to refresh quantities for item ${itemCode}:`, error);
+      }
+    }
+
+    setItems(updatedItems);
+    onItemsChange?.(updatedItems);
+  };
+
   useImperativeHandle(ref, () => ({
     clear: () => {
       setItems([]);
@@ -398,6 +436,7 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
       setEditIndex(null);
       onItemsChange?.([]);
     },
+    refreshItemQuantities,
   }));
 
   return (
@@ -522,6 +561,47 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
           ) : null}
         </View>
 
+        {/* Quantity Input */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Quantity <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
+          </Text>
+          <View
+            style={[
+              styles.inputContainer,
+              {
+                borderColor: errors.quantity ? colors.error : colors.cardBorder,
+                backgroundColor: colors.background,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              value={quantity}
+              placeholder="Enter quantity"
+              placeholderTextColor={colors.textTertiary}
+              keyboardType="numeric"
+              onChangeText={(text) => {
+                setQuantity(text);
+                if (errors.quantity) {
+                  setErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.quantity;
+                    return next;
+                  });
+                }
+              }}
+            />
+          </View>
+          {errors.quantity ? (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>{errors.quantity}</Text>
+            </View>
+          ) : null}
+        </View>
+
         {/* Machine No */}
         {selectedItemCode ? (
           <View style={styles.inputGroup}>
@@ -593,47 +673,6 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
             </View>
           </View>
         ) : null}
-
-        {/* Quantity Input */}
-        <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>
-            Quantity <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
-          </Text>
-          <View
-            style={[
-              styles.inputContainer,
-              {
-                borderColor: errors.quantity ? colors.error : colors.cardBorder,
-                backgroundColor: colors.background,
-              },
-            ]}
-          >
-            <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              value={quantity}
-              placeholder="Enter quantity"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="numeric"
-              onChangeText={(text) => {
-                setQuantity(text);
-                if (errors.quantity) {
-                  setErrors((prev) => {
-                    const next = { ...prev };
-                    delete next.quantity;
-                    return next;
-                  });
-                }
-              }}
-            />
-          </View>
-          {errors.quantity ? (
-            <View style={styles.errorContainer}>
-              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.quantity}</Text>
-            </View>
-          ) : null}
-        </View>
 
         {/* Add / Update Button */}
         <TouchableOpacity

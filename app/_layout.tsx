@@ -93,15 +93,23 @@ function RootLayoutNav() {
           >
             <Stack.Screen name="auth" options={{ animation: 'fade' }} />
             <Stack.Screen name="(tabs)" />
+            
+            {/**RM ROUTE */}
             <Stack.Screen name="raw-materials-dept/posted-warehouse-confirmation" 
               options={{ title: 'Posted Warehouse Confirmation' }} 
             />
             <Stack.Screen name="raw-materials-dept/issuance-verification" options={{ title: 'Issuance Verification' }} />
-            <Stack.Screen name="supplies-issuance" options={{ title: 'Supplies Issuance' }} />
             <Stack.Screen name="raw-materials-dept/pending-warehouse-confirmation" options={{ title: 'Pending Warehouse Confirmation' }} />
             <Stack.Screen name="raw-materials-dept/reports" options={{ title: 'Reports & Analytics' }} />
             <Stack.Screen name="raw-materials-dept/settings" options={{ title: 'Settings' }} />
+
+            {/**SUPPLIES ROUTE */}
+            <Stack.Screen name="supplies-dept/supplies-issuance" options={{ title: 'Supplies Issuance' }} />
+
+            {/**PRODUCTION ROUTE */}
+            
             <Stack.Screen name="coming-soon" options={{ title: 'Coming Soon' }} />
+            
           </Stack>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         </ToastProvider>

@@ -102,7 +102,9 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
     const now = new Date();
     const dateIssued = new Date(headerData.dateIssued);
     const timeRequest = new Date(headerData.timeRequest);
-    const timeIssued = new Date();
+    const timeIssued = headerData.issuanceMode === 'manual'
+      ? new Date(headerData.timeIssued)
+      : new Date();
 
     const dateOnly = new Date(dateIssued);
     dateOnly.setHours(0, 0, 0, 0);
@@ -205,12 +207,13 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
       }
     } catch (error: any) {
       setSubmitting(false);
-      Alert.alert(
-        'Error',
-        error?.response?.data?.message ||
-          error?.message ||
-          'Failed to submit issuance.'
-      );
+      const errorMessage = error?.response?.data?.message ||
+        error?.message ||
+        'Failed to submit issuance.';
+      Alert.alert('Error', errorMessage);
+      if (errorMessage.toLowerCase().includes('insufficient stock')) {
+        detailsRef.current?.refreshItemQuantities();
+      }
     }
   };
 

@@ -1,12 +1,12 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { SuppliesDeptHomeScreen } from '@/features/supplies-dept/home/SuppliesDeptHomeScreen';
+import { ProductionDeptHomeScreen } from '@/features/production-dept/home/ProductionDeptHomeScreen';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
-export default function SuppliesIssuanceScreen() {
+export default function ProductionDeptRoute() {
   const { user } = useAuth();
   const router = useRouter();
-  const [userName, setUserName] = useState('Supplies Operator');
+  const [userName, setUserName] = useState('Production Operator');
   const [userDepartment, setUserDepartment] = useState('Operations');
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function SuppliesIssuanceScreen() {
   };
 
   return (
-    <SuppliesDeptHomeScreen
+    <ProductionDeptHomeScreen
       userName={userName}
       userDepartment={userDepartment}
       onModulePress={handleModulePress}

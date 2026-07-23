@@ -1,4 +1,4 @@
-import { Tabs , useRouter } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -224,6 +224,12 @@ export default function TabLayout() {
             href: null,
           }}
         />
+        <Tabs.Screen
+          name="production-dept"
+          options={{
+            href: null,
+          }}
+        />
       </Tabs>
 
       {showHomeMenu && (
@@ -242,14 +248,21 @@ export default function TabLayout() {
               style={styles.homeMenuItem}
               onPress={() => handleHomeMenuSelect('(tabs)')}
             >
-              <Text style={[styles.homeMenuText, { color: colors.text }]}>RM ISSUANCE</Text>
+              <Text style={[styles.homeMenuText, { color: colors.text }]}>RAW MATERIALS</Text>
             </Pressable>
             <View style={[styles.homeMenuDivider, { backgroundColor: colors.divider }]} />
             <Pressable
               style={styles.homeMenuItem}
               onPress={() => handleHomeMenuSelect('supplies-dept')}
             >
-              <Text style={[styles.homeMenuText, { color: colors.text }]}>SUPPLIES ISSUANCE</Text>
+              <Text style={[styles.homeMenuText, { color: colors.text }]}>SUPPLIES</Text>
+            </Pressable>
+            <View style={[styles.homeMenuDivider, { backgroundColor: colors.divider }]} />
+            <Pressable
+              style={styles.homeMenuItem}
+              onPress={() => handleHomeMenuSelect('production-dept')}
+            >
+              <Text style={[styles.homeMenuText, { color: colors.text }]}>PRODUCTION</Text>
             </Pressable>
           </View>
         </Pressable>

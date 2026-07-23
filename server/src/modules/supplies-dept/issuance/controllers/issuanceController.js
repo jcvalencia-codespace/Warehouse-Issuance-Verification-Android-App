@@ -364,21 +364,52 @@ exports.postIssuance = async (req, res) => {
     try {
         await transaction.begin();
 
+        const allocations = [];
+
         for (const line of lineItems) {
-            const dLotNumber = line.lotNumber ?? line.LOTNUMBER ?? null;
-            const dQuantity = line.quantity ?? line.QUANTITY ?? 0;
-            const dItemCode = line.itemCode ?? line.ITEMNMBR ?? 'Unknown';
+            const requestedQty = line.quantity ?? line.QUANTITY ?? 0;
+            const itemCode = line.itemCode ?? line.ITEMNMBR ?? 'Unknown';
+            const machineNo = line.machineNo ?? line.MACHINENO ?? null;
+            const uofm = line.uofm ?? line.UOFM ?? null;
+            const refNoRecv = line.refNoRecv ?? line.REFNORECV ?? null;
+            const lineNumRecv = line.lineNumRecv ?? line.LINENUMRECV ?? null;
+            const remarks = line.remarks ?? line.REMARKS ?? null;
 
-            const availableResult = await (new sql.Request(transaction))
-                .input('dLotNumber', dLotNumber)
-                .query(`SELECT (QUANTITY + QUANTITYADJ - QUANTITYISSUANCE) AS AVAILABLE FROM [INVENTORY.QUANTITYMASTER2] WHERE LOTNUMBER = @dLotNumber`);
+            const lotsResult = await (new sql.Request(transaction))
+                .input('itemCode', itemCode)
+                .query(`SELECT Q.LOTNUMBER, (Q.QUANTITY + Q.QUANTITYADJ - Q.QUANTITYISSUANCE) - ISNULL((SELECT SUM(WA.QUANTITY) FROM [INVENTORY.WHSEAREA] WA WHERE WA.LOTNUMBER = Q.LOTNUMBER), 0) AS AVAILABLE FROM [INVENTORY.QUANTITYMASTER2] Q WITH (UPDLOCK, ROWLOCK) WHERE Q.ITEMNMBR = @itemCode AND Q.LOCNCODE = 'PAWHSP' AND (Q.QUANTITY + Q.QUANTITYADJ - Q.QUANTITYISSUANCE) - ISNULL((SELECT SUM(WA.QUANTITY) FROM [INVENTORY.WHSEAREA] WA WHERE WA.LOTNUMBER = Q.LOTNUMBER), 0) > 0 ORDER BY Q.DATERECEIVED ASC, Q.REFERENCENO ASC`);
 
-            const available = availableResult.recordset[0]?.AVAILABLE ?? 0;
-            if (available < dQuantity) {
-                const err = new Error(`Item ${dItemCode} (Lot: ${dLotNumber}) is not available. Available: ${available}, Requested: ${dQuantity}`);
+            if (lotsResult.recordset.length === 0) {
+                const err = new Error(`Item ${itemCode} has no available stock.`);
                 err.statusCode = 400;
                 throw err;
             }
+
+            let remaining = requestedQty;
+            const lineAllocations = [];
+            for (const lot of lotsResult.recordset) {
+                if (remaining <= 0) break;
+                const take = Math.min(remaining, lot.AVAILABLE);
+                lineAllocations.push({
+                    itemCode,
+                    machineNo,
+                    lotNumber: lot.LOTNUMBER,
+                    quantity: take,
+                    uofm,
+                    refNoRecv,
+                    lineNumRecv,
+                    remarks,
+                });
+                remaining -= take;
+            }
+
+            if (remaining > 0) {
+                const err = new Error(`Item ${itemCode} has insufficient stock. Requested: ${requestedQty}, Available: ${requestedQty - remaining}`);
+                err.statusCode = 400;
+                throw err;
+            }
+
+            allocations.push(...lineAllocations);
         }
 
         const headerRequest = new sql.Request(transaction);
@@ -404,34 +435,34 @@ exports.postIssuance = async (req, res) => {
             .input('OTHERDOCNO', otherDocNo)
             .query(headerQuery);
 
-        for (const line of lineItems) {
+        for (const alloc of allocations) {
             const detailRequest = new sql.Request(transaction);
             await detailRequest
                 .input('dReferenceNo', referenceNoToUse)
-                .input('dRefNoRecv', line.refNoRecv ?? line.REFNORECV ?? null)
-                .input('dLotNumber', line.lotNumber ?? line.LOTNUMBER ?? null)
-                .input('dItemNmbr', line.itemCode ?? line.ITEMNMBR ?? null)
-                .input('dQuantity', line.quantity ?? line.QUANTITY ?? 0)
-                .input('dUofm', line.uofm ?? line.UOFM ?? null)
-                .input('dMachineNo', line.machineNo ?? line.MACHINENO ?? null)
-                .input('dLineNumRecv', line.lineNumRecv ?? line.LINENUMRECV ?? null)
-                .input('dRemarks', line.remarks ?? line.REMARKS ?? null)
+                .input('dRefNoRecv', alloc.refNoRecv)
+                .input('dLotNumber', alloc.lotNumber)
+                .input('dItemNmbr', alloc.itemCode)
+                .input('dQuantity', alloc.quantity)
+                .input('dUofm', alloc.uofm)
+                .input('dMachineNo', alloc.machineNo)
+                .input('dLineNumRecv', alloc.lineNumRecv)
+                .input('dRemarks', alloc.remarks)
                 .input('dTransactionType', transactionType)
                 .input('dIssuanceType', issuanceType)
                 .query(detailsQuery);
         }
 
-        for (const line of lineItems) {
+        for (const alloc of allocations) {
             const updateRequest = new sql.Request(transaction);
             await updateRequest
-                .input('dQuantity', line.quantity ?? line.QUANTITY ?? 0)
-                .input('dLotNumber', line.lotNumber ?? line.LOTNUMBER ?? null)
+                .input('dQuantity', alloc.quantity)
+                .input('dLotNumber', alloc.lotNumber)
                 .input('userName', userName)
                 .query(updateQM2);
         }
 
         await transaction.commit();
-        res.json({ success: true, insertedDetails: lineItems.length, referenceNo: referenceNoToUse });
+        res.json({ success: true, insertedDetails: allocations.length, referenceNo: referenceNoToUse });
     } catch (error) {
         try {
             if (transaction.active) {
