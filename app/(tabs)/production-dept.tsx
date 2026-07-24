@@ -17,20 +17,14 @@ export default function ProductionDeptRoute() {
   }, [user]);
 
   const handleModulePress = (moduleId: string) => {
-    console.log('Supplies module pressed:', moduleId);
+    console.log('Production module pressed:', moduleId);
 
     switch (moduleId) {
-      case 'issuance':
-        router.push('/supplies-dept/supplies-issuance' as any);
+      case 'material-issuance':
+        router.push('/production-dept/material-issuance' as any);
         break;
-      case 'supplies-issuance-posted':
-        router.push('/supplies-dept/posted-issuance' as any);
-        break;
-      case 'supplies-stock-balance':
-        router.push('/stock-balance' as any);
-        break;
-      case 'supplies-reports':
-        router.push('/reports' as any);
+      case 'production-issuance-posted':
+        router.push('/production-dept/posted-issuance' as any);
         break;
       default:
         console.log('Module not implemented:', moduleId);

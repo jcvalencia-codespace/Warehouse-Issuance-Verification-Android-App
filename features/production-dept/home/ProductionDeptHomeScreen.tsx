@@ -9,33 +9,19 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const PRODUCTION_MODULES: ModuleCardData[] = [
   {
-    id: 'utilization',
-    title: 'New Material Utilization',
-    description: 'Create new material utilization record',
+    id: 'material-issuance',
+    title: 'New Material Issuance',
+    description: 'Create new material Issuance record',
     icon: 'file-check-outline',
     color: 'primary',
   },
   {
-    id: 'production-utilization-posted',
-    title: 'Posted Production Utilization',
-    description: 'View posted production utilization transactions',
+    id: 'production-issuance-posted',
+    title: 'Posted Production Issuance',
+    description: 'View posted production issuance transactions',
     icon: 'package-variant-closed-check',
     color: 'success',
   },
-  // {
-  //   id: 'supplies-stock-balance',
-  //   title: 'Supplies Stock Balance',
-  //   description: 'View current supplies stock levels',
-  //   icon: 'package-variant',
-  //   color: 'warning',
-  // },
-  // {
-  //   id: 'supplies-reports',
-  //   title: 'Supplies Reports',
-  //   description: 'View supplies reports and analytics',
-  //   icon: 'chart-line',
-  //   color: 'error',
-  // },
 ];
 
 interface ProductionDeptHomeScreenProps {
