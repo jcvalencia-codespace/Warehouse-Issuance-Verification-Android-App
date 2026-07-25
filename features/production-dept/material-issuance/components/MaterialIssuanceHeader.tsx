@@ -19,6 +19,7 @@ export interface MaterialIssuanceHeaderRef {
   clear: () => void;
   refreshMirNo: () => Promise<void>;
   setField: (field: keyof MaterialIssuanceFormData, value: string | Date) => void;
+  getField: (field: keyof MaterialIssuanceFormData) => string | Date;
 }
 
 interface MaterialIssuanceHeaderProps {
@@ -26,6 +27,8 @@ interface MaterialIssuanceHeaderProps {
   onValidSubmit?: (data: MaterialIssuanceFormData) => void;
   onSearchPress?: () => void;
   searchable?: boolean;
+  onDataChange?: () => void;
+  mode?: 'create' | 'edit';
 }
 
 interface MaterialIssuanceFormData {
@@ -52,7 +55,7 @@ type DropdownOption = {
 };
 
 export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, MaterialIssuanceHeaderProps>(
-  ({ onSubmit, onValidSubmit, onSearchPress, searchable = false }, ref) => {
+  ({ onSubmit, onValidSubmit, onSearchPress, searchable = false, onDataChange, mode = 'create' }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
@@ -96,6 +99,7 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
           return next;
         });
       }
+      onDataChange?.();
     };
 
     const formatDateTime = (date: Date) => {
@@ -156,6 +160,9 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
       setField: (field: keyof MaterialIssuanceFormData, value: string | Date) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
       },
+      getField: (field: keyof MaterialIssuanceFormData) => {
+        return formData[field];
+      },
     }));
 
     return (
@@ -173,7 +180,9 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
             <Text
               style={[styles.sectionDescription, { color: colors.textSecondary }]}
             >
-              Fill in the details below to create a new material issuance.
+              {mode === 'edit'
+                ? 'Update the details below to modify this material issuance.'
+                : 'Fill in the details below to create a new material issuance.'}
             </Text>
           </View>
           {searchable && onSearchPress && (

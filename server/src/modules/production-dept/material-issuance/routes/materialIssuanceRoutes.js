@@ -4,10 +4,10 @@ const MaterialIssuanceController = require('../controller/materialIssuanceContro
 
 router.get('/get-item-code', MaterialIssuanceController.getItemCode);
 router.get('/get-next-mir-no', MaterialIssuanceController.getNextMIRNo);
-router.post('/post-material-issuance-request', MaterialIssuanceController.postMaterialIssuanceRequest);
-router.put('/post-material-issuance-request', MaterialIssuanceController.postMaterialIssuanceRequest);
+router.post('/post-material-issuance', MaterialIssuanceController.postMaterialIssuance);
+router.put('/save-material-issuance-request', MaterialIssuanceController.saveMaterialIssuanceRequest);
 router.get('/get-material-issuance-request-header', MaterialIssuanceController.getMaterialsIssuanceRequestHeader);
 router.get('/get-material-issuance-request-details', MaterialIssuanceController.getMaterialsIssuanceRequestDetails);
 router.get('/get-material-issuance-request-details/:mirNo', MaterialIssuanceController.getMaterialsIssuanceRequestDetails);
-
+router.put('/update-material-issuance', MaterialIssuanceController.updateMaterialRequest);
 module.exports = router;

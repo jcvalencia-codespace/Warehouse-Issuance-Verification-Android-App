@@ -1,7 +1,7 @@
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -45,6 +45,12 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [searchText, setSearchText] = useState('');
     const [selectedIssuance, setSelectedIssuance] = useState<any>(null);
+    const [originalHeader, setOriginalHeader] = useState<any>(null);
+    const [originalItems, setOriginalItems] = useState<any[]>([]);
+    const [isDataChanged, setIsDataChanged] = useState(false);
+    const [headerChangeCount, setHeaderChangeCount] = useState(0);
+
+    const buttonLabel = selectedIssuance ? (isDataChanged ? 'Update' : 'POST') : 'Submit';
 
     const handleClear = () => {
         setClearConfirmVisible(true);
@@ -55,6 +61,10 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
         detailsRef.current?.clear();
         setClearConfirmVisible(false);
         setSelectedIssuance(null);
+        setOriginalHeader(null);
+        setOriginalItems([]);
+        setIsDataChanged(false);
+        setHeaderChangeCount(0);
         await headerRef.current?.refreshMirNo();
     };
 
@@ -80,6 +90,12 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
         headerRef.current?.setField('shift', issuance.SHIFT || '');
         headerRef.current?.setField('reviewedBy', issuance.REVIEWEDBY || '');
 
+        setOriginalHeader({
+            mirNo: issuance.MIRNO || '',
+            shift: issuance.SHIFT || '',
+            reviewedBy: issuance.REVIEWEDBY || '',
+        });
+
         try {
             const details = await MaterialIssuanceService.getInstance().getMaterialIssuanceRequestDetails(issuance.MIRNO, user?.COMPANY);
             const formattedItems = details.map((item: any) => ({
@@ -89,10 +105,36 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 allocations: [],
             }));
             setItems(formattedItems);
+            setOriginalItems(formattedItems);
+            setIsDataChanged(false);
         } catch (error) {
             Alert.alert('Error', 'Failed to fetch issuance details.');
         }
     };
+
+    useEffect(() => {
+        if (!selectedIssuance || !originalHeader) return;
+
+        const currentMirNo = headerRef.current?.getField('mirNo') || '';
+        const currentShift = headerRef.current?.getField('shift') || '';
+        const currentReviewedBy = headerRef.current?.getField('reviewedBy') || '';
+
+        const headerChanged = 
+            currentMirNo !== originalHeader.mirNo ||
+            currentShift !== originalHeader.shift ||
+            currentReviewedBy !== originalHeader.reviewedBy;
+
+        const itemsChanged = 
+            items.length !== originalItems.length ||
+            items.some((item, index) => {
+                const original = originalItems[index];
+                return !original || 
+                    item.itemCode !== original.itemCode ||
+                    item.quantity !== original.quantity;
+            });
+
+        setIsDataChanged(headerChanged || itemsChanged);
+    }, [items, selectedIssuance, originalHeader, originalItems, headerChangeCount]);
 
     const handleValidSubmit = (headerData: any) => {
         const isDetailsValid = detailsRef.current?.validate();
@@ -107,7 +149,7 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
         if (!pendingHeader) return;
         setSubmitting(true);
         try {
-            const payload: MaterialIssuancePayload = {
+            const basePayload: MaterialIssuancePayload = {
                 mirNo: pendingHeader.mirNo,
                 shift: pendingHeader.shift,
                 reviewedBy: pendingHeader.reviewedBy,
@@ -116,15 +158,22 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 details: items,
             };
 
+            const buttonLabel = selectedIssuance ? (isDataChanged ? 'Update' : 'POST') : 'Submit';
+
             let result: MaterialIssuancePostResponse;
-            if (selectedIssuance) {
+            if (buttonLabel === 'Update') {
+                result = await MaterialIssuanceService.getInstance().updateMaterialIssuanceRequest(
+                    { ...basePayload, modifiedBy: user?.NAME || user?.USERNAME || '' },
+                    user?.COMPANY || ''
+                );
+            } else if (buttonLabel === 'POST') {
                 result = await MaterialIssuanceService.getInstance().postMaterialIssuanceRequest(
-                    payload,
+                    basePayload,
                     user?.COMPANY || ''
                 );
             } else {
                 result = await MaterialIssuanceService.getInstance().saveMaterialIssuanceRequest(
-                    payload,
+                    basePayload,
                     user?.COMPANY || ''
                 );
             }
@@ -135,10 +184,14 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 const mirNoChanged = originalMirNo && savedMirNo && originalMirNo !== savedMirNo;
 
                 Alert.alert(
-                    mirNoChanged ? 'MIR No. Changed\nSaved as ${savedMirNo}.' : 'Success',
+                    mirNoChanged ? 'MIR No. Changed' : buttonLabel === 'Update' ? 'Updated' : buttonLabel === 'POST' ? 'Posted' : 'Success',
                     mirNoChanged
                         ? `MIR No. ${originalMirNo} already exists.\nSaved as ${savedMirNo}.`
-                        : `Material issuance saved successfully.`,
+                        : buttonLabel === 'Update'
+                            ? `Material issuance updated successfully.\nMIR No.: ${savedMirNo}`
+                            : buttonLabel === 'POST'
+                                ? `Material issuance posted successfully.\nMIR No.: ${savedMirNo}`
+                                : `Material issuance saved successfully.\nMIR No.: ${savedMirNo}`,
                     [
                         {
                             text: 'OK',
@@ -148,6 +201,10 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                                 setPendingHeader(null);
                                 setItems([]);
                                 setSelectedIssuance(null);
+                                setOriginalHeader(null);
+                                setOriginalItems([]);
+                                setIsDataChanged(false);
+                                setHeaderChangeCount(0);
                                 headerRef.current?.clear();
                                 detailsRef.current?.clear();
                                 await headerRef.current?.refreshMirNo();
@@ -188,6 +245,8 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                         onValidSubmit={handleValidSubmit}
                         onSearchPress={handleSearchPress}
                         searchable={true}
+                        onDataChange={() => setHeaderChangeCount((prev) => prev + 1)}
+                        mode={selectedIssuance ? 'edit' : 'create'}
                     />
                     <MaterialIssuanceDetails
                         ref={detailsRef}
@@ -235,8 +294,10 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                     onPress={() => headerRef.current?.submit()}
                     activeOpacity={0.8}
                 >
-                    <MaterialCommunityIcons name={selectedIssuance ? "send" : "send-check"} size={20} color="#ffffff" />
-                    <Text style={styles.buttonText}>{selectedIssuance ? 'POST' : 'Submit'}</Text>
+                            <MaterialCommunityIcons name={buttonLabel === 'Update' ? 'pencil' : buttonLabel === 'POST' ? 'send' : 'send-check'} size={20} color="#ffffff" />
+                    <Text style={styles.buttonText}>
+                        {buttonLabel}
+                    </Text>
                 </TouchableOpacity>
             </SafeAreaView>
 
@@ -258,14 +319,22 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                                 { backgroundColor: colors.primary + '14' },
                             ]}
                         >
-                            <MaterialCommunityIcons name="send-check" size={28} color={colors.primary} />
+                            <MaterialCommunityIcons 
+                                name={buttonLabel === 'Update' ? 'pencil' : buttonLabel === 'POST' ? 'send' : 'send-check'} 
+                                size={28} 
+                                color={colors.primary} 
+                            />
                         </View>
-                        <Text style={[styles.confirmTitle, { color: colors.text }]}>
-                            Confirm Submission
-                        </Text>
-                        <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
-                            Are you sure you want to submit this material issuance?
-                        </Text>
+                            <Text style={[styles.confirmTitle, { color: colors.text }]}>
+                                {buttonLabel} Material Issuance
+                            </Text>
+                            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+                                {buttonLabel === 'Update'
+                                    ? 'Are you sure you want to update this material issuance?'
+                                    : buttonLabel === 'POST'
+                                        ? 'Are you sure you want to post this material issuance?'
+                                        : 'Are you sure you want to submit this material issuance?'}
+                            </Text>
 
                         <View style={styles.confirmButtons}>
                             <TouchableOpacity
@@ -290,7 +359,9 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                                 {submitting ? (
                                     <ActivityIndicator size="small" color="#ffffff" />
                                 ) : (
-                                    <Text style={styles.confirmSubmitText}>Submit</Text>
+                            <Text style={styles.confirmSubmitText}>
+                                {buttonLabel}
+                            </Text>
                                 )}
                             </TouchableOpacity>
                         </View>

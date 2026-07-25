@@ -34,7 +34,7 @@ exports.getNextMIRNo = async (req, res) => {
     }
 }
 
-exports.postMaterialIssuanceRequest = async (req, res) => {
+exports.saveMaterialIssuanceRequest = async (req, res) => {
     const { company } = req.query;
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
@@ -43,10 +43,8 @@ exports.postMaterialIssuanceRequest = async (req, res) => {
         itemCode, quantity, dateCreated, details
     } = req.body;
 
-    const postStatus = req.method === 'PUT' ? 0 : 1;
-
-    const headerQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] (MIRNO, SHIFT, REVIEWEDBY, CREATEDBY, DATECREATED, POSTSTATUS)
-                     VALUES (@mirNo, @shift, @reviewedBy, @createdBy, GETDATE(), @postStatus)`;
+    const headerQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] (MIRNO, SHIFT, REVIEWEDBY, CREATEDBY, DATECREATED)
+                     VALUES (@mirNo, @shift, @reviewedBy, @createdBy, GETDATE())`;
 
     const detailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED)
                      VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, GETDATE())`;
@@ -129,6 +127,113 @@ exports.postMaterialIssuanceRequest = async (req, res) => {
     }
 }
 
+exports.postMaterialIssuance = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const { mirNo, shift, reviewedBy, modifiedBy, createdBy } = req.body;
+    const postedBy = modifiedBy || createdBy || '';
+
+    const query = `UPDATE [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] 
+                   SET MODIFIEDBY = @modifiedBy, 
+                       DATEMODIFIED = GETDATE(), POSTSTATUS = 1 
+                   WHERE MIRNO = @mirNo`;
+
+    try {
+        const result = await pool.request()
+            .input('mirNo', mirNo)
+            .input('shift', shift)
+            .input('reviewedBy', reviewedBy)
+            .input('modifiedBy', postedBy)
+            .query(query);
+
+        if (result.rowsAffected[0] > 0) {
+            res.json({ success: true, message: 'Material issuance posted successfully', mirNo });
+        } else {
+            res.status(404).json({ success: false, message: 'Material issuance not found' });
+        }
+    } catch (error) {
+        console.error('Error posting material issuance:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to post material issuance' });
+    }
+}
+
+exports.updateMaterialRequest = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const { mirNo, shift, reviewedBy, modifiedBy, details } = req.body;
+
+    if (!mirNo) {
+        return res.status(400).json({ success: false, message: 'mirNo is required' });
+    }
+
+    const headerQuery = `UPDATE [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER]
+                             SET SHIFT = @shift,
+                                 REVIEWEDBY = @reviewedBy,
+                                 MODIFIEDBY = @modifiedBy,
+                                 DATEMODIFIED = GETDATE()
+                             WHERE MIRNO = @mirNo`;
+
+    const deleteDetailsQuery = `DELETE FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo`;
+
+    const insertDetailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED)
+                                VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, GETDATE())`;
+
+    let items = [];
+    if (Array.isArray(details)) {
+        items = details.map(item => ({
+            itemCode: item.itemCode || item.ITEMNMBR,
+            quantity: item.quantity || item.QUANTITY
+        }));
+    }
+
+    const transaction = new sql.Transaction(pool);
+    try {
+        await transaction.begin();
+
+        const headerRequest = new sql.Request(transaction);
+        await headerRequest
+            .input('mirNo', mirNo)
+            .input('shift', shift)
+            .input('reviewedBy', reviewedBy)
+            .input('modifiedBy', modifiedBy || '')
+            .query(headerQuery);
+
+        const deleteRequest = new sql.Request(transaction);
+        await deleteRequest
+            .input('mirNo', mirNo)
+            .query(deleteDetailsQuery);
+
+        const createdBy = modifiedBy || '';
+
+        for (const detailItem of items) {
+            const detailsRequest = new sql.Request(transaction);
+            await detailsRequest
+                .input('mirNo', mirNo)
+                .input('itemCode', detailItem.itemCode)
+                .input('quantity', detailItem.quantity)
+                .input('createdBy', createdBy)
+                .query(insertDetailsQuery);
+        }
+
+        await transaction.commit();
+
+        return res.status(200).json({ success: true, message: 'Material issuance updated successfully', mirNo });
+
+    } catch (error) {
+        console.error('Error updating material issuance:', error);
+        try {
+            await transaction.rollback();
+        } catch (rollbackError) {
+            console.error('Rollback failed:', rollbackError);
+        }
+        return res.status(500).json({ success: false, message: error.message || 'Failed to update material issuance' });
+    }
+}
+
 exports.getMaterialsIssuanceRequestHeader = async (req, res) => {
     const { company } = req.query;
     const dbName = getCompanyDbName(company);
@@ -164,14 +269,4 @@ exports.getMaterialsIssuanceRequestDetails = async (req, res) => {
     }
 }
 
-exports.putMaterialIssuanceRequest = async (req, res) => {
-    const { company } = req.query;
-    const dbName = getCompanyDbName(company);
-    const pool = await getPool(dbName);
 
-    const headerQuery = `UPDATE [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] SET SHIFT = @shift, REVIEWEDBY = @reviewedBy, MODIFIEDBY = @modifiedBy, DATEMODIFIED = @dateModified WHERE MIRNO = @mirNo`;
-    
-    const detailsQuery = `UPDATE [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] SET QUANTITY = @quantity, SERVEDBY = @servedBy, MODIFIEDBY = @modifiedBy, DATEMODIFIED = @dateModified WHERE MIRNO = @mirNo AND ITEMNMBR = @itemCode`;
-//TODO
-
-}

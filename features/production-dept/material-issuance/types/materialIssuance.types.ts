@@ -27,6 +27,7 @@ export interface MaterialIssuancePayload {
   shift: string;
   reviewedBy: string;
   createdBy: string;
+  modifiedBy?: string;
   dateCreated: string;
   details: MaterialIssuanceLineItem[];
 }
