@@ -15,6 +15,13 @@ const PRODUCTION_MODULES: ModuleCardData[] = [
     icon: 'file-check-outline',
     color: 'primary',
   },
+{
+    id: 'material-issuance-confirmation',
+    title: 'Material Issuance Confirmation',
+    description: 'Confirm and validate pending material issuances',
+    icon: 'file-lock-outline',
+    color: 'warning',      
+  },
   {
     id: 'production-issuance-posted',
     title: 'Posted Production Issuance',

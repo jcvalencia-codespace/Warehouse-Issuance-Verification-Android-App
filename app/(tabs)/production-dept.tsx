@@ -23,6 +23,9 @@ export default function ProductionDeptRoute() {
       case 'material-issuance':
         router.push('/production-dept/material-issuance' as any);
         break;
+      case 'material-issuance-confirmation':
+        router.push('/production-dept/material-issuance-confirmation' as any);
+        break;
       case 'production-issuance-posted':
         router.push('/production-dept/posted-issuance' as any);
         break;

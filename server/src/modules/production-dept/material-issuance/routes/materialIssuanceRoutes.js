@@ -10,4 +10,6 @@ router.get('/get-material-issuance-request-header', MaterialIssuanceController.g
 router.get('/get-material-issuance-request-details', MaterialIssuanceController.getMaterialsIssuanceRequestDetails);
 router.get('/get-material-issuance-request-details/:mirNo', MaterialIssuanceController.getMaterialsIssuanceRequestDetails);
 router.put('/update-material-issuance', MaterialIssuanceController.updateMaterialRequest);
+router.delete('/delete-material-issuance', MaterialIssuanceController.deleteMaterialRequest);
+
 module.exports = router;

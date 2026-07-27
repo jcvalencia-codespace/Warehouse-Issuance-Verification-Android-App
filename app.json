@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Santeh Feeds Corporation - App",
-    "slug": "ERP - Mobile",
+    "slug": "ERP-Mobile",
     "version": "2.7.21.26",
     "orientation": "default",
     "icon": "./assets/images/appLogo.png",
@@ -25,7 +25,11 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.jcvbrowsing.WhseConfirmation",
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -56,9 +60,10 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8fb1a521-1043-42e8-a1fa-7bc512079d5b"
+        "projectId": "87117d36-2b1e-499c-9965-f77f6854627b"
       },
       "apiUrl": "http://192.168.10.85:3000"
-    }
+    },
+    "owner": "jcvbrowsing"
   }
 }

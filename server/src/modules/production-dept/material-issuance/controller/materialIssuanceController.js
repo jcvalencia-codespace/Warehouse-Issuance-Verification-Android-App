@@ -179,8 +179,8 @@ exports.updateMaterialRequest = async (req, res) => {
 
     const deleteDetailsQuery = `DELETE FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo`;
 
-    const insertDetailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED)
-                                VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, GETDATE())`;
+    const insertDetailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED, DATEMODIFIED)
+                                VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, @dateCreated, GETDATE())`;
 
     let items = [];
     if (Array.isArray(details)) {
@@ -193,6 +193,16 @@ exports.updateMaterialRequest = async (req, res) => {
     const transaction = new sql.Transaction(pool);
     try {
         await transaction.begin();
+
+        const fetchDatesQuery = `SELECT ITEMNMBR, DATECREATED FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo`;
+        const existingDetails = await transaction.request()
+            .input('mirNo', mirNo)
+            .query(fetchDatesQuery);
+
+        const dateCreatedMap = {};
+        for (const row of existingDetails.recordset) {
+            dateCreatedMap[row.ITEMNMBR] = row.DATECREATED;
+        }
 
         const headerRequest = new sql.Request(transaction);
         await headerRequest
@@ -216,6 +226,7 @@ exports.updateMaterialRequest = async (req, res) => {
                 .input('itemCode', detailItem.itemCode)
                 .input('quantity', detailItem.quantity)
                 .input('createdBy', createdBy)
+                .input('dateCreated', dateCreatedMap[detailItem.itemCode] || new Date())
                 .query(insertDetailsQuery);
         }
 
@@ -269,4 +280,39 @@ exports.getMaterialsIssuanceRequestDetails = async (req, res) => {
     }
 }
 
+exports.deleteMaterialRequest = async (req, res) => {
+    const { company, mirNo } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
 
+    const headerQuery = `DELETE FROM [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] WHERE MIRNO = @mirNo`;
+    const detailsQuery = `DELETE FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo`;
+
+    const transaction = new sql.Transaction(pool);
+    try {
+        await transaction.begin();
+
+        const headerRequest = new sql.Request(transaction);
+        await headerRequest
+            .input('mirNo', mirNo)
+            .query(headerQuery);
+
+        const detailsRequest = new sql.Request(transaction);
+        await detailsRequest
+            .input('mirNo', mirNo)
+            .query(detailsQuery);
+
+        await transaction.commit();
+
+        return res.status(200).json({ success: true, message: 'Material issuance deleted successfully', mirNo });
+    } catch (error) {
+        console.error('Error deleting material issuance:', error);
+        try {
+            await transaction.rollback();
+        } catch (rollbackError) {
+            console.error('Rollback failed:', rollbackError);
+        }
+        return res.status(500).json({ success: false, message: error.message || 'Failed to delete material issuance' });
+    }
+
+}

@@ -161,7 +161,7 @@ export class MaterialIssuanceService {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
       }
-      const url = mirNo 
+      const url = mirNo
         ? `${this.baseUrl}/production-dept/material-issuance/get-material-issuance-request-details/${encodeURIComponent(mirNo)}`
         : `${this.baseUrl}/production-dept/material-issuance/get-material-issuance-request-details`;
       const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestDetail[] }>(
@@ -172,6 +172,21 @@ export class MaterialIssuanceService {
         return response.data.data;
       }
       return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async deleteMaterialIssuancerequest(mirNo?: string, company?: string): Promise<MaterialIssuancePostResponse> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.delete<MaterialIssuancePostResponse>(
+        `${this.baseUrl}/production-dept/material-issuance/delete-material-issuance`,
+        { params: { mirNo, ...(company ? { company } : {}) } }
+      );
+      return response.data;
     } catch (error) {
       throw error;
     }

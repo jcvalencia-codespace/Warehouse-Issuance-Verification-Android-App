@@ -38,6 +38,7 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
 
     const [confirmVisible, setConfirmVisible] = useState(false);
     const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
+    const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [pendingHeader, setPendingHeader] = useState<any>(null);
     const [items, setItems] = useState<any[]>([]);
@@ -54,6 +55,41 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
 
     const handleClear = () => {
         setClearConfirmVisible(true);
+    };
+
+    const handleDeletePress = () => {
+        setDeleteConfirmVisible(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!selectedIssuance?.MIRNO) return;
+        setSubmitting(true);
+        try {
+            const result = await MaterialIssuanceService.getInstance().deleteMaterialIssuancerequest(
+                selectedIssuance.MIRNO,
+                user?.COMPANY || ''
+            );
+            if (result.success) {
+                setDeleteConfirmVisible(false);
+                setSubmitting(false);
+                setSelectedIssuance(null);
+                setOriginalHeader(null);
+                setOriginalItems([]);
+                setIsDataChanged(false);
+                setHeaderChangeCount(0);
+                setItems([]);
+                headerRef.current?.clear();
+                detailsRef.current?.clear();
+                await headerRef.current?.refreshMirNo();
+                Alert.alert('Deleted', 'Material issuance deleted successfully.');
+            } else {
+                setSubmitting(false);
+                Alert.alert('Error', result.message || 'Failed to delete material issuance.');
+            }
+        } catch (error: any) {
+            setSubmitting(false);
+            Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to delete material issuance.');
+        }
     };
 
     const handleConfirmClear = async () => {
@@ -79,7 +115,21 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
     };
 
     const handleSearchIssuance = async (query: string) => {
-        // Placeholder for search logic
+        if (!query.trim()) {
+            try {
+                const headers = await MaterialIssuanceService.getInstance().getMaterialIssuanceRequestHeader(user?.COMPANY);
+                setSearchResults(headers);
+            } catch (error) {
+                Alert.alert('Error', 'Failed to fetch material issuance requests.');
+            }
+            return;
+        }
+        const filtered = searchResults.filter((item) =>
+            item.MIRNO?.toLowerCase().includes(query.trim().toLowerCase()) ||
+            item.SHIFT?.toLowerCase().includes(query.trim().toLowerCase()) ||
+            item.REVIEWEDBY?.toLowerCase().includes(query.trim().toLocaleLowerCase())
+        );
+        setSearchResults(filtered);
     };
 
     const handleSelectIssuance = async (issuance: any) => {
@@ -119,16 +169,16 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
         const currentShift = headerRef.current?.getField('shift') || '';
         const currentReviewedBy = headerRef.current?.getField('reviewedBy') || '';
 
-        const headerChanged = 
+        const headerChanged =
             currentMirNo !== originalHeader.mirNo ||
             currentShift !== originalHeader.shift ||
             currentReviewedBy !== originalHeader.reviewedBy;
 
-        const itemsChanged = 
+        const itemsChanged =
             items.length !== originalItems.length ||
             items.some((item, index) => {
                 const original = originalItems[index];
-                return !original || 
+                return !original ||
                     item.itemCode !== original.itemCode ||
                     item.quantity !== original.quantity;
             });
@@ -289,12 +339,27 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                     </Text>
                 </TouchableOpacity>
 
+                {selectedIssuance && (
+                    <TouchableOpacity
+                        style={[
+                            styles.deleteButton,
+                            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                        ]}
+                        onPress={handleDeletePress}
+                    >
+                        <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error || '#ff3b30'} />
+                        <Text style={[styles.deleteButtonText, { color: colors.error || '#ff3b30' }]}>
+                            Delete
+                        </Text>
+                    </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
                     style={[styles.submitButton, { backgroundColor: colors.primary }]}
                     onPress={() => headerRef.current?.submit()}
                     activeOpacity={0.8}
                 >
-                            <MaterialCommunityIcons name={buttonLabel === 'Update' ? 'pencil' : buttonLabel === 'POST' ? 'send' : 'send-check'} size={20} color="#ffffff" />
+                    <MaterialCommunityIcons name={buttonLabel === 'Update' ? 'pencil' : buttonLabel === 'POST' ? 'send' : 'send-check'} size={20} color="#ffffff" />
                     <Text style={styles.buttonText}>
                         {buttonLabel}
                     </Text>
@@ -319,22 +384,22 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                                 { backgroundColor: colors.primary + '14' },
                             ]}
                         >
-                            <MaterialCommunityIcons 
-                                name={buttonLabel === 'Update' ? 'pencil' : buttonLabel === 'POST' ? 'send' : 'send-check'} 
-                                size={28} 
-                                color={colors.primary} 
+                            <MaterialCommunityIcons
+                                name={buttonLabel === 'Update' ? 'pencil' : buttonLabel === 'POST' ? 'send' : 'send-check'}
+                                size={28}
+                                color={colors.primary}
                             />
                         </View>
-                            <Text style={[styles.confirmTitle, { color: colors.text }]}>
-                                {buttonLabel} Material Issuance
-                            </Text>
-                            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
-                                {buttonLabel === 'Update'
-                                    ? 'Are you sure you want to update this material issuance?'
-                                    : buttonLabel === 'POST'
-                                        ? 'Are you sure you want to post this material issuance?'
-                                        : 'Are you sure you want to submit this material issuance?'}
-                            </Text>
+                        <Text style={[styles.confirmTitle, { color: colors.text }]}>
+                            {buttonLabel} Material Issuance
+                        </Text>
+                        <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+                            {buttonLabel === 'Update'
+                                ? 'Are you sure you want to update this material issuance?'
+                                : buttonLabel === 'POST'
+                                    ? 'Are you sure you want to post this material issuance?'
+                                    : 'Are you sure you want to submit this material issuance?'}
+                        </Text>
 
                         <View style={styles.confirmButtons}>
                             <TouchableOpacity
@@ -359,9 +424,9 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                                 {submitting ? (
                                     <ActivityIndicator size="small" color="#ffffff" />
                                 ) : (
-                            <Text style={styles.confirmSubmitText}>
-                                {buttonLabel}
-                            </Text>
+                                    <Text style={styles.confirmSubmitText}>
+                                        {buttonLabel}
+                                    </Text>
                                 )}
                             </TouchableOpacity>
                         </View>
@@ -421,6 +486,64 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 </TouchableOpacity>
             </Modal>
 
+            <Modal visible={deleteConfirmVisible} transparent animationType="fade">
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => !submitting && setDeleteConfirmVisible(false)}
+                >
+                    <View
+                        style={[
+                            styles.confirmCard,
+                            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                        ]}
+                    >
+                        <View
+                            style={[
+                                styles.confirmIcon,
+                                { backgroundColor: (colors.error || '#ff3b30') + '14' },
+                            ]}
+                        >
+                            <MaterialCommunityIcons name="trash-can-outline" size={28} color={colors.error || '#ff3b30'} />
+                        </View>
+                        <Text style={[styles.confirmTitle, { color: colors.text }]}>
+                            Delete Material Issuance
+                        </Text>
+                        <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+                            Are you sure you want to delete this material issuance? This action cannot be undone.
+                        </Text>
+
+                        <View style={styles.confirmButtons}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.confirmCancel,
+                                    { borderColor: colors.cardBorder, backgroundColor: colors.background },
+                                ]}
+                                onPress={() => setDeleteConfirmVisible(false)}
+                                disabled={submitting}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={[styles.confirmCancelText, { color: colors.text }]}>
+                                    Cancel
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.confirmSubmit, { backgroundColor: colors.error || '#ff3b30' }]}
+                                onPress={handleConfirmDelete}
+                                disabled={submitting}
+                                activeOpacity={0.8}
+                            >
+                                {submitting ? (
+                                    <ActivityIndicator size="small" color="#ffffff" />
+                                ) : (
+                                    <Text style={styles.confirmSubmitText}>Delete</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
             <Modal visible={searchVisible} transparent animationType="fade">
                 <TouchableOpacity
                     style={styles.modalOverlay}
@@ -455,7 +578,10 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                                 placeholder="Search by MIR No..."
                                 placeholderTextColor={colors.textTertiary}
                                 value={searchText}
-                                onChangeText={setSearchText}
+                                onChangeText={(text) => {
+                                    setSearchText(text);
+                                    handleSearchIssuance(text);
+                                }}
                                 autoFocus
                             />
                             {searchText.length > 0 && (
@@ -560,6 +686,20 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     clearButtonText: {
+        fontSize: 17,
+        fontWeight: '700',
+    },
+    deleteButton: {
+        flex: 1,
+        height: 56,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+    },
+    deleteButtonText: {
         fontSize: 17,
         fontWeight: '700',
     },
