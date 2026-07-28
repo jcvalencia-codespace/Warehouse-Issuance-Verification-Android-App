@@ -1,27 +1,25 @@
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    FlatList,
     KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
-    useColorScheme,
+    useColorScheme
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIssuanceDetails, MaterialIssuanceDetailsRef } from './components/MaterialIssuanceDetails';
 import { MaterialIssuanceHeader, MaterialIssuanceHeaderRef } from './components/MaterialIssuanceHeader';
 import { MaterialIssuanceService } from './services/materialIssuanceService';
-import { MaterialIssuancePayload, MaterialIssuancePostResponse } from './types/materialIssuance.types';
+import { MaterialIssuancePayload } from './types/materialIssuance.types';
 
 interface MaterialIssuanceProps {
     onBack?: () => void;
@@ -38,58 +36,13 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
 
     const [confirmVisible, setConfirmVisible] = useState(false);
     const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
-    const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [pendingHeader, setPendingHeader] = useState<any>(null);
     const [items, setItems] = useState<any[]>([]);
-    const [searchVisible, setSearchVisible] = useState(false);
-    const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [searchText, setSearchText] = useState('');
     const [selectedIssuance, setSelectedIssuance] = useState<any>(null);
-    const [originalHeader, setOriginalHeader] = useState<any>(null);
-    const [originalItems, setOriginalItems] = useState<any[]>([]);
-    const [isDataChanged, setIsDataChanged] = useState(false);
-    const [headerChangeCount, setHeaderChangeCount] = useState(0);
-
-    const buttonLabel = selectedIssuance ? (isDataChanged ? 'Update' : 'POST') : 'Submit';
 
     const handleClear = () => {
         setClearConfirmVisible(true);
-    };
-
-    const handleDeletePress = () => {
-        setDeleteConfirmVisible(true);
-    };
-
-    const handleConfirmDelete = async () => {
-        if (!selectedIssuance?.MIRNO) return;
-        setSubmitting(true);
-        try {
-            const result = await MaterialIssuanceService.getInstance().deleteMaterialIssuancerequest(
-                selectedIssuance.MIRNO,
-                user?.COMPANY || ''
-            );
-            if (result.success) {
-                setDeleteConfirmVisible(false);
-                setSubmitting(false);
-                setSelectedIssuance(null);
-                setOriginalHeader(null);
-                setOriginalItems([]);
-                setIsDataChanged(false);
-                setHeaderChangeCount(0);
-                setItems([]);
-                headerRef.current?.clear();
-                detailsRef.current?.clear();
-                await headerRef.current?.refreshMirNo();
-                Alert.alert('Deleted', 'Material issuance deleted successfully.');
-            } else {
-                setSubmitting(false);
-                Alert.alert('Error', result.message || 'Failed to delete material issuance.');
-            }
-        } catch (error: any) {
-            setSubmitting(false);
-            Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to delete material issuance.');
-        }
     };
 
     const handleConfirmClear = async () => {
@@ -97,96 +50,10 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
         detailsRef.current?.clear();
         setClearConfirmVisible(false);
         setSelectedIssuance(null);
-        setOriginalHeader(null);
-        setOriginalItems([]);
-        setIsDataChanged(false);
-        setHeaderChangeCount(0);
         await headerRef.current?.refreshMirNo();
     };
 
-    const handleSearchPress = async () => {
-        try {
-            const headers = await MaterialIssuanceService.getInstance().getMaterialIssuanceRequestHeader(user?.COMPANY);
-            setSearchResults(headers);
-        } catch (error) {
-            Alert.alert('Error', 'Failed to fetch material issuance requests.');
-        }
-        setSearchVisible(true);
-    };
-
-    const handleSearchIssuance = async (query: string) => {
-        if (!query.trim()) {
-            try {
-                const headers = await MaterialIssuanceService.getInstance().getMaterialIssuanceRequestHeader(user?.COMPANY);
-                setSearchResults(headers);
-            } catch (error) {
-                Alert.alert('Error', 'Failed to fetch material issuance requests.');
-            }
-            return;
-        }
-        const filtered = searchResults.filter((item) =>
-            item.MIRNO?.toLowerCase().includes(query.trim().toLowerCase()) ||
-            item.SHIFT?.toLowerCase().includes(query.trim().toLowerCase()) ||
-            item.REVIEWEDBY?.toLowerCase().includes(query.trim().toLocaleLowerCase())
-        );
-        setSearchResults(filtered);
-    };
-
-    const handleSelectIssuance = async (issuance: any) => {
-        setSelectedIssuance(issuance);
-        setSearchVisible(false);
-
-        headerRef.current?.setField('mirNo', issuance.MIRNO || '');
-        headerRef.current?.setField('shift', issuance.SHIFT || '');
-        headerRef.current?.setField('reviewedBy', issuance.REVIEWEDBY || '');
-
-        setOriginalHeader({
-            mirNo: issuance.MIRNO || '',
-            shift: issuance.SHIFT || '',
-            reviewedBy: issuance.REVIEWEDBY || '',
-        });
-
-        try {
-            const details = await MaterialIssuanceService.getInstance().getMaterialIssuanceRequestDetails(issuance.MIRNO, user?.COMPANY);
-            const formattedItems = details.map((item: any) => ({
-                itemCode: item.ITEMNMBR || '',
-                description: item.ITEMDESC || '',
-                quantity: String(item.QUANTITY || ''),
-                allocations: [],
-            }));
-            setItems(formattedItems);
-            setOriginalItems(formattedItems);
-            setIsDataChanged(false);
-        } catch (error) {
-            Alert.alert('Error', 'Failed to fetch issuance details.');
-        }
-    };
-
-    useEffect(() => {
-        if (!selectedIssuance || !originalHeader) return;
-
-        const currentMirNo = headerRef.current?.getField('mirNo') || '';
-        const currentShift = headerRef.current?.getField('shift') || '';
-        const currentReviewedBy = headerRef.current?.getField('reviewedBy') || '';
-
-        const headerChanged =
-            currentMirNo !== originalHeader.mirNo ||
-            currentShift !== originalHeader.shift ||
-            currentReviewedBy !== originalHeader.reviewedBy;
-
-        const itemsChanged =
-            items.length !== originalItems.length ||
-            items.some((item, index) => {
-                const original = originalItems[index];
-                return !original ||
-                    item.itemCode !== original.itemCode ||
-                    item.quantity !== original.quantity;
-            });
-
-        setIsDataChanged(headerChanged || itemsChanged);
-    }, [items, selectedIssuance, originalHeader, originalItems, headerChangeCount]);
-
-    const handleValidSubmit = (headerData: any) => {
+     const handleValidSubmit = (headerData: any) => {
         const isDetailsValid = detailsRef.current?.validate();
         if (!isDetailsValid) {
             return;
@@ -199,66 +66,43 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
         if (!pendingHeader) return;
         setSubmitting(true);
         try {
-            const basePayload: MaterialIssuancePayload = {
-                mirNo: pendingHeader.mirNo,
-                shift: pendingHeader.shift,
-                reviewedBy: pendingHeader.reviewedBy,
-                createdBy: user?.NAME || user?.USERNAME || '',
-                dateCreated: pendingHeader.dateCreated,
-                details: items,
-            };
+             const basePayload: MaterialIssuancePayload = {
+                 mirNo: pendingHeader.mirNo,
+                 shift: pendingHeader.shift,
+                 reviewedBy: pendingHeader.reviewedBy,
+                 createdBy: user?.NAME || user?.USERNAME || '',
+                 dateCreated: pendingHeader.dateCreated,
+                 details: items,
+             };
 
-            const buttonLabel = selectedIssuance ? (isDataChanged ? 'Update' : 'POST') : 'Submit';
+             const result = await MaterialIssuanceService.getInstance().saveMaterialIssuanceRequest(
+                 basePayload,
+                 user?.COMPANY || ''
+             );
 
-            let result: MaterialIssuancePostResponse;
-            if (buttonLabel === 'Update') {
-                result = await MaterialIssuanceService.getInstance().updateMaterialIssuanceRequest(
-                    { ...basePayload, modifiedBy: user?.NAME || user?.USERNAME || '' },
-                    user?.COMPANY || ''
-                );
-            } else if (buttonLabel === 'POST') {
-                result = await MaterialIssuanceService.getInstance().postMaterialIssuanceRequest(
-                    basePayload,
-                    user?.COMPANY || ''
-                );
-            } else {
-                result = await MaterialIssuanceService.getInstance().saveMaterialIssuanceRequest(
-                    basePayload,
-                    user?.COMPANY || ''
-                );
-            }
+             if (result.success) {
+                 const originalMirNo = pendingHeader.mirNo;
+                 const savedMirNo = result.mirNo || pendingHeader.mirNo;
+                 const mirNoChanged = originalMirNo && savedMirNo && originalMirNo !== savedMirNo;
 
-            if (result.success) {
-                const originalMirNo = pendingHeader.mirNo;
-                const savedMirNo = result.mirNo || pendingHeader.mirNo;
-                const mirNoChanged = originalMirNo && savedMirNo && originalMirNo !== savedMirNo;
-
-                Alert.alert(
-                    mirNoChanged ? 'MIR No. Changed' : buttonLabel === 'Update' ? 'Updated' : buttonLabel === 'POST' ? 'Posted' : 'Success',
-                    mirNoChanged
-                        ? `MIR No. ${originalMirNo} already exists.\nSaved as ${savedMirNo}.`
-                        : buttonLabel === 'Update'
-                            ? `Material issuance updated successfully.\nMIR No.: ${savedMirNo}`
-                            : buttonLabel === 'POST'
-                                ? `Material issuance posted successfully.\nMIR No.: ${savedMirNo}`
-                                : `Material issuance saved successfully.\nMIR No.: ${savedMirNo}`,
+                 Alert.alert(
+                     mirNoChanged ? 'MIR No. Changed' : 'Success',
+                     mirNoChanged
+                         ? `MIR No. ${originalMirNo} already exists.\nSaved as ${savedMirNo}.`
+                         : `Material issuance saved successfully.\nMIR No.: ${savedMirNo}`,
                     [
                         {
-                            text: 'OK',
-                            onPress: async () => {
-                                setConfirmVisible(false);
-                                setSubmitting(false);
-                                setPendingHeader(null);
-                                setItems([]);
-                                setSelectedIssuance(null);
-                                setOriginalHeader(null);
-                                setOriginalItems([]);
-                                setIsDataChanged(false);
-                                setHeaderChangeCount(0);
-                                headerRef.current?.clear();
-                                detailsRef.current?.clear();
-                                await headerRef.current?.refreshMirNo();
-                            },
+                             text: 'OK',
+                                 onPress: async () => {
+                                     setConfirmVisible(false);
+                                     setSubmitting(false);
+                                     setPendingHeader(null);
+                                     setItems([]);
+                                     setSelectedIssuance(null);
+                                     headerRef.current?.clear();
+                                     detailsRef.current?.clear();
+                                     await headerRef.current?.refreshMirNo();
+                                 },
                         },
                     ]
                 );
@@ -293,9 +137,7 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                     <MaterialIssuanceHeader
                         ref={headerRef}
                         onValidSubmit={handleValidSubmit}
-                        onSearchPress={handleSearchPress}
                         searchable={true}
-                        onDataChange={() => setHeaderChangeCount((prev) => prev + 1)}
                         mode={selectedIssuance ? 'edit' : 'create'}
                     />
                     <MaterialIssuanceDetails
@@ -339,29 +181,14 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                     </Text>
                 </TouchableOpacity>
 
-                {selectedIssuance && (
-                    <TouchableOpacity
-                        style={[
-                            styles.deleteButton,
-                            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-                        ]}
-                        onPress={handleDeletePress}
-                    >
-                        <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error || '#ff3b30'} />
-                        <Text style={[styles.deleteButtonText, { color: colors.error || '#ff3b30' }]}>
-                            Delete
-                        </Text>
-                    </TouchableOpacity>
-                )}
-
                 <TouchableOpacity
                     style={[styles.submitButton, { backgroundColor: colors.primary }]}
                     onPress={() => headerRef.current?.submit()}
                     activeOpacity={0.8}
                 >
-                    <MaterialCommunityIcons name={buttonLabel === 'Update' ? 'pencil' : buttonLabel === 'POST' ? 'send' : 'send-check'} size={20} color="#ffffff" />
+                    <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
                     <Text style={styles.buttonText}>
-                        {buttonLabel}
+                        Submit
                     </Text>
                 </TouchableOpacity>
             </SafeAreaView>
@@ -385,20 +212,16 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                             ]}
                         >
                             <MaterialCommunityIcons
-                                name={buttonLabel === 'Update' ? 'pencil' : buttonLabel === 'POST' ? 'send' : 'send-check'}
+                                name="send-check"
                                 size={28}
                                 color={colors.primary}
                             />
                         </View>
                         <Text style={[styles.confirmTitle, { color: colors.text }]}>
-                            {buttonLabel} Material Issuance
+                            Submit and Post Material Issuance
                         </Text>
                         <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
-                            {buttonLabel === 'Update'
-                                ? 'Are you sure you want to update this material issuance?'
-                                : buttonLabel === 'POST'
-                                    ? 'Are you sure you want to post this material issuance?'
-                                    : 'Are you sure you want to submit this material issuance?'}
+                            Are you sure you want to submit and post this material issuance?
                         </Text>
 
                         <View style={styles.confirmButtons}>
@@ -425,7 +248,7 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                                     <ActivityIndicator size="small" color="#ffffff" />
                                 ) : (
                                     <Text style={styles.confirmSubmitText}>
-                                        {buttonLabel}
+                                        Submit
                                     </Text>
                                 )}
                             </TouchableOpacity>
@@ -485,158 +308,6 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                     </View>
                 </TouchableOpacity>
             </Modal>
-
-            <Modal visible={deleteConfirmVisible} transparent animationType="fade">
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => !submitting && setDeleteConfirmVisible(false)}
-                >
-                    <View
-                        style={[
-                            styles.confirmCard,
-                            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-                        ]}
-                    >
-                        <View
-                            style={[
-                                styles.confirmIcon,
-                                { backgroundColor: (colors.error || '#ff3b30') + '14' },
-                            ]}
-                        >
-                            <MaterialCommunityIcons name="trash-can-outline" size={28} color={colors.error || '#ff3b30'} />
-                        </View>
-                        <Text style={[styles.confirmTitle, { color: colors.text }]}>
-                            Delete Material Issuance
-                        </Text>
-                        <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
-                            Are you sure you want to delete this material issuance? This action cannot be undone.
-                        </Text>
-
-                        <View style={styles.confirmButtons}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.confirmCancel,
-                                    { borderColor: colors.cardBorder, backgroundColor: colors.background },
-                                ]}
-                                onPress={() => setDeleteConfirmVisible(false)}
-                                disabled={submitting}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[styles.confirmCancelText, { color: colors.text }]}>
-                                    Cancel
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.confirmSubmit, { backgroundColor: colors.error || '#ff3b30' }]}
-                                onPress={handleConfirmDelete}
-                                disabled={submitting}
-                                activeOpacity={0.8}
-                            >
-                                {submitting ? (
-                                    <ActivityIndicator size="small" color="#ffffff" />
-                                ) : (
-                                    <Text style={styles.confirmSubmitText}>Delete</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
-
-            <Modal visible={searchVisible} transparent animationType="fade">
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setSearchVisible(false)}
-                >
-                    <View
-                        style={[
-                            styles.confirmCard,
-                            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-                        ]}
-                    >
-                        <View
-                            style={[
-                                styles.confirmIcon,
-                                { backgroundColor: colors.primary + '14' },
-                            ]}
-                        >
-                            <MaterialCommunityIcons name="magnify" size={28} color={colors.primary} />
-                        </View>
-                        <Text style={[styles.confirmTitle, { color: colors.text }]}>
-                            Search Material Issuance
-                        </Text>
-                        <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
-                            Select an existing material issuance to view or post.
-                        </Text>
-
-                        <View style={[styles.searchInputContainer, { borderColor: colors.cardBorder, backgroundColor: colors.background }]}>
-                            <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
-                            <TextInput
-                                style={[styles.searchInput, { color: colors.text }]}
-                                placeholder="Search by MIR No..."
-                                placeholderTextColor={colors.textTertiary}
-                                value={searchText}
-                                onChangeText={(text) => {
-                                    setSearchText(text);
-                                    handleSearchIssuance(text);
-                                }}
-                                autoFocus
-                            />
-                            {searchText.length > 0 && (
-                                <TouchableOpacity onPress={() => setSearchText('')} activeOpacity={0.7}>
-                                    <MaterialCommunityIcons name="close-circle" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            )}
-                        </View>
-
-                        <View style={styles.searchResultsContainer}>
-                            {searchResults.length > 0 ? (
-                                <FlatList
-                                    data={searchResults}
-                                    keyExtractor={(item, index) => `${item.MIRNO}-${index}`}
-                                    renderItem={({ item }) => (
-                                        <TouchableOpacity
-                                            style={[styles.searchResultItem, { borderBottomColor: colors.cardBorder }]}
-                                            onPress={() => handleSelectIssuance(item)}
-                                        >
-                                            <Text style={[styles.searchResultText, { color: colors.text }]}>
-                                                {item.MIRNO}
-                                            </Text>
-                                            <Text style={[styles.searchResultSubtext, { color: colors.textSecondary }]}>
-                                                {item.SHIFT} - {item.REVIEWEDBY}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    )}
-                                    ItemSeparatorComponent={() => <View style={[styles.searchResultSeparator, { borderBottomColor: colors.cardBorder }]} />}
-                                    scrollEnabled={true}
-                                    nestedScrollEnabled={true}
-                                />
-                            ) : (
-                                <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
-                                    No posted issuances found.
-                                </Text>
-                            )}
-                        </View>
-
-                        <View style={styles.confirmButtons}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.confirmCancel,
-                                    { borderColor: colors.cardBorder, backgroundColor: colors.background },
-                                ]}
-                                onPress={() => setSearchVisible(false)}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[styles.confirmCancelText, { color: colors.text }]}>
-                                    Close
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
         </SafeAreaView>
     );
 }
@@ -686,20 +357,6 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     clearButtonText: {
-        fontSize: 17,
-        fontWeight: '700',
-    },
-    deleteButton: {
-        flex: 1,
-        height: 56,
-        borderRadius: 16,
-        borderWidth: 1.5,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-    },
-    deleteButtonText: {
         fontSize: 17,
         fontWeight: '700',
     },

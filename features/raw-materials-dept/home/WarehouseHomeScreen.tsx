@@ -40,34 +40,19 @@ const WAREHOUSE_MODULES: ModuleCardData[] = [
     color: 'success',
   },
   {
+    id: 'material-issuance-confirmation',
+    title: 'Material Issuance Confirmation',
+    description: 'Confirm and validate pending material issuances',
+    icon: 'file-lock-outline',
+    color: '#DD6B20',
+  },
+  {
     id: 'forklift-operator',
     title: 'Forklift Operator',
     description: 'Manage forklift operators',
     icon: 'account-hard-hat',
     color: 'warning',
   },
-  // {
-  //   id: 'pending',
-  //   title: 'Pending Warehouse Issuance Confirmation',
-  //   description: 'Review pending operations',
-  //   icon: 'timer-sand',
-  //   color: 'warning',
-  //   badge: 12,
-  // },
-  // {
-  //   id: 'reports',
-  //   title: 'Reports & Analytics',
-  //   description: 'View warehouse reports',
-  //   icon: 'chart-line',
-  //   color: 'error',
-  // },
-  // {
-  //   id: 'settings',
-  //   title: 'Settings',
-  //   description: 'Configure preferences',
-  //   icon: 'cog-outline',
-  //   color: 'textSecondary',
-  // },
 ];
 
 interface WarehouseHomeScreenProps {
@@ -175,18 +160,21 @@ export function WarehouseHomeScreen({
     return () => clearInterval(interval);
   }, [colors]);
 
-  // Get module color based on theme
-  const getModuleColor = (colorKey: string): string => {
-    const colorMap: Record<string, keyof typeof colors> = {
-      primary: 'primary',
-      warning: 'warning',
-      success: 'success',
-      error: 'error',
-      textSecondary: 'textSecondary',
-    };
-    const themeKey = colorMap[colorKey];
-    return themeKey ? (colors[themeKey] as string) : colors.primary;
-  };
+   // Get module color based on theme
+   const getModuleColor = (colorKey: string): string => {
+     const colorMap: Record<string, keyof typeof colors> = {
+       primary: 'primary',
+       warning: 'warning',
+       success: 'success',
+       error: 'error',
+       textSecondary: 'textSecondary',
+     };
+     if (colorKey.startsWith('#')) {
+       return colorKey;
+     }
+     const themeKey = colorMap[colorKey];
+     return themeKey ? (colors[themeKey] as string) : colors.primary;
+   };
 
   // Handle module press - navigate to respective screens
   const handleModulePressInternal = (moduleId: string) => {
@@ -198,6 +186,8 @@ export function WarehouseHomeScreen({
       router.push('/raw-materials-dept/posted-warehouse-confirmation' as any);
     } else if (moduleId === 'forklift-operator') {
       router.push('/raw-materials-dept/forklift-operator' as any);
+    } else if (moduleId === 'material-issuance-confirmation'){
+      router.push('/raw-materials-dept/material-issuance-confirmation' as any);
     } else if (onModulePress) {
       onModulePress(moduleId);
     }

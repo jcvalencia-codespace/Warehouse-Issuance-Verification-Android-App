@@ -27,7 +27,6 @@ interface MaterialIssuanceHeaderProps {
   onValidSubmit?: (data: MaterialIssuanceFormData) => void;
   onSearchPress?: () => void;
   searchable?: boolean;
-  onDataChange?: () => void;
   mode?: 'create' | 'edit';
 }
 
@@ -55,7 +54,7 @@ type DropdownOption = {
 };
 
 export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, MaterialIssuanceHeaderProps>(
-  ({ onSubmit, onValidSubmit, onSearchPress, searchable = false, onDataChange, mode = 'create' }, ref) => {
+  ({ onSubmit, onValidSubmit, onSearchPress, searchable = false, mode = 'create' }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
@@ -99,7 +98,6 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
           return next;
         });
       }
-      onDataChange?.();
     };
 
     const formatDateTime = (date: Date) => {

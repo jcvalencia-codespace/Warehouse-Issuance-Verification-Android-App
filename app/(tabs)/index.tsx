@@ -22,7 +22,7 @@ export default function HomeScreen() {
 
   const handleModulePress = (moduleId: string) => {
     console.log('Module pressed:', moduleId);
-    
+
     // Navigate to the corresponding module screen
     switch (moduleId) {
       case 'receiving':
@@ -31,6 +31,8 @@ export default function HomeScreen() {
       case 'pending':
         router.push('/raw-materials-dept/pending-warehouse-confirmation');
         break;
+      case 'material-issuance-confirmation':
+        router.push('/raw-materials-dept/material-issuance-confirmation')
       case 'reports':
         router.push('/raw-materials-dept/reports');
         break;

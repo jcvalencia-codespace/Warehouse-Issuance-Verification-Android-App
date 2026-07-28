@@ -92,7 +92,6 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
             .input('shift', shift)
             .input('reviewedBy', reviewedBy)
             .input('createdBy', createdBy)
-            .input('postStatus', postStatus)
             .query(headerQuery);
 
         for (const detailItem of items) {
@@ -159,92 +158,6 @@ exports.postMaterialIssuance = async (req, res) => {
     }
 }
 
-exports.updateMaterialRequest = async (req, res) => {
-    const { company } = req.query;
-    const dbName = getCompanyDbName(company);
-    const pool = await getPool(dbName);
-
-    const { mirNo, shift, reviewedBy, modifiedBy, details } = req.body;
-
-    if (!mirNo) {
-        return res.status(400).json({ success: false, message: 'mirNo is required' });
-    }
-
-    const headerQuery = `UPDATE [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER]
-                             SET SHIFT = @shift,
-                                 REVIEWEDBY = @reviewedBy,
-                                 MODIFIEDBY = @modifiedBy,
-                                 DATEMODIFIED = GETDATE()
-                             WHERE MIRNO = @mirNo`;
-
-    const deleteDetailsQuery = `DELETE FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo`;
-
-    const insertDetailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED, DATEMODIFIED)
-                                VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, @dateCreated, GETDATE())`;
-
-    let items = [];
-    if (Array.isArray(details)) {
-        items = details.map(item => ({
-            itemCode: item.itemCode || item.ITEMNMBR,
-            quantity: item.quantity || item.QUANTITY
-        }));
-    }
-
-    const transaction = new sql.Transaction(pool);
-    try {
-        await transaction.begin();
-
-        const fetchDatesQuery = `SELECT ITEMNMBR, DATECREATED FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo`;
-        const existingDetails = await transaction.request()
-            .input('mirNo', mirNo)
-            .query(fetchDatesQuery);
-
-        const dateCreatedMap = {};
-        for (const row of existingDetails.recordset) {
-            dateCreatedMap[row.ITEMNMBR] = row.DATECREATED;
-        }
-
-        const headerRequest = new sql.Request(transaction);
-        await headerRequest
-            .input('mirNo', mirNo)
-            .input('shift', shift)
-            .input('reviewedBy', reviewedBy)
-            .input('modifiedBy', modifiedBy || '')
-            .query(headerQuery);
-
-        const deleteRequest = new sql.Request(transaction);
-        await deleteRequest
-            .input('mirNo', mirNo)
-            .query(deleteDetailsQuery);
-
-        const createdBy = modifiedBy || '';
-
-        for (const detailItem of items) {
-            const detailsRequest = new sql.Request(transaction);
-            await detailsRequest
-                .input('mirNo', mirNo)
-                .input('itemCode', detailItem.itemCode)
-                .input('quantity', detailItem.quantity)
-                .input('createdBy', createdBy)
-                .input('dateCreated', dateCreatedMap[detailItem.itemCode] || new Date())
-                .query(insertDetailsQuery);
-        }
-
-        await transaction.commit();
-
-        return res.status(200).json({ success: true, message: 'Material issuance updated successfully', mirNo });
-
-    } catch (error) {
-        console.error('Error updating material issuance:', error);
-        try {
-            await transaction.rollback();
-        } catch (rollbackError) {
-            console.error('Rollback failed:', rollbackError);
-        }
-        return res.status(500).json({ success: false, message: error.message || 'Failed to update material issuance' });
-    }
-}
-
 exports.getMaterialsIssuanceRequestHeader = async (req, res) => {
     const { company } = req.query;
     const dbName = getCompanyDbName(company);
@@ -278,41 +191,4 @@ exports.getMaterialsIssuanceRequestDetails = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to fetch material issuance request details' });
 
     }
-}
-
-exports.deleteMaterialRequest = async (req, res) => {
-    const { company, mirNo } = req.query;
-    const dbName = getCompanyDbName(company);
-    const pool = await getPool(dbName);
-
-    const headerQuery = `DELETE FROM [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] WHERE MIRNO = @mirNo`;
-    const detailsQuery = `DELETE FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo`;
-
-    const transaction = new sql.Transaction(pool);
-    try {
-        await transaction.begin();
-
-        const headerRequest = new sql.Request(transaction);
-        await headerRequest
-            .input('mirNo', mirNo)
-            .query(headerQuery);
-
-        const detailsRequest = new sql.Request(transaction);
-        await detailsRequest
-            .input('mirNo', mirNo)
-            .query(detailsQuery);
-
-        await transaction.commit();
-
-        return res.status(200).json({ success: true, message: 'Material issuance deleted successfully', mirNo });
-    } catch (error) {
-        console.error('Error deleting material issuance:', error);
-        try {
-            await transaction.rollback();
-        } catch (rollbackError) {
-            console.error('Rollback failed:', rollbackError);
-        }
-        return res.status(500).json({ success: false, message: error.message || 'Failed to delete material issuance' });
-    }
-
 }

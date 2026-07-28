@@ -136,12 +136,6 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
       setEditIndex(index);
     };
 
-    const handleRemove = (index: number) => {
-      const updatedItems = items.filter((_, i) => i !== index);
-      setItems(updatedItems);
-      onItemsChange?.(updatedItems);
-    };
-
     const renderItem = ({ item, index }: { item: MaterialIssuanceLineItem; index: number }) => {
       return (
         <View
@@ -159,7 +153,7 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
               <Text style={[styles.itemDescription, { color: colors.textSecondary }]} numberOfLines={1}>
                 {item.description || 'No description'}
               </Text>
-            </View>
+             </View>
             <View style={styles.itemActions}>
               <TouchableOpacity
                 style={[styles.iconButton, { backgroundColor: colors.primary + '14' }]}
@@ -168,14 +162,6 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <MaterialCommunityIcons name="pencil-outline" size={18} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.iconButton, { backgroundColor: colors.error + '14' }]}
-                onPress={() => handleRemove(index)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <MaterialCommunityIcons name="close" size={18} color={colors.error} />
               </TouchableOpacity>
             </View>
           </View>
@@ -256,97 +242,98 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
             </View>
           )}
 
-          {/* Item Code Selection */}
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={[styles.label, { color: colors.text }]}>Item Code</Text>
-              <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
+          {/* Item Code and Quantity Row */}
+          <View style={styles.rowContainer}>
+            <View style={styles.itemCodeColumn}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: colors.text }]}>Item Code</Text>
+                <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
+              </View>
+              <View style={styles.itemCodeRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.inputContainer,
+                    styles.itemCodeField,
+                    {
+                      borderColor: errors.itemCode ? colors.error : colors.cardBorder,
+                      backgroundColor: colors.background,
+                    },
+                  ]}
+                  onPress={() => setItemModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="barcode" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                  <Text
+                    style={[
+                      styles.dropdownText,
+                      { color: selectedItemCode ? colors.text : colors.textTertiary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {selectedItemCode || 'Select item code'}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              {errors.itemCode ? (
+                <View style={styles.errorContainer}>
+                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.itemCode}</Text>
+                </View>
+              ) : null}
             </View>
-            <View style={styles.itemCodeRow}>
-              <TouchableOpacity
+
+            <View style={styles.quantityColumn}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: colors.text }]}>Quantity</Text>
+                <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
+              </View>
+              <View
                 style={[
                   styles.inputContainer,
-                  styles.itemCodeField,
                   {
-                    borderColor: errors.itemCode ? colors.error : colors.cardBorder,
+                    borderColor: errors.quantity ? colors.error : colors.cardBorder,
                     backgroundColor: colors.background,
                   },
                 ]}
-                onPress={() => setItemModalVisible(true)}
-                activeOpacity={0.7}
               >
-                <MaterialCommunityIcons name="barcode" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                <Text
-                  style={[
-                    styles.dropdownText,
-                    { color: selectedItemCode ? colors.text : colors.textTertiary },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {selectedItemCode || 'Select item code'}
-                </Text>
-                <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
+                <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  value={quantity}
+                  placeholder="Enter quantity"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="numeric"
+                  onChangeText={(text) => {
+                    setQuantity(text);
+                    if (errors.quantity) {
+                      setErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.quantity;
+                        return next;
+                      });
+                    }
+                  }}
+                />
+              </View>
+              {errors.quantity ? (
+                <View style={styles.errorContainer}>
+                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.quantity}</Text>
+                </View>
+              ) : null}
             </View>
-
-            {errors.itemCode ? (
-              <View style={styles.errorContainer}>
-                <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                <Text style={[styles.errorText, { color: colors.error }]}>{errors.itemCode}</Text>
-              </View>
-            ) : null}
-
-            {selectedItem && selectedItem.description ? (
-              <View style={[styles.readOnlyField, { borderColor: colors.cardBorder, backgroundColor: colors.background }]}>
-                <MaterialCommunityIcons name="text" size={18} color={colors.textSecondary} style={styles.inputIcon} />
-                <Text style={[styles.readOnlyText, { color: colors.textSecondary }]}>
-                  {selectedItem.description}
-                </Text>
-              </View>
-            ) : null}
           </View>
 
-          {/* Quantity Input */}
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={[styles.label, { color: colors.text }]}>Quantity</Text>
-              <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
+          {selectedItem && selectedItem.description ? (
+            <View style={[styles.readOnlyField, { borderColor: colors.cardBorder, backgroundColor: colors.background }]}>
+              <MaterialCommunityIcons name="text" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <Text style={[styles.readOnlyText, { color: colors.textSecondary }]}>
+                {selectedItem.description}
+              </Text>
             </View>
-            <View
-              style={[
-                styles.inputContainer,
-                {
-                  borderColor: errors.quantity ? colors.error : colors.cardBorder,
-                  backgroundColor: colors.background,
-                },
-              ]}
-            >
-              <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                value={quantity}
-                placeholder="Enter quantity"
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="numeric"
-                onChangeText={(text) => {
-                  setQuantity(text);
-                  if (errors.quantity) {
-                    setErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.quantity;
-                      return next;
-                    });
-                  }
-                }}
-              />
-            </View>
-            {errors.quantity ? (
-              <View style={styles.errorContainer}>
-                <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                <Text style={[styles.errorText, { color: colors.error }]}>{errors.quantity}</Text>
-              </View>
-            ) : null}
-          </View>
+          ) : null}
 
           {/* Add / Update Button */}
           <TouchableOpacity
@@ -419,6 +406,18 @@ const styles = StyleSheet.create({
   inputGroup: {
     marginBottom: 16,
   },
+  rowContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    marginBottom: 16,
+  },
+  itemCodeColumn: {
+    flex: 1,
+  },
+  quantityColumn: {
+    flex: 1,
+  },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -473,7 +472,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginTop: 12,
+    marginBottom: 16,
   },
   readOnlyText: {
     flex: 1,
@@ -493,6 +492,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 16,
     gap: 8,
+    marginTop: 4,
   },
   addButtonText: {
     color: '#ffffff',
