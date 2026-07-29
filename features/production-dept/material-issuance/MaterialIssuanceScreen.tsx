@@ -6,7 +6,6 @@ import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
-    Modal,
     Platform,
     ScrollView,
     StyleSheet,
@@ -16,6 +15,7 @@ import {
     useColorScheme
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { MaterialIssuanceDetails, MaterialIssuanceDetailsRef } from './components/MaterialIssuanceDetails';
 import { MaterialIssuanceHeader, MaterialIssuanceHeaderRef } from './components/MaterialIssuanceHeader';
 import { MaterialIssuanceService } from './services/materialIssuanceService';
@@ -193,121 +193,29 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 </TouchableOpacity>
             </SafeAreaView>
 
-            <Modal visible={confirmVisible} transparent animationType="fade">
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => !submitting && setConfirmVisible(false)}
-                >
-                    <View
-                        style={[
-                            styles.confirmCard,
-                            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-                        ]}
-                    >
-                        <View
-                            style={[
-                                styles.confirmIcon,
-                                { backgroundColor: colors.primary + '14' },
-                            ]}
-                        >
-                            <MaterialCommunityIcons
-                                name="send-check"
-                                size={28}
-                                color={colors.primary}
-                            />
-                        </View>
-                        <Text style={[styles.confirmTitle, { color: colors.text }]}>
-                            Submit and Post Material Issuance
-                        </Text>
-                        <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
-                            Are you sure you want to submit and post this material issuance?
-                        </Text>
+            <ConfirmModal
+                visible={confirmVisible}
+                title="Submit and Post Material Issuance"
+                message="Are you sure you want to submit and post this material issuance?"
+                iconName="send-check"
+                iconColor={colors.primary}
+                cancelText="Cancel"
+                confirmText="Submit"
+                onConfirm={handleConfirmSubmit}
+                onCancel={() => setConfirmVisible(false)}
+            />
 
-                        <View style={styles.confirmButtons}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.confirmCancel,
-                                    { borderColor: colors.cardBorder, backgroundColor: colors.background },
-                                ]}
-                                onPress={() => setConfirmVisible(false)}
-                                disabled={submitting}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[styles.confirmCancelText, { color: colors.text }]}>
-                                    Cancel
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.confirmSubmit, { backgroundColor: colors.primary }]}
-                                onPress={handleConfirmSubmit}
-                                disabled={submitting}
-                                activeOpacity={0.8}
-                            >
-                                {submitting ? (
-                                    <ActivityIndicator size="small" color="#ffffff" />
-                                ) : (
-                                    <Text style={styles.confirmSubmitText}>
-                                        Submit
-                                    </Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
-
-            <Modal visible={clearConfirmVisible} transparent animationType="fade">
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setClearConfirmVisible(false)}
-                >
-                    <View
-                        style={[
-                            styles.confirmCard,
-                            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-                        ]}
-                    >
-                        <View
-                            style={[
-                                styles.confirmIcon,
-                                { backgroundColor: colors.warning + '14' },
-                            ]}
-                        >
-                            <MaterialCommunityIcons name="alert-outline" size={28} color={colors.warning} />
-                        </View>
-                        <Text style={[styles.confirmTitle, { color: colors.text }]}>
-                            Clear All Data
-                        </Text>
-                        <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
-                            Are you sure you want to clear all issuance details? This action cannot be undone.
-                        </Text>
-
-                        <View style={styles.confirmButtons}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.confirmCancel,
-                                    { borderColor: colors.cardBorder, backgroundColor: colors.background },
-                                ]}
-                                onPress={() => setClearConfirmVisible(false)}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[styles.confirmCancelText, { color: colors.text }]}>
-                                    Cancel
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.confirmSubmit, { backgroundColor: colors.warning }]}
-                                onPress={handleConfirmClear}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.confirmSubmitText}>Clear</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
+            <ConfirmModal
+                visible={clearConfirmVisible}
+                title="Clear All Data"
+                message="Are you sure you want to clear all issuance details? This action cannot be undone."
+                iconName="alert-outline"
+                iconColor={colors.warning}
+                cancelText="Cancel"
+                confirmText="Clear"
+                onConfirm={handleConfirmClear}
+                onCancel={() => setClearConfirmVisible(false)}
+            />
         </SafeAreaView>
     );
 }
@@ -372,68 +280,6 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#ffffff',
         fontSize: 17,
-        fontWeight: '700',
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.45)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 24,
-    },
-    confirmCard: {
-        width: '100%',
-        borderRadius: 20,
-        borderWidth: 1,
-        padding: 24,
-        alignItems: 'center',
-    },
-    confirmIcon: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 16,
-    },
-    confirmTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginBottom: 8,
-    },
-    confirmMessage: {
-        fontSize: 15,
-        fontWeight: '500',
-        textAlign: 'center',
-        marginBottom: 24,
-    },
-    confirmButtons: {
-        flexDirection: 'row',
-        gap: 12,
-        width: '100%',
-    },
-    confirmCancel: {
-        flex: 1,
-        height: 52,
-        borderRadius: 14,
-        borderWidth: 1.5,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    confirmCancelText: {
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    confirmSubmit: {
-        flex: 1,
-        height: 52,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    confirmSubmitText: {
-        color: '#ffffff',
-        fontSize: 16,
         fontWeight: '700',
     },
     searchResultsContainer: {

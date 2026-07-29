@@ -4,7 +4,10 @@ const MaterialIssuanceConfirmationController = require('../controller/materialIs
 
 router.get('/get-material-issuance-request-header', MaterialIssuanceConfirmationController.getMaterialIssuanceRequestHeader);
 router.put('/mark-as-served', MaterialIssuanceConfirmationController.markItemAsServed);
+router.put('/set-to-preparing', MaterialIssuanceConfirmationController.markItemAsPreparing);
+router.put('/set-to-prepared', MaterialIssuanceConfirmationController.markItemAsPrepared);
 router.get('/get-material-issuance-request-details', MaterialIssuanceConfirmationController.getMaterialsIssuanceRequestDetails);
 router.get('/get-material-issuance-request-details/:mirNo', MaterialIssuanceConfirmationController.getMaterialsIssuanceRequestDetails);
+router.get('/get-served-items-today', MaterialIssuanceConfirmationController.getServedItemsToday);
 
 module.exports = router;

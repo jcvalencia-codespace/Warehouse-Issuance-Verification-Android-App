@@ -15,6 +15,8 @@ export interface MaterialIssuanceRequestDetail {
   QUANTITY: number;
   UOFM?: string;
   IS_SERVED?: number;
+  IS_PREPARING?: number;
+  IS_PREPARED?: number;
 }
 
 export interface MaterialIssuanceRequestHeaderWithUnserved extends MaterialIssuanceRequestHeader {

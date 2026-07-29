@@ -1,3 +1,4 @@
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -44,6 +45,8 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [editIndex, setEditIndex] = useState<number | null>(null);
     const [requiredError, setRequiredError] = useState(false);
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
     const selectedItem = itemCodeOptions.find((o) => o.value === selectedItemCode);
 
@@ -85,6 +88,18 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
 
       if (!quantity.trim() || isNaN(quantityValue) || quantityValue <= 0) {
         newErrors.quantity = 'Enter a valid quantity';
+      }
+      
+      const existingTotal = items.reduce((sum, item) => {
+        return sum + Number(item.quantity);
+      }, 0);
+
+      const adjustedTotal = editIndex !== null
+        ? existingTotal - Number(items[editIndex].quantity) + quantityValue
+        : existingTotal + quantityValue;
+
+      if (quantityValue >= 2200 || adjustedTotal >= 2200) {
+        newErrors.quantity = 'Quantity exceeds the total limit per item.'
       }
 
       if (Object.keys(newErrors).length > 0) {
@@ -136,6 +151,25 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
       setEditIndex(index);
     };
 
+    const handleDelete = (index: number) => {
+      setDeleteIndex(index);
+      setDeleteModalVisible(true);
+    };
+
+    const handleConfirmDelete = () => {
+      if (deleteIndex === null) return;
+      const updatedItems = items.filter((_, i) => i !== deleteIndex);
+      setItems(updatedItems);
+      onItemsChange?.(updatedItems);
+      setDeleteModalVisible(false);
+      setDeleteIndex(null);
+    };
+
+    const handleCancelDelete = () => {
+      setDeleteModalVisible(false);
+      setDeleteIndex(null);
+    };
+
     const renderItem = ({ item, index }: { item: MaterialIssuanceLineItem; index: number }) => {
       return (
         <View
@@ -153,7 +187,10 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
               <Text style={[styles.itemDescription, { color: colors.textSecondary }]} numberOfLines={1}>
                 {item.description || 'No description'}
               </Text>
-             </View>
+            </View>
+            <View style={styles.itemQuantity}>
+              <Text style={[styles.itemQuantityValue, { color: colors.text }]}>{item.quantity}</Text>
+            </View>
             <View style={styles.itemActions}>
               <TouchableOpacity
                 style={[styles.iconButton, { backgroundColor: colors.primary + '14' }]}
@@ -163,14 +200,14 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
               >
                 <MaterialCommunityIcons name="pencil-outline" size={18} color={colors.primary} />
               </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.itemMetaRow}>
-            <View style={[styles.metaChip, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-              <MaterialCommunityIcons name="numeric" size={16} color={colors.primary} />
-              <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Qty</Text>
-              <Text style={[styles.metaValue, { color: colors.text }]}>{item.quantity}</Text>
+              <TouchableOpacity
+                style={[styles.iconButton, { backgroundColor: (colors.error || '#ef4444') + '14' }]}
+                onPress={() => handleDelete(index)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.error || '#ef4444'} />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -377,6 +414,18 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
           }}
           onClose={() => setItemModalVisible(false)}
         />
+
+        <ConfirmModal
+          visible={deleteModalVisible}
+          title="Delete Item"
+          message="Are you sure you want to remove this item?"
+          iconName="alert-outline"
+          iconColor={colors.error || '#ef4444'}
+          cancelText="Cancel"
+          confirmText="Delete"
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+        />
       </View>
     );
   }
@@ -542,6 +591,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  itemQuantity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 80,
+    marginRight: 14,
+    justifyContent: 'center',
+  },
+  itemQuantityValue: {
+    fontSize: 25,
+    fontWeight: '700',
+  },
   itemActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -553,29 +616,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  itemMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  metaChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  metaLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  metaValue: {
-    fontSize: 14,
-    fontWeight: '700',
   },
   requiredErrorContainer: {
     flexDirection: 'row',

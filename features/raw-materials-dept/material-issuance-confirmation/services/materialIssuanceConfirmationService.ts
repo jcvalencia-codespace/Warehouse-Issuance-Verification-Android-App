@@ -58,14 +58,46 @@ export class MaterialIssuanceConfirmationService {
         }
     }
 
-    async markItemAsServed(mirNo: string, rowId: number, company?: string): Promise<{ success: boolean }> {
+    async markItemAsPreparing(mirNo: string, rowId: number, user?: string, company?: string): Promise<{ success: boolean }> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.put<{ success: boolean; message: string }>(
+                `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/set-to-preparing`,
+                { mirNo, rowId, user },
+                { params: company ? { company } : undefined }
+            );
+            return { success: response.data.success };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async markItemAsPrepared(mirNo: string, rowId: number, user?: string, company?: string): Promise<{ success: boolean }> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.put<{ success: boolean; message: string }>(
+                `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/set-to-prepared`,
+                { mirNo, rowId, user },
+                { params: company ? { company } : undefined }
+            );
+            return { success: response.data.success };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async markItemAsServed(mirNo: string, rowId: number, user?: string, company?: string): Promise<{ success: boolean }> {
         try {
             if (!this.baseUrl) {
                 throw new Error('API URL not configured');
             }
             const response = await axios.put<{ success: boolean; message: string }>(
                 `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/mark-as-served`,
-                { mirNo, rowId },
+                { mirNo, rowId, user },
                 { params: company ? { company } : undefined }
             );
             return { success: response.data.success };
@@ -84,6 +116,24 @@ export class MaterialIssuanceConfirmationService {
                 : `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/get-material-issuance-request-details`;
             const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestDetail[] }>(
                 url,
+                { params: company ? { company } : undefined }
+            );
+            if (response.data.success) {
+                return response.data.data;
+            }
+            return [];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getServedItemsToday(company?: string): Promise<MaterialIssuanceRequestDetail[]> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestDetail[] }>(
+                `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/get-served-items-today`,
                 { params: company ? { company } : undefined }
             );
             if (response.data.success) {
