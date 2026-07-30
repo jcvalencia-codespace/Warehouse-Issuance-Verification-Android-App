@@ -1,6 +1,7 @@
 const sql = require('mssql');
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
+const { emitMaterialIssuanceUpdate } = require('../../../../utils/socketEvents');
 
 exports.getItemCode = async (req, res) => {
     const { company } = req.query;
@@ -8,7 +9,12 @@ exports.getItemCode = async (req, res) => {
     const pool = await getPool(dbName);
 
     try {
-        const result = await pool.request().query(`SELECT ITEMNMBR AS 'ITEM CODE', ITEMDESC AS 'ITEM DESCRIPTION' FROM IV00101 WHERE LOCNCODE IN ('PAWHRM', 'PAWHPMX', 'SFG')`);
+        const result = await pool.request().query(`SELECT DISTINCT D.ITEMNMBR AS 'ITEM CODE', I.ITEMDESC 'ITEM DESCRIPTION'
+                                                    FROM [INVENTORY.QUANTITYMASTER3.HEADER] AS H 
+                                                    INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] AS D ON H.QM_IDNUMBER = D.QM_IDNUMBER
+                                                    INNER JOIN [IV00101] AS I ON D.ITEMNMBR = I.ITEMNMBR
+                                                    WHERE (H.LOCNCODE IN ('PAWHRM'))
+                                                    ORDER BY D.ITEMNMBR`);
         res.json({ success: true, items: result.recordset });
     } catch (error) {
         console.error('Error fetching item codes:', error);
@@ -43,8 +49,8 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
         itemCode, quantity, dateCreated, details
     } = req.body;
 
-    const headerQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] (MIRNO, SHIFT, REVIEWEDBY, CREATEDBY, DATECREATED)
-                     VALUES (@mirNo, @shift, @reviewedBy, @createdBy, GETDATE())`;
+    const headerQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] (MIRNO, SHIFT, REVIEWEDBY, CREATEDBY, POSTSTATUS, DATECREATED)
+                     VALUES (@mirNo, @shift, @reviewedBy, @createdBy, 1, GETDATE())`;
 
     const detailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED)
                      VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, GETDATE())`;
@@ -110,6 +116,7 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
             message: mirNoSkipped ? `MIR No. ${mirNo} already exists. Saved as ${finalMirNo}.` : 'Material issuance request saved successfully',
             mirNo: finalMirNo
         });
+        emitMaterialIssuanceUpdate('posted', { mirNo: finalMirNo, shift, reviewedBy, createdBy, company });
     } catch (error) {
         try {
             if (transaction.active) {

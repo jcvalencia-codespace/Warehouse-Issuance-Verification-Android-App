@@ -10,9 +10,11 @@ interface IssuanceHeaderProps {
   colors: any;
   onCancel: () => void;
   onClear?: () => void;
+  mirNo?: string;
 }
 
-export function IssuanceHeader({ colors, onCancel, onClear }: IssuanceHeaderProps) {
+export function IssuanceHeader({ colors, onCancel, onClear, mirNo }: IssuanceHeaderProps) {
+  const showClear = !mirNo;
   return (
     <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.cardBorder }]}>
       <TouchableOpacity onPress={onCancel} style={styles.headerButton} activeOpacity={0.7}>
@@ -27,9 +29,14 @@ export function IssuanceHeader({ colors, onCancel, onClear }: IssuanceHeaderProp
             <View style={[styles.statusDot, { backgroundColor: colors.warning }]} />
             <Text style={[styles.statusText, { color: colors.warning }]}>Draft</Text>
           </View>
+          {mirNo ? (
+            <View style={[styles.mirNoBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+              <Text style={[styles.mirNoText, { color: colors.primary }]}>{mirNo}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
-      {onClear ? (
+      {showClear && onClear ? (
         <TouchableOpacity onPress={onClear} style={styles.headerButton} activeOpacity={0.7}>
           <MaterialCommunityIcons name="refresh" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -81,6 +88,19 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   statusText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  mirNoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginLeft: 8,
+  },
+  mirNoText: {
     fontSize: 13,
     fontWeight: '700',
   },

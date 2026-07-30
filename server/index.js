@@ -1,5 +1,6 @@
 const app = require('./src/app');
 const { getPool, closePool } = require('./src/config/database');
+const { initializeSocket } = require('./src/socket');
 const path = require('path');
 
 // Load .env from project root
@@ -11,6 +12,10 @@ const DEFAULT_DB = process.env.DB_GDB || 'GDB';
 const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`\n🚀 Server running on http://0.0.0.0:${PORT}`);
   console.log(`📍 Test with: http://192.168.10.85:${PORT}/health\n`);
+  
+  // Initialize Socket.io
+  initializeSocket(server);
+  console.log('🔌 Socket.io initialized');
   
   // Test database connection on startup (non-blocking)
   getPool(DEFAULT_DB)

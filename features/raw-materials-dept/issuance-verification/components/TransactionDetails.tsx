@@ -49,6 +49,8 @@ interface TransactionDetailsProps {
   onItemSelect?: (itemNumber: string, itemRemarks?: string) => void;
   showItemColumn?: boolean;
   onDateChange?: (date: string) => void;
+  itemNumberDisabled?: boolean;
+  mirNo?: string;
   // Quantity props
   isAllocating: boolean;
   allocationResults: any[];
@@ -111,6 +113,8 @@ export function TransactionDetails({
   onItemSelect,
   showItemColumn = true,
   onDateChange,
+  itemNumberDisabled = false,
+  mirNo,
   // Quantity props
   isAllocating,
   allocationResults,
@@ -135,8 +139,16 @@ export function TransactionDetails({
     <>
       {/* Transaction Details Card */}
       <View style={[styles.formCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Transaction Details</Text>
+        <View style={styles.sectionTitleRow}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Transaction Details
+          </Text>
+          {mirNo ? (
+            <Text style={[styles.sectionMirNo, { color: colors.primary }]}>
+              {mirNo}
+            </Text>
+          ) : null}
+        </View>
         <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontStyle: 'italic', marginLeft: 4 }]}>(Enter the issuance verification information below) </Text>
         {/* Reference Numbers Row */}
         <View style={styles.inputGroup}>
@@ -393,54 +405,77 @@ export function TransactionDetails({
             <Text style={[styles.requiredStar, { color: colors.error }]}> *</Text>
           </Text>
 
-          <TouchableOpacity
-            style={[
-              styles.inputContainer,
-              styles.dropdownContainer,
-              {
-                backgroundColor: colors.background,
-                borderColor: errors.itemNumber ? colors.error : colors.cardBorder,
-              },
-            ]}
-            onPress={() => {
-              onShowItemPickerChange(!showItemPicker);
-            }}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons
-              name="package-variant"
-              size={20}
-              color={colors.textTertiary}
-              style={styles.inputIcon}
-            />
-            <Text
+          {itemNumberDisabled && formData.itemNumber ? (
+            <View
               style={[
-                styles.dropdownText,
-                { color: formData.itemNumber ? colors.text : colors.textTertiary },
+                styles.inputContainer,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: errors.itemNumber ? colors.error : colors.cardBorder,
+                  opacity: 0.7,
+                },
               ]}
             >
-              {(() => {
-                const selectedItem = itemOptions.find(opt => 
-                  opt.label === formData.itemNumber && 
-                  (formData.itemRemarks === '' ? !opt.remarks : opt.remarks === formData.itemRemarks)
-                );
-                if (selectedItem && selectedItem.remarks && selectedItem.remarks.trim()) {
-                  return `${selectedItem.label}-${selectedItem.remarks}`;
-                }
-                if (formData.itemRemarks && formData.itemRemarks.trim()) {
-                  return `${formData.itemNumber}-${formData.itemRemarks}`;
-                }
-                return formData.itemNumber || 'Select item';
-              })()}
-            </Text>
-            <MaterialCommunityIcons
-              name={showItemPicker ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
+              <MaterialCommunityIcons
+                name="package-variant"
+                size={20}
+                color={colors.textTertiary}
+                style={styles.inputIcon}
+              />
+              <Text style={[styles.dropdownText, { color: colors.text }]}>
+                {formData.itemNumber}
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.inputContainer,
+                styles.dropdownContainer,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: errors.itemNumber ? colors.error : colors.cardBorder,
+                },
+              ]}
+              onPress={() => {
+                onShowItemPickerChange(!showItemPicker);
+              }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="package-variant"
+                size={20}
+                color={colors.textTertiary}
+                style={styles.inputIcon}
+              />
+              <Text
+                style={[
+                  styles.dropdownText,
+                  { color: formData.itemNumber ? colors.text : colors.textTertiary },
+                ]}
+              >
+                {(() => {
+                  const selectedItem = itemOptions.find(opt => 
+                    opt.label === formData.itemNumber && 
+                    (formData.itemRemarks === '' ? !opt.remarks : opt.remarks === formData.itemRemarks)
+                  );
+                  if (selectedItem && selectedItem.remarks && selectedItem.remarks.trim()) {
+                    return `${selectedItem.label}-${selectedItem.remarks}`;
+                  }
+                  if (formData.itemRemarks && formData.itemRemarks.trim()) {
+                    return `${formData.itemNumber}-${formData.itemRemarks}`;
+                  }
+                  return formData.itemNumber || 'Select item';
+                })()}
+              </Text>
+              <MaterialCommunityIcons
+                name={showItemPicker ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
 
-          {showItemPicker && (
+          {!itemNumberDisabled && showItemPicker && (
             <View
               style={[
                 styles.dropdown,
@@ -1542,6 +1577,17 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     marginBottom: 6,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  sectionMirNo: {
+    fontSize: 36,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   sectionDescription: {
     fontSize: 16,

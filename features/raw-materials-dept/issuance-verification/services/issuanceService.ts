@@ -305,10 +305,14 @@ export class IssuanceService {
     weightInKg: number;
     allocations?: BagAllocationResponse['data'];
     username?: string;
+    user?: string;
     forkliftOperator?: string;
     floorScale?: string;
     transType?: string;
     date?: string;
+    company?: string;
+    mirNo?: string;
+    rowId?: number;
   }): Promise<{ success: boolean; message?: string }> {
     try {
       if (!this.baseUrl) {
@@ -319,6 +323,7 @@ export class IssuanceService {
         `${this.baseUrl}/issuance/post`,
         data,
         {
+          params: data.company ? { company: data.company } : undefined,
           timeout: 15000,
           headers: {
             'Content-Type': 'application/json',

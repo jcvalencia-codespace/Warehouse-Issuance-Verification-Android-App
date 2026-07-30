@@ -7,7 +7,7 @@ import { ModalDialog } from '@/components/ui/modal-dialog';
 import { Colors } from '@/constants/theme';
 import { toast } from '@/hooks/use-toast';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -46,6 +46,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
   const colors = Colors[scheme ?? 'light'];
   const isTablet = width >= 768;
   const { user } = useAuth();
+  const { mirNo, itemCode, rowId } = useLocalSearchParams<{ mirNo?: string; itemCode?: string; rowId?: string }>();
 
   const [formData, setFormData] = useState<IssuanceVerificationFormData>({
     issuanceRefNumber: '',
@@ -153,9 +154,16 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
       }
     };
     fetchAllItems();
-  }, []);
+   }, []);
 
-  // Fetch areas when item is selected
+   // Pre-fill itemCode and disable item picker when redirected from issuance confirmation
+   useEffect(() => {
+      if (itemCode) {
+        setFormData((prev) => ({ ...prev, itemNumber: itemCode || '' }));
+      }
+    }, [itemCode]);
+
+   // Fetch areas when item is selected
   useEffect(() => {
     if (formData.itemNumber) {
       const fetchAreasByItem = async () => {
@@ -490,10 +498,14 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
                 weightInKg: formData.weightInKg || 0,
                 allocations: allocatedItems,
                 username: user?.USERNAME || '',
+                user: user?.NAME || '',
                 forkliftOperator: formData.forkliftOperator || '',
                 floorScale: formData.floorScale || '',
                 transType: formData.transType || '',
                 date: formData.date || '',
+                company: user?.COMPANY,
+                mirNo: typeof mirNo === 'string' ? mirNo : undefined,
+                rowId: rowId ? parseInt(rowId, 10) : undefined,
               });
 
               if (response.success) {
@@ -720,7 +732,7 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
         style={styles.keyboardAvoid}
       >
         {/* Header */}
-        <IssuanceHeader colors={colors} onCancel={handleCancel} onClear={handleClear} />
+        <IssuanceHeader colors={colors} onCancel={handleCancel} onClear={handleClear} mirNo={typeof mirNo === 'string' ? mirNo : undefined} />
 
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView
@@ -779,10 +791,12 @@ export function IssuanceVerificationScreen(props: IssuanceVerificationScreenProp
                   });
                 }
               }}
-              selectedItemNumber={formData.itemNumber}
-              onItemSelect={handleItemSelect}
-              showItemColumn={showItemColumn}
-              onDateChange={(date) => setFormData((prev) => ({ ...prev, date }))}
+               selectedItemNumber={formData.itemNumber}
+               onItemSelect={handleItemSelect}
+               showItemColumn={showItemColumn}
+               itemNumberDisabled={!!itemCode}
+               mirNo={typeof mirNo === 'string' ? mirNo : undefined}
+               onDateChange={(date) => setFormData((prev) => ({ ...prev, date }))}
               // Quantity props
               isAllocating={isAllocating}
               allocationResults={allocationResults}

@@ -1,6 +1,7 @@
 const sql = require('mssql');
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
+const { emitMaterialIssuanceUpdate } = require('../../../../utils/socketEvents');
 
 exports.getMaterialIssuanceRequestHeader = async (req, res) => {
     const { company } = req.query;
@@ -9,7 +10,7 @@ exports.getMaterialIssuanceRequestHeader = async (req, res) => {
 
     const query = `SELECT H.ROWID, H.MIRNO, H.SHIFT, H.REVIEWEDBY, H.CREATEDBY, H.DATECREATED, H.POSTSTATUS, H.MODIFIEDBY, H.DATEMODIFIED
                     FROM [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] AS H INNER JOIN [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] D ON D.MIRNO = H.MIRNO
-                    WHERE POSTSTATUS = 1 AND D.IS_SERVED = 0 ORDER BY H.MIRNO`;
+                    WHERE POSTSTATUS = 1 AND D.IS_SERVED = 0 AND D.IS_CANCELLED = 0 ORDER BY H.MIRNO`;
 
     try {
         const result = await pool.request().query(query);
@@ -35,6 +36,7 @@ exports.markItemAsPreparing = async (req, res) => {
             .input('rowId', rowId)
             .query(query);
         res.json({ success: true, message: 'Item set to preparing.' });
+        emitMaterialIssuanceUpdate('preparing', { mirNo, rowId, user, company });
     } catch (error) {
         console.error('Error marking item as preparing:', error);
         res.status(500).json({ success: false, message: 'Failed to mark item as preparing' });
@@ -56,6 +58,7 @@ exports.markItemAsPrepared = async (req, res) => {
             .input('rowId', rowId)
             .query(query);
         res.json({ success: true, message: 'Item set to prepared.' });
+        emitMaterialIssuanceUpdate('prepared', { mirNo, rowId, user, company });
     } catch (error) {
         console.error('Error marking item as prepared:', error);
         res.status(500).json({ success: false, message: 'Failed to mark item as prepared' });
@@ -77,9 +80,35 @@ exports.markItemAsServed = async (req, res) => {
             .input('rowId', rowId)
             .query(query);
         res.json({ success: true, message: 'Item marked as served.' });
+        emitMaterialIssuanceUpdate('served', { mirNo, rowId, user, company });
     } catch (error) {
         console.error('Error marking item as served:', error);
         res.status(500).json({ success: false, message: 'Failed to mark item as served' });
+    }
+}
+
+exports.cancelItem = async (req, res) => {
+    const { company } = req.query;
+    const { cancelRemarks, mirNo, rowId, user } = req.body;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const query = `UPDATE [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] 
+                   SET IS_CANCELLED = 1, REMARKS = @cancelRemarks, MODIFIEDBY = @user, DATEMODIFIED = GETDATE() 
+                   WHERE MIRNO = @mirNo AND ROWID = @rowId`;
+
+    try {
+        await pool.request()
+            .input('cancelRemarks', cancelRemarks)
+            .input('user', user)
+            .input('mirNo', mirNo)
+            .input('rowId', rowId)
+            .query(query);
+        res.json({success: true, message: 'Item Cancelled'});
+        emitMaterialIssuanceUpdate('cancelled', { mirNo, rowId, user, company });
+    } catch (error) {
+        console.error('Error Cancelling Item.', error);
+        res.status(500).json({ success: false, message: 'Failed to mark item as cancelled' });
     }
 }
 
@@ -89,7 +118,7 @@ exports.getMaterialsIssuanceRequestDetails = async (req, res) => {
     const pool = await getPool(dbName);
 
     const query = `SELECT D.*, I.ITEMDESC FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] D
-                    INNER JOIN IV00101 I ON D.ITEMNMBR = I.ITEMNMBR WHERE MIRNO = @mirNo AND IS_SERVED = 0 ORDER BY MIRNO`;
+                    INNER JOIN IV00101 I ON D.ITEMNMBR = I.ITEMNMBR WHERE MIRNO = @mirNo AND IS_SERVED = 0 AND IS_CANCELLED = 0 ORDER BY MIRNO`;
 
     try {
         const result = await pool.request()

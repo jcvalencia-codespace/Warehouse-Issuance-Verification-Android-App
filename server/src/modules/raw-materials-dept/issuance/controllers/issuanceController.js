@@ -1,5 +1,7 @@
 // server/src/modules/issuance/controllers/issuanceController.js
 const { getPool } = require('../../../../config/database');
+const { getCompanyDbName } = require('../../../../utils/companyDb');
+const { emitMaterialIssuanceUpdate } = require('../../../../utils/socketEvents');
 
 /**
  * Allocate bags from inventory using FIFO method
@@ -163,7 +165,8 @@ exports.allocateBags = async (req, res) => {
  * Post issuance verification
  */
 exports.postIssuance = async (req, res) => {
-  const dbName = process.env.DB_SFC || 'SFC';
+  const { company } = req.query;
+  const dbName = getCompanyDbName(company);
   const pool = await getPool(dbName);
 
   try {
@@ -295,6 +298,21 @@ exports.postIssuance = async (req, res) => {
       // Commit transaction
       await transaction.commit();
       isCommitted = true;
+
+      // If MIRNO is provided, mark the material issuance request detail as served
+      const { mirNo, rowId } = req.body;
+      if (mirNo && rowId) {
+        const updateServedQuery = `UPDATE [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] SET IS_SERVED = 1, SERVEDBY = @user, DATESERVED = GETDATE() WHERE MIRNO = @mirNo AND IS_SERVED = 0 AND ROWID = @rowId`;
+        const result = await pool.request()
+          .input('user', username)
+          .input('mirNo', mirNo)
+          .input('rowId', parseInt(rowId, 10))
+          .query(updateServedQuery);
+
+        if (result.rowsAffected && result.rowsAffected[0] > 0) {
+          emitMaterialIssuanceUpdate('served', { company, mirNo, rowId, issIdNumber, transRefNo });
+        }
+      }
 
       console.log('Issuance posted successfully:', { clientIP, issIdNumber, transRefNo, dateIssued, dateCreated });
       res.json({

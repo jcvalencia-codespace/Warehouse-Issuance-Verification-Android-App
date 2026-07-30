@@ -1,9 +1,9 @@
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
@@ -11,11 +11,10 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
     useColorScheme
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ConfirmModal } from '@/components/ConfirmModal';
+import { socketService } from '../../raw-materials-dept/material-issuance-confirmation/services/socketService';
 import { MaterialIssuanceDetails, MaterialIssuanceDetailsRef } from './components/MaterialIssuanceDetails';
 import { MaterialIssuanceHeader, MaterialIssuanceHeaderRef } from './components/MaterialIssuanceHeader';
 import { MaterialIssuanceService } from './services/materialIssuanceService';
@@ -40,6 +39,22 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
     const [pendingHeader, setPendingHeader] = useState<any>(null);
     const [items, setItems] = useState<any[]>([]);
     const [selectedIssuance, setSelectedIssuance] = useState<any>(null);
+
+    useEffect(() => {
+        socketService.connect();
+
+        const handleRealtimeUpdate = (payload: any) => {
+            if (payload?.data?.mirNo && pendingHeader?.mirNo === payload.data.mirNo) {
+                Alert.alert('Realtime Update', `Material issuance ${payload.data.mirNo} was updated by another user.`);
+            }
+        };
+
+        socketService.onMaterialIssuanceUpdate(handleRealtimeUpdate);
+
+        return () => {
+            socketService.offMaterialIssuanceUpdate(handleRealtimeUpdate);
+        };
+    }, [pendingHeader?.mirNo]);
 
     const handleClear = () => {
         setClearConfirmVisible(true);

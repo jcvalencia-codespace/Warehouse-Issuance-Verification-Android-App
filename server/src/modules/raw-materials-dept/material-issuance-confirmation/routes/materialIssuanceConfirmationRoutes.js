@@ -9,5 +9,5 @@ router.put('/set-to-prepared', MaterialIssuanceConfirmationController.markItemAs
 router.get('/get-material-issuance-request-details', MaterialIssuanceConfirmationController.getMaterialsIssuanceRequestDetails);
 router.get('/get-material-issuance-request-details/:mirNo', MaterialIssuanceConfirmationController.getMaterialsIssuanceRequestDetails);
 router.get('/get-served-items-today', MaterialIssuanceConfirmationController.getServedItemsToday);
-
+router.put('/cancel-item', MaterialIssuanceConfirmationController.cancelItem);
 module.exports = router;

@@ -14,6 +14,13 @@ const error = '#ef4444'; // Red for failures
 const neutral = '#f8fafc'; // Off-white background
 const darkNeutral = '#1e293b'; // Dark text
 
+// Material issuance status colors
+const preparing = '#EA5806'; // Orange for preparing
+const prepared = '#2563EB'; // Blue for prepared
+const served = '#22C55E'; // Green for served
+const countBadgeBorder = '#E5E7EB'; // Gray border for count badge
+const cancelButtonBg = '#FEE2E2'; // Light red for cancel button
+
 export const Colors = {
   light: {
     text: darkNeutral,
@@ -35,6 +42,18 @@ export const Colors = {
     textSecondary: '#64748b',
     textTertiary: '#94a3b8',
     shadowColor: '#000000',
+    // Material issuance status colors
+    preparing,
+    preparingBg: '#FFF7ED',
+    preparingBorder: '#FDBA74',
+    prepared,
+    preparedBg: '#EFF6FF',
+    preparedBorder: '#BFDBFE',
+    served,
+    servedBg: '#F0FDF4',
+    servedBorder: '#BBF7D0',
+    cancelButtonBg,
+    countBadgeBorder,
   },
   dark: {
     text: '#f1f5f9',
@@ -56,6 +75,18 @@ export const Colors = {
     textSecondary: '#cbd5e1',
     textTertiary: '#94a3b8',
     shadowColor: '#000000',
+    // Material issuance status colors (dark mode)
+    preparing: '#f97316', // orange-500
+    preparingBg: '#451a03', // orange-950
+    preparingBorder: '#9a3412', // orange-800
+    prepared: '#3b82f6', // blue-500
+    preparedBg: '#172554', // blue-950
+    preparedBorder: '#1e40af', // blue-800
+    served: '#34d399', // green-400
+    servedBg: '#022c22', // green-950
+    servedBorder: '#065f46', // green-800
+    cancelButtonBg: '#7f1d1d', // red-900
+    countBadgeBorder: '#334155',
   },
 };
 

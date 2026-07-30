@@ -106,6 +106,22 @@ export class MaterialIssuanceConfirmationService {
         }
     }
 
+    async cancelItem(mirNo: string, rowId: number, user?: string, cancelRemarks?: string, company?: string): Promise<{ success: boolean }> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.put<{ success: boolean; message: string }>(
+                `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/cancel-item`,
+                { mirNo, rowId, user, cancelRemarks },
+                { params: company ? { company } : undefined }
+            );
+            return { success: response.data.success };
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async getMaterialIssuanceRequestDetails(mirNo?: string, company?: string): Promise<MaterialIssuanceRequestDetail[]> {
         try {
             if (!this.baseUrl) {

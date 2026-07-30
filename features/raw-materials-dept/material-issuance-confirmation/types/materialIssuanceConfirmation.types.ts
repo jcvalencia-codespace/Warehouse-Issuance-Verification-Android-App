@@ -17,6 +17,7 @@ export interface MaterialIssuanceRequestDetail {
   IS_SERVED?: number;
   IS_PREPARING?: number;
   IS_PREPARED?: number;
+  REMARKS?: string;
 }
 
 export interface MaterialIssuanceRequestHeaderWithUnserved extends MaterialIssuanceRequestHeader {

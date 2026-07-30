@@ -98,7 +98,7 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
         ? existingTotal - Number(items[editIndex].quantity) + quantityValue
         : existingTotal + quantityValue;
 
-      if (quantityValue >= 2200 || adjustedTotal >= 2200) {
+      if (quantityValue >= 2201 || adjustedTotal >= 2201) {
         newErrors.quantity = 'Quantity exceeds the total limit per item.'
       }
 
