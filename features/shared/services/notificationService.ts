@@ -1,0 +1,98 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
+let Device: any = null;
+let Notifications: any = null;
+try {
+  Notifications = require('expo-notifications');
+  Device = require('expo-device');
+} catch {
+  // expo-notifications / expo-device native modules are unavailable in this environment
+}
+
+if (Notifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
+
+async function getPushTokenAsync() {
+  if (!Notifications || !Device?.isDevice) {
+    return null;
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  if (finalStatus !== 'granted') {
+    return null;
+  }
+
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ||
+    Constants.easConfig?.projectId;
+
+  if (!projectId) {
+    return null;
+  }
+
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    console.log('Expo push token:', tokenData.data);
+    return tokenData.data;
+  } catch (error) {
+    console.error('Error getting push token:', error);
+    return null;
+  }
+}
+
+async function registerPushToken(username: string, deviceType?: string, company?: string) {
+  const baseUrl = Constants.expoConfig?.extra?.apiUrl || '';
+  if (!baseUrl) {
+    return false;
+  }
+
+  const token = await getPushTokenAsync();
+  if (!token) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/notifications/register-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        deviceToken: token,
+        deviceType: deviceType || Platform.OS,
+        company,
+      }),
+    });
+
+    const result = await response.json();
+    console.log('Push token registration result:', result);
+    return result.success;
+  } catch (error) {
+    console.error('Error registering push token:', error);
+    return false;
+  }
+}
+
+async function registerPushTokenAsync(username: string, deviceType?: string, company?: string) {
+  return registerPushToken(username, deviceType, company);
+}
+
+export const notificationService = {
+  getPushTokenAsync,
+  registerPushToken,
+  registerPushTokenAsync,
+};

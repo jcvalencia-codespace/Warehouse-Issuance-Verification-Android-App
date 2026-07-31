@@ -1,8 +1,11 @@
 import { ModalDialogProps } from '@/components/ui/modal-dialog';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AuthService } from '../services/authService';
+import { notificationService } from '@/features/shared/services/notificationService';
 
 interface ModalState extends Omit<ModalDialogProps, 'visible' | 'onClose'> {
   visible: boolean;
@@ -90,6 +93,8 @@ export function useLogin(): UseLoginReturn {
         router.replace(homeRoute);
 
         showModal('Success', 'Login successful!', 'success');
+
+        notificationService.registerPushToken(user.USERNAME, `${Platform.OS} ${Constants.systemVersion}`, company).catch(() => {});
 
         setTimeout(() => {
           router.replace(homeRoute);

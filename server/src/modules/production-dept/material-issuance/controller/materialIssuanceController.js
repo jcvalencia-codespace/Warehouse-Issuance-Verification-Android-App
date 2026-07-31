@@ -2,6 +2,7 @@ const sql = require('mssql');
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
 const { emitMaterialIssuanceUpdate } = require('../../../../utils/socketEvents');
+const { sendExpoPush } = require('../../../../utils/notificationService');
 
 exports.getItemCode = async (req, res) => {
     const { company } = req.query;
@@ -117,6 +118,20 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
             mirNo: finalMirNo
         });
         emitMaterialIssuanceUpdate('posted', { mirNo: finalMirNo, shift, reviewedBy, createdBy, company });
+
+        try {
+            const notificationPool = await getPool('GDB');
+            const tokenResult = await notificationPool.request().query(`SELECT DEVICE_TOKEN FROM dbo.PUSHNOTIFICATION WHERE IS_ACTIVE = 1`);
+            const tokens = tokenResult.recordset;
+            for (const row of tokens) {
+                sendExpoPush(row.DEVICE_TOKEN, 'New Material Issuance Request', `MIR No. ${finalMirNo} has been created.`, {
+                    mirNo: finalMirNo,
+                    type: 'MATERIAL_ISSUANCE_REQUESTED',
+                }).catch(() => {});
+            }
+        } catch (notifError) {
+            console.error('Push notification error:', notifError);
+        }
     } catch (error) {
         try {
             if (transaction.active) {
@@ -130,38 +145,6 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
         console.error('materialIssuanceRequest failed:', error);
         const statusCode = error.statusCode || 500;
         res.status(statusCode).json({ success: false, message: error.message || 'Failed to material issuance request' });
-    }
-}
-
-exports.postMaterialIssuance = async (req, res) => {
-    const { company } = req.query;
-    const dbName = getCompanyDbName(company);
-    const pool = await getPool(dbName);
-
-    const { mirNo, shift, reviewedBy, modifiedBy, createdBy } = req.body;
-    const postedBy = modifiedBy || createdBy || '';
-
-    const query = `UPDATE [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] 
-                   SET MODIFIEDBY = @modifiedBy, 
-                       DATEMODIFIED = GETDATE(), POSTSTATUS = 1 
-                   WHERE MIRNO = @mirNo`;
-
-    try {
-        const result = await pool.request()
-            .input('mirNo', mirNo)
-            .input('shift', shift)
-            .input('reviewedBy', reviewedBy)
-            .input('modifiedBy', postedBy)
-            .query(query);
-
-        if (result.rowsAffected[0] > 0) {
-            res.json({ success: true, message: 'Material issuance posted successfully', mirNo });
-        } else {
-            res.status(404).json({ success: false, message: 'Material issuance not found' });
-        }
-    } catch (error) {
-        console.error('Error posting material issuance:', error);
-        res.status(500).json({ success: false, message: error.message || 'Failed to post material issuance' });
     }
 }
 

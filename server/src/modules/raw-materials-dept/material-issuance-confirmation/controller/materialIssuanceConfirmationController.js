@@ -87,6 +87,28 @@ exports.markItemAsServed = async (req, res) => {
     }
 }
 
+exports.markItemAsConfirmed = async (req, res) => {
+    const { company } = req.query;
+    const { mirNo, rowId, user } = req.body;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const query = `UPDATE [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] SET IS_CONFIRMED = 1, CONFIRMEDBY = @user, DATECONFIRMED = GETDATE() WHERE MIRNO = @mirNo AND ROWID = @rowId AND IS_SERVED = 1`;
+
+    try {
+        const result = await pool.request()
+            .input('user', user)
+            .input('mirNo', mirNo)
+            .input('rowId', rowId)
+            .query(query);
+        res.json({ success: true, data: result.recordset });
+        emitMaterialIssuanceUpdate('confirmed', { mirNo, rowId, user, company });
+    } catch (error) {
+        console.error('Error Marking Item as Confirmed:', error);
+        res.status(500).json({ success: false, message: 'Failed to mark item as confirmed' });
+    }
+}
+
 exports.cancelItem = async (req, res) => {
     const { company } = req.query;
     const { cancelRemarks, mirNo, rowId, user } = req.body;
@@ -104,7 +126,7 @@ exports.cancelItem = async (req, res) => {
             .input('mirNo', mirNo)
             .input('rowId', rowId)
             .query(query);
-        res.json({success: true, message: 'Item Cancelled'});
+        res.json({ success: true, message: 'Item Cancelled' });
         emitMaterialIssuanceUpdate('cancelled', { mirNo, rowId, user, company });
     } catch (error) {
         console.error('Error Cancelling Item.', error);
@@ -172,7 +194,7 @@ exports.getServedItemsToday = async (req, res) => {
     const pool = await getPool(dbName);
 
     const query = `SELECT D.*, I.ITEMDESC FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] D
-                    INNER JOIN IV00101 I ON D.ITEMNMBR = I.ITEMNMBR WHERE D.IS_SERVED = 1 AND CAST(D.DATESERVED AS DATE) = CAST(GETDATE() AS DATE) ORDER BY D.MIRNO`;
+                    INNER JOIN IV00101 I ON D.ITEMNMBR = I.ITEMNMBR WHERE D.IS_SERVED = 1 AND D.IS_CONFIRMED = 0 ORDER BY D.MIRNO`;
 
     try {
         const result = await pool.request()
@@ -181,5 +203,23 @@ exports.getServedItemsToday = async (req, res) => {
     } catch (error) {
         console.error('Error fetching served items:', error);
         res.status(500).json({ success: false, message: 'Failed to fetch served items' });
+    }
+}
+
+exports.getConfirmedItemsToday = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const query = `SELECT D.*, I.ITEMDESC FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] D
+                    INNER JOIN IV00101 I ON D.ITEMNMBR = I.ITEMNMBR WHERE D.IS_CONFIRMED = 1 AND CAST(D.DATECONFIRMED AS DATE) = CAST(GETDATE() AS DATE) ORDER BY D.MIRNO`;
+
+    try {
+        const result = await pool.request()
+            .query(query);
+        res.json({ success: true, data: result.recordset });
+    } catch (error) {
+        console.error('Error fetching confirmed items:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch confirmed items' });
     }
 }

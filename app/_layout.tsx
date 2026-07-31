@@ -6,14 +6,19 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
-import { Colors } from '../constants/theme';
 import { useColorScheme } from '../hooks/use-color-scheme';
 import { LoadingScreen } from '../shared/components/LoadingScreen';
 import { ToastProvider } from '../shared/components/ui/toast';
 
+let Notifications: any = null;
+try {
+  Notifications = require('expo-notifications');
+} catch {
+  // expo-notifications is unavailable in this environment (e.g., Expo Go without dev build)
+}
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const router = useRouter();
   const segments = useSegments();
   const { isAuthenticated, user } = useAuth();
@@ -26,7 +31,6 @@ function RootLayoutNav() {
     const initializeApp = async () => {
       try {
         setInitProgress(10);
-        // Simulate app initialization tasks
         await new Promise(resolve => setTimeout(resolve, 400));
         setInitProgress(30);
         
@@ -40,8 +44,7 @@ function RootLayoutNav() {
         setInitProgress(100);
         
         setIsAppReady(true);
-      } catch (error) {
-        // Even on error, show app is ready
+      } catch {
         setIsAppReady(true);
       }
     };
@@ -68,7 +71,32 @@ function RootLayoutNav() {
       const homeRoute = user?.DEPTCODE === 'PAWHSP' ? '/(tabs)/supplies-dept' : '/(tabs)';
       router.replace(homeRoute);
     }
-  }, [isAuthenticated, segments, router, isMounted, isAppReady]);
+  }, [isAuthenticated, segments, router, isMounted, isAppReady, user?.DEPTCODE]);
+
+  // Notification listeners
+  useEffect(() => {
+    if (!Notifications) return;
+
+    const subscriptionForeground = Notifications.addNotificationReceivedListener((_notification: any) => {
+      console.log('Notification received in foreground:', _notification);
+    });
+
+    const subscriptionResponse = Notifications.addNotificationResponseReceivedListener((_response: any) => {
+      console.log('Notification response:', _response);
+      const data = _response.notification.request.content.data;
+      if (data?.type === 'MATERIAL_ISSUANCE_REQUESTED' && data.mirNo) {
+        router.push({
+          pathname: '/raw-materials-dept/material-issuance-confirmation',
+          params: { source: 'production' },
+        });
+      }
+    });
+
+    return () => {
+      subscriptionForeground.remove();
+      subscriptionResponse.remove();
+    };
+  }, [router]);
 
   // Show loading screen while app initializes
   if (!isAppReady) {
@@ -119,10 +147,24 @@ function RootLayoutNav() {
   );
 }
 
+function RootLayoutWithNotifications() {
+  useEffect(() => {
+    if (!Notifications) return;
+
+    Notifications.getLastNotificationResponseAsync().then((response: any) => {
+      if (response?.notification?.request?.content?.data?.type === 'MATERIAL_ISSUANCE_REQUESTED') {
+        console.log('App opened from notification');
+      }
+    });
+  }, []);
+
+  return <RootLayoutNav />;
+}
+
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <RootLayoutWithNotifications />
     </AuthProvider>
   );
 }

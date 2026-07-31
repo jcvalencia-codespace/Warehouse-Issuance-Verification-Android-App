@@ -19,18 +19,18 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const WAREHOUSE_MODULES: ModuleCardData[] = [
   {
+    id: 'material-issuance-confirmation',
+    title: 'Material Issuance Confirmation',
+    description: 'Confirm and validate pending material issuances',
+    icon: 'file-lock-outline',
+    color: '#DD6B20',
+  },
+  {
     id: 'issuance-verification',
     title: 'New Issuance Verification',
     description: 'Create new issuance verification',
     icon: 'file-check-outline',
     color: 'primary',
-  },
-  {
-    id: 'stock-balance',
-    title: 'Current Balance',
-    description: 'View warehouse current stocks',
-    icon: 'package-variant',
-    color: 'warning',
   },
   {
     id: 'receiving',
@@ -40,18 +40,18 @@ const WAREHOUSE_MODULES: ModuleCardData[] = [
     color: 'success',
   },
   {
-    id: 'material-issuance-confirmation',
-    title: 'Material Issuance Confirmation',
-    description: 'Confirm and validate pending material issuances',
-    icon: 'file-lock-outline',
-    color: '#DD6B20',
+    id: 'stock-balance',
+    title: 'Current Balance',
+    description: 'View warehouse current stocks',
+    icon: 'package-variant',
+    color: 'warning',
   },
   {
     id: 'forklift-operator',
     title: 'Forklift Operator',
     description: 'Manage forklift operators',
     icon: 'account-hard-hat',
-    color: 'warning',
+    color: 'error',
   },
 ];
 

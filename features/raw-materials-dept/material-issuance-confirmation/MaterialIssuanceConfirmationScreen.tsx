@@ -4,10 +4,11 @@ import { SuccessModal } from '@/components/SuccessModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     RefreshControl,
     StyleSheet,
@@ -35,9 +36,10 @@ interface FlatItem {
     IS_PREPARING?: number;
     IS_PREPARED?: number;
     IS_SERVED?: number;
+    IS_CONFIRMED?: number;
 }
 
-type SectionType = 'preparing' | 'prepared' | 'waiting' | 'served';
+type SectionType = 'preparing' | 'prepared' | 'waiting' | 'served' | 'confirmed';
 
 interface SectionData {
     type: SectionType;
@@ -78,11 +80,13 @@ const StatCard = ({ label, value, icon, color, isActive, onPress }: StatCardProp
     );
 };
 
-export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?: () => void }) {
+export default function MaterialIssuanceConfirmationScreen({ onBack, source }: { onBack?: () => void; source?: string }) {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
     const router = useRouter();
+    const routeSource = useLocalSearchParams<{ source?: string }>().source;
+    const isProductionMode = (source || routeSource) === 'production';
 
     const [items, setItems] = useState<FlatItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -92,6 +96,10 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
     const [markPreparingItem, setMarkPreparingItem] = useState<FlatItem | null>(null);
     const [markPreparedVisible, setMarkPreparedVisible] = useState(false);
     const [markPreparedItem, setMarkPreparedItem] = useState<FlatItem | null>(null);
+    const [markConfirmedVisible, setMarkConfirmedVisible] = useState(false);
+    const [markConfirmedItem, setMarkConfirmedItem] = useState<FlatItem | null>(null);
+    const [confirmSuccessVisible, setConfirmSuccessVisible] = useState(false);
+    const [confirmSuccessItem, setConfirmSuccessItem] = useState<FlatItem | null>(null);
     const [cancelRemarksVisible, setCancelRemarksVisible] = useState(false);
     const [cancelRemarksItem, setCancelRemarksItem] = useState<FlatItem | null>(null);
     const [cancelSuccessVisible, setCancelSuccessVisible] = useState(false);
@@ -154,10 +162,37 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
                         IS_PREPARING: detail.IS_PREPARING,
                         IS_PREPARED: detail.IS_PREPARED,
                         IS_SERVED: 1,
+                        IS_CONFIRMED: 0,
                     });
                 }
             } catch {
                 // skip served items if fetch fails
+            }
+
+            try {
+                const confirmedDetails = await MaterialIssuanceConfirmationService.getInstance()
+                    .getConfirmedItemsToday(user?.COMPANY);
+                for (const detail of confirmedDetails) {
+                    allItems.push({
+                        ROWID: detail.ROWID,
+                        MIRNO: detail.MIRNO,
+                        SHIFT: '',
+                        REVIEWEDBY: '',
+                        CREATEDBY: '',
+                        DATECREATED: '',
+                        POSTSTATUS: 0,
+                        ITEMNMBR: detail.ITEMNMBR,
+                        ITEMDESC: detail.ITEMDESC,
+                        QUANTITY: detail.QUANTITY,
+                        UOFM: detail.UOFM,
+                        IS_PREPARING: detail.IS_PREPARING,
+                        IS_PREPARED: detail.IS_PREPARED,
+                        IS_SERVED: detail.IS_SERVED,
+                        IS_CONFIRMED: 1,
+                    });
+                }
+            } catch {
+                // skip confirmed items if fetch fails
             }
 
             allItems.sort((a, b) => a.MIRNO.localeCompare(b.MIRNO));
@@ -279,14 +314,47 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
         setMarkPreparedVisible(false);
     };
 
+    const handleMarkAsConfirmed = (item: FlatItem) => {
+        setMarkConfirmedItem(item);
+        setMarkConfirmedVisible(true);
+    }
+
+    const handleConfirmMarkAsConfirmed = async () => {
+        if (!markConfirmedItem) return;
+        const { ROWID: rowId, MIRNO } = markConfirmedItem;
+        setMarkConfirmedVisible(false);
+        try {
+            await MaterialIssuanceConfirmationService.getInstance()
+                .markItemAsConfirmed(MIRNO, rowId, user?.NAME, user?.COMPANY);
+            setConfirmSuccessItem(markConfirmedItem);
+            setConfirmSuccessVisible(true);
+        } catch {
+            // handle error silently
+        }
+    };
+
+    const handleConfirmSuccessDone = () => {
+        setConfirmSuccessVisible(false);
+        setConfirmSuccessItem(null);
+        fetchAllItems();
+    };
+
+    const handleCancelMarkAsConfirmed = () => {
+        setMarkConfirmedVisible(false);
+    };
+
+
     const sections = useMemo<SectionData[]>(() => {
         const preparing: FlatItem[] = [];
         const prepared: FlatItem[] = [];
         const waiting: FlatItem[] = [];
         const served: FlatItem[] = [];
+        const confirmed: FlatItem[] = [];
 
         for (const item of items) {
-            if (item.IS_SERVED === 1) {
+            if (item.IS_CONFIRMED === 1) {
+                confirmed.push(item);
+            } else if (item.IS_SERVED === 1) {
                 served.push(item);
             } else if (item.IS_PREPARED === 1) {
                 prepared.push(item);
@@ -296,19 +364,20 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
                 waiting.push(item);
             }
         }
-
         return [
             { type: 'preparing', title: 'NOW PREPARING', count: preparing.length, data: preparing },
             { type: 'prepared', title: 'PREPARED ITEMS', count: prepared.length, data: prepared },
             { type: 'waiting', title: 'PENDING (POSTED)', count: waiting.length, data: waiting },
             { type: 'served', title: 'SERVED (FOR CONFIRMATION)', count: served.length, data: served },
+            { type: 'confirmed', title: 'CONFIRMED (TODAY)', count: confirmed.length, data: confirmed },
         ];
-    }, [items]);
+    }, [items, isProductionMode]);
 
     const preparingCount = sections.find((s) => s.type === 'preparing')?.count ?? 0;
     const preparedCount = sections.find((s) => s.type === 'prepared')?.count ?? 0;
     const waitingCount = sections.find((s) => s.type === 'waiting')?.count ?? 0;
     const servedCount = sections.find((s) => s.type === 'served')?.count ?? 0;
+    const confirmedCount = sections.find((s) => s.type === 'confirmed')?.count ?? 0;
 
     const renderItem = ({ item, section }: { item: FlatItem; section: SectionData }) => {
 
@@ -344,42 +413,44 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
                             ) : null}
                         </View>
                     </View>
-                    <View style={styles.itemActions}>
-                        <TouchableOpacity
-                            style={[
-                                styles.actionBtn,
-                                { backgroundColor: colors.preparing },
-                            ]}
-                            onPress={() => handleMarkAsPrepared(item)}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons
-                                name="arrow-right"
-                                size={14}
-                                color="#FFFFFF"
-                            />
-                            <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>
-                                Finish Preparing
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[
-                                styles.cancelBtn,
-                                { backgroundColor: colors.cancelButtonBg },
-                            ]}
-                            onPress={() => handleCancelItem(item)}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons
-                                name="close"
-                                size={14}
-                                color={colors.error}
-                            />
-                            <Text style={[styles.cancelBtnText, { color: colors.error }]}>
-                                Cancel
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                    {!isProductionMode ? (
+                        <View style={styles.itemActions}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.actionBtn,
+                                    { backgroundColor: colors.preparing },
+                                ]}
+                                onPress={() => handleMarkAsPrepared(item)}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialCommunityIcons
+                                    name="arrow-right"
+                                    size={14}
+                                    color="#FFFFFF"
+                                />
+                                <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>
+                                    Finish Preparing
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.cancelBtn,
+                                    { backgroundColor: colors.cancelButtonBg },
+                                ]}
+                                onPress={() => handleCancelItem(item)}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialCommunityIcons
+                                    name="close"
+                                    size={14}
+                                    color={colors.errorWhite}
+                                />
+                                <Text style={[styles.cancelBtnText, { color: colors.errorWhite }]}>
+                                    Cancel
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : null}
                 </View>
             );
         }
@@ -416,42 +487,44 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
                             ) : null}
                         </View>
                     </View>
-                    <View style={styles.itemActions}>
-                        <TouchableOpacity
-                            style={[
-                                styles.servedBtn,
-                                { backgroundColor: colors.prepared },
-                            ]}
-                            onPress={() => handleNavigateToVerification(item)}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons
-                                name="check"
-                                size={14}
-                                color="#FFFFFF"
-                            />
-                            <Text style={[styles.servedBtnText, { color: '#FFFFFF' }]}>
-                                Proceed to Issuance
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[
-                                styles.cancelBtn,
-                                { backgroundColor: colors.cancelButtonBg },
-                            ]}
-                            onPress={() => handleCancelItem(item)}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons
-                                name="close"
-                                size={14}
-                                color={colors.error}
-                            />
-                            <Text style={[styles.cancelBtnText, { color: colors.error }]}>
-                                Cancel
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                    {!isProductionMode ? (
+                        <View style={styles.itemActions}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.servedBtn,
+                                    { backgroundColor: colors.prepared },
+                                ]}
+                                onPress={() => handleNavigateToVerification(item)}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialCommunityIcons
+                                    name="check"
+                                    size={14}
+                                    color="#FFFFFF"
+                                />
+                                <Text style={[styles.servedBtnText, { color: '#FFFFFF' }]}>
+                                    Proceed to Issuance
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.cancelBtn,
+                                    { backgroundColor: colors.cancelButtonBg },
+                                ]}
+                                onPress={() => handleCancelItem(item)}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialCommunityIcons
+                                    name="close"
+                                    size={14}
+                                    color={colors.errorWhite}
+                                />
+                                <Text style={[styles.cancelBtnText, { color: colors.errorWhite }]}>
+                                    Cancel
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : null}
                 </View>
             );
         }
@@ -483,6 +556,63 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
                         </View>
                         <View style={styles.itemQuantity}>
                             <Text style={[styles.itemQuantityValue, { color: colors.served }]}>{item.QUANTITY}</Text>
+                            {item.UOFM ? (
+                                <Text style={[styles.itemQuantityUnit, { color: colors.textTertiary }]}>{item.UOFM}</Text>
+                            ) : null}
+                        </View>
+                    </View>
+                    {isProductionMode ? (
+                        <View style={styles.itemActions}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.actionBtn,
+                                    { backgroundColor: colors.served },
+                                ]}
+                                onPress={() => handleMarkAsConfirmed(item)}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialCommunityIcons
+                                    name="check"
+                                    size={14}
+                                    color="#FFFFFF"
+                                />
+                                <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>
+                                    Confirm Issuance
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : null}
+                </View>
+            );
+        }
+
+        if (section.type === 'confirmed') {
+            return (
+                <View style={[styles.itemCard, { backgroundColor: '#22C55E14', borderColor: '#22C55E' }]}>
+                    <View style={styles.itemCardRow}>
+                        <View style={styles.itemCardLeft}>
+                            <View style={[styles.itemAvatar, { backgroundColor: '#22C55E' }]}>
+                                <MaterialCommunityIcons name="check-circle" size={18} color="#FFFFFF" />
+                            </View>
+                            <View style={styles.itemCardBody}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={[styles.itemCode, { color: colors.text }]}>{item.ITEMNMBR}</Text>
+                                    {item.ITEMDESC ? (
+                                        <Text
+                                            style={[styles.itemDesc, { color: colors.textSecondary, marginLeft: 8, flexShrink: 1 }]}
+                                            numberOfLines={1}
+                                        >
+                                            {item.ITEMDESC}
+                                        </Text>
+                                    ) : null}
+                                </View>
+                                <Text style={[styles.itemMirNo, { color: colors.textTertiary, fontSize: 16, marginTop: 4 }]}>
+                                    {item.MIRNO} | Confirmed
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={styles.itemQuantity}>
+                            <Text style={[styles.itemQuantityValue, { color: '#22C55E' }]}>{item.QUANTITY}</Text>
                             {item.UOFM ? (
                                 <Text style={[styles.itemQuantityUnit, { color: colors.textTertiary }]}>{item.UOFM}</Text>
                             ) : null}
@@ -524,23 +654,25 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
                     </View>
                 </View>
                 <View style={styles.itemActions}>
-                    <TouchableOpacity
-                        style={[
-                            styles.actionBtn,
-                            { backgroundColor: colors.warning, borderWidth: 1, borderColor: colors.countBadgeBorder },
-                        ]}
-                        onPress={() => handleMarkAsPreparing(item)}
-                        activeOpacity={0.7}
-                    >
-                        <MaterialCommunityIcons
-                            name="arrow-right"
-                            size={14}
-                            color={'#ffff'}
-                        />
-                        <Text style={[styles.actionBtnText, { color: '#ffff' }]}>
-                            Start Preparing
-                        </Text>
-                    </TouchableOpacity>
+                    {!isProductionMode ? (
+                        <TouchableOpacity
+                            style={[
+                                styles.actionBtn,
+                                { backgroundColor: colors.warning, borderWidth: 1, borderColor: colors.countBadgeBorder },
+                            ]}
+                            onPress={() => handleMarkAsPreparing(item)}
+                            activeOpacity={0.7}
+                        >
+                            <MaterialCommunityIcons
+                                name="arrow-right"
+                                size={14}
+                                color={'#ffff'}
+                            />
+                            <Text style={[styles.actionBtnText, { color: '#ffff' }]}>
+                                Start Preparing
+                            </Text>
+                        </TouchableOpacity>
+                    ) : null}
                     <TouchableOpacity
                         style={[
                             styles.cancelBtn,
@@ -552,9 +684,9 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
                         <MaterialCommunityIcons
                             name="close"
                             size={14}
-                            color={colors.error}
+                            color={colors.errorWhite}
                         />
-                        <Text style={[styles.cancelBtnText, { color: colors.error }]}>
+                        <Text style={[styles.cancelBtnText, { color: colors.errorWhite }]}>
                             Cancel
                         </Text>
                     </TouchableOpacity>
@@ -604,13 +736,13 @@ export default function MaterialIssuanceConfirmationScreen({ onBack }: { onBack?
 
     const renderItemSeparator = () => <View style={{ height: 12 }} />;
 
-interface StatCardProps {
-    label: string;
-    value: string;
-    icon: string;
-    color: string;
-    onPress?: () => void;
-}
+    interface StatCardProps {
+        label: string;
+        value: string;
+        icon: string;
+        color: string;
+        onPress?: () => void;
+    }
 
     const statsData = [
         { label: 'Total', value: String(items.length), icon: 'numeric', color: colors.prepared, filter: 'all' as SectionType | 'all', onPress: () => setActiveFilter('all') },
@@ -618,6 +750,7 @@ interface StatCardProps {
         { label: 'Preparing', value: String(preparingCount), icon: 'progress-check', color: colors.preparing, filter: 'preparing' as SectionType, onPress: () => setActiveFilter('preparing') },
         { label: 'Prepared', value: String(preparedCount), icon: 'check', color: colors.prepared, filter: 'prepared' as SectionType, onPress: () => setActiveFilter('prepared') },
         { label: 'Served', value: String(servedCount), icon: 'check-all', color: colors.served, filter: 'served' as SectionType, onPress: () => setActiveFilter('served') },
+        { label: 'Confirmed', value: String(confirmedCount), icon: 'check-circle', color: '#22C55E', filter: 'confirmed' as SectionType, onPress: () => setActiveFilter('confirmed') },
     ];
 
     const allSections = useMemo<SectionData[]>(() => {
@@ -754,6 +887,17 @@ interface StatCardProps {
                 onConfirm={handleConfirmMarkAsPrepared}
                 onCancel={handleCancelMarkAsPrepared}
             />
+            <ConfirmModal
+                visible={markConfirmedVisible}
+                title="Set to Confirmed"
+                message="Are you sure you want to set this item to confirmed and received?"
+                iconName="alert-outline"
+                iconColor={colors.warning}
+                cancelText="Cancel"
+                confirmText="Confirm"
+                onConfirm={handleConfirmMarkAsConfirmed}
+                onCancel={handleCancelMarkAsConfirmed}
+            />
 
             <CancelRemarks
                 visible={cancelRemarksVisible}
@@ -767,6 +911,13 @@ interface StatCardProps {
                 message="The item has been successfully cancelled."
                 buttonText="Done"
                 onDone={handleCancelRemarksDone}
+            />
+            <SuccessModal
+                visible={confirmSuccessVisible}
+                title="Issuance Confirmed"
+                message="The item has been successfully confirmed and received."
+                buttonText="Done"
+                onDone={handleConfirmSuccessDone}
             />
         </SafeAreaView>
     );
@@ -787,7 +938,7 @@ const styles = StyleSheet.create({
     list: { paddingTop: 16, paddingBottom: 40, paddingHorizontal: 16 },
     sectionHeader: { paddingHorizontal: 0, paddingTop: 12, paddingBottom: 6, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     sectionTitle: { fontSize: 18, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase' },
-    sectionCountBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 2, borderWidth: 1},
+    sectionCountBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 2, borderWidth: 1 },
     sectionCount: { fontSize: 14, fontWeight: '600' },
     emptySection: { padding: 24, borderRadius: 12, alignItems: 'center', marginTop: 8 },
     emptySectionText: { fontSize: 16, fontWeight: '600' },

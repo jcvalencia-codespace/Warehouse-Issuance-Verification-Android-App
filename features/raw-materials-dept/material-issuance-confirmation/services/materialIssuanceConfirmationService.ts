@@ -106,6 +106,22 @@ export class MaterialIssuanceConfirmationService {
         }
     }
 
+    async markItemAsConfirmed(mirNo: string, rowId: number, user?: string, company?: string): Promise<{ success: boolean }> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.put<{ success: boolean; message: string }>(
+                `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/mark-as-confirmed`,
+                { mirNo, rowId, user },
+                { params: company ? { company } : undefined }
+            );
+            return { success: response.data.success };
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async cancelItem(mirNo: string, rowId: number, user?: string, cancelRemarks?: string, company?: string): Promise<{ success: boolean }> {
         try {
             if (!this.baseUrl) {
@@ -150,6 +166,24 @@ export class MaterialIssuanceConfirmationService {
             }
             const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestDetail[] }>(
                 `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/get-served-items-today`,
+                { params: company ? { company } : undefined }
+            );
+            if (response.data.success) {
+                return response.data.data;
+            }
+            return [];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getConfirmedItemsToday(company?: string): Promise<MaterialIssuanceRequestDetail[]> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestDetail[] }>(
+                `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/get-confirmed-items-today`,
                 { params: company ? { company } : undefined }
             );
             if (response.data.success) {
