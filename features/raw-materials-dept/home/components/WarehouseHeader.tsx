@@ -1,9 +1,11 @@
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { notificationService } from '@/features/shared/services/notificationService';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, useColorScheme, useWindowDimensions, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, useColorScheme, useWindowDimensions, View } from 'react-native';
 
 const COMPANY_LOGOS: Record<string, any> = {
   SFC: require('@/assets/images/SFC.png'),
@@ -14,6 +16,7 @@ const COMPANY_LOGOS: Record<string, any> = {
 interface WarehouseHeaderProps {
   userName?: string;
   userDepartment?: string;
+  user?: string;
   company?: string;
 }
 
@@ -35,6 +38,7 @@ export function WarehouseHeader({
   company: companyProp
 }: WarehouseHeaderProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
   const companyCode = companyProp ?? user?.COMPANY ?? '';
@@ -52,6 +56,7 @@ export function WarehouseHeader({
   const isMediumScreen = width >= 375 && width < 414;
   const [currentTime, setCurrentTime] = useState(new Date());
   const { isLocalConnected } = useNetworkStatus();
+  const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -60,6 +65,19 @@ export function WarehouseHeader({
 
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user) return;
+      const notifications = await notificationService.getNotifications(user.NAME || user.USERNAME || '');
+      setNotificationCount(notifications.length);
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -113,6 +131,20 @@ export function WarehouseHeader({
             <Text style={[styles.tagline, { color: mutedForeground }]}>Enterprise Resource Planning</Text>
           </View>
         </View>
+        <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
+          <MaterialCommunityIcons
+            name="bell-outline"
+            size={30}
+            color={foreground}
+          />
+          {notificationCount > 0 && (
+            <View style={[styles.notificationBadge, { backgroundColor: colors.error, borderColor: headerColor }]}>
+              <Text style={styles.notificationBadgeText}>
+                {notificationCount > 99 ? '99+' : notificationCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Divider */}
@@ -236,6 +268,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  notificationButton: {
+    position: 'relative',
+    padding: 4,
+    marginLeft: 'auto',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+  },
+  notificationBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 900,
+    lineHeight: 14,
   },
   logoWrapper: {
     position: 'relative',

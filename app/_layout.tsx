@@ -82,7 +82,6 @@ function RootLayoutNav() {
     });
 
     const subscriptionResponse = Notifications.addNotificationResponseReceivedListener((_response: any) => {
-      console.log('Notification response:', _response);
       const data = _response.notification.request.content.data;
       if (data?.type === 'MATERIAL_ISSUANCE_REQUESTED' && data.mirNo) {
         router.push({
@@ -136,7 +135,7 @@ function RootLayoutNav() {
 
             {/**PRODUCTION ROUTE */}
             <Stack.Screen name="production-dept/material-issuance-confirmation" options={{ title: 'Material Issuance Confirmation' }} />
-            
+            <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
             <Stack.Screen name="coming-soon" options={{ title: 'Coming Soon' }} />
             
           </Stack>

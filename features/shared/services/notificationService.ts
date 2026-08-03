@@ -91,8 +91,44 @@ async function registerPushTokenAsync(username: string, deviceType?: string, com
   return registerPushToken(username, deviceType, company);
 }
 
+async function getNotifications(user: string): Promise<any[]> {
+  const baseUrl = Constants.expoConfig?.extra?.apiUrl || '';
+  if (!baseUrl) {
+    console.warn('API URL not configured for notifications');
+    return [];
+  }
+
+  const url = `${baseUrl}/notification/get-notifications?user=${encodeURIComponent(user)}`;
+  console.log('Fetching notifications from:', url);
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const text = await response.text();
+
+    try {
+      const result = JSON.parse(text);
+      if (result.success) {
+        return result.notifications || [];
+      }
+      return [];
+    } catch (parseError) {
+      console.error('Failed to parse notification response as JSON:', parseError);
+      return [];
+    }
+  } catch (error) {
+    // console.error('Error fetching notifications:', error);
+    return [];
+  }
+}
+
 export const notificationService = {
   getPushTokenAsync,
   registerPushToken,
   registerPushTokenAsync,
+  getNotifications,
 };

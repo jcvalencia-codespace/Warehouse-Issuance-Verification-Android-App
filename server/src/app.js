@@ -84,7 +84,7 @@ app.use('/supplies/issuance', suppliesIssuanceRoutes);
 app.use('/forklift-operators', forkliftOperatorRoutes);
 app.use('/production-dept/material-issuance', materialIssuanceRoutes);
 app.use('/raw-materials-dept/material-issuance-confirmation', materialIssuanceConfirmationRoutes);
-app.use('/notifications', notificationRoutes);
+app.use('/notification', notificationRoutes);
 
 // Stock balance endpoint (direct route)
 app.get('/stock-balance', warehouseController.getStockBalance);

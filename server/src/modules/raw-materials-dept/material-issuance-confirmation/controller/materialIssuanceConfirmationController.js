@@ -103,6 +103,17 @@ exports.markItemAsConfirmed = async (req, res) => {
             .query(query);
         res.json({ success: true, data: result.recordset });
         emitMaterialIssuanceUpdate('confirmed', { mirNo, rowId, user, company });
+
+        const notificationPool = await getPool('GDB');
+        const detailsServedQuery = await notificationPool.request()
+            .input('mirNo', mirNo)
+            .query(`SELECT COUNT(*) AS ServedCount FROM SFC.DBO.[PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo AND IS_SERVED = 1`);
+
+        if (detailsServedQuery.recordset[0].ServedCount > 0) {
+            await notificationPool.request()
+                .input('mirNo', mirNo)
+                .query(`DELETE FROM [SYSTEM.NOTIFICATIONMASTER] WHERE REFERENCENO = @mirNo AND FORM = 'ERP MOBILE'`);
+        }
     } catch (error) {
         console.error('Error Marking Item as Confirmed:', error);
         res.status(500).json({ success: false, message: 'Failed to mark item as confirmed' });

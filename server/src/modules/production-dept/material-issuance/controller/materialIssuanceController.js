@@ -121,6 +121,24 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
 
         try {
             const notificationPool = await getPool('GDB');
+            const usersResult = await notificationPool.request().query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE DEPTCODE = 'PAWHRM' AND ACTIVE = 1`);
+            const users = usersResult.recordset;
+            for (const user of users) {
+                await notificationPool.request()
+                    .input('receiver', user.NAME)
+                    .input('category', 'New Material Issuance Request')
+                    .input('form', 'ERP MOBILE')
+                    .input('referenceNo', finalMirNo)
+                    .input('sender', createdBy)
+                    .query(`INSERT INTO [SYSTEM.NOTIFICATIONMASTER] (RECEIVER, CATEGORY, FORM, REFERENCENO, SENDER, DATESENT)
+                            VALUES (@receiver, @category, @form, @referenceNo, @sender, GETDATE())`);
+            }
+        } catch (notifError) {
+            console.error('Notification error:', notifError);
+        }
+
+        try {
+            const notificationPool = await getPool('GDB');
             const tokenResult = await notificationPool.request().query(`SELECT DEVICE_TOKEN FROM dbo.PUSHNOTIFICATION WHERE IS_ACTIVE = 1`);
             const tokens = tokenResult.recordset;
             for (const row of tokens) {

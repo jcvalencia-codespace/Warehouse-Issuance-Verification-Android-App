@@ -179,6 +179,7 @@ exports.postIssuance = async (req, res) => {
       weightInKg,
       allocations,
       username,
+      user,
       forkliftOperator,
       floorScale,
       transType,
@@ -295,10 +296,6 @@ exports.postIssuance = async (req, res) => {
                 ${unitCost}, ${actualQuantity}, ${actualBags}, ${calculatedActualUnitCost})
       `);
 
-      // Commit transaction
-      await transaction.commit();
-      isCommitted = true;
-
       // If MIRNO is provided, mark the material issuance request detail as served
       const { mirNo, rowId } = req.body;
       if (mirNo && rowId) {
@@ -312,7 +309,35 @@ exports.postIssuance = async (req, res) => {
         if (result.rowsAffected && result.rowsAffected[0] > 0) {
           emitMaterialIssuanceUpdate('served', { company, mirNo, rowId, issIdNumber, transRefNo });
         }
+
+        //DELETING OF NOTIFICATION FOR WHSE
+        const notificationPool = await getPool('GDB');
+        const detailsServedQuery = await notificationPool.request()
+          .input('mirNo', mirNo)
+          .query(`SELECT COUNT(*) AS ServedCount FROM SFC.DBO.[PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo AND IS_SERVED = 1`);
+
+        if (detailsServedQuery.recordset[0].ServedCount > 0) {
+          await notificationPool.request()
+            .input('mirNo', mirNo)
+            .query(`DELETE FROM [SYSTEM.NOTIFICATIONMASTER] WHERE REFERENCENO = @mirNo AND FORM = 'ERP MOBILE'`);
+        }
+
+        //NOTIFYING PREP FOR SERVED ITEMS FOR CONFIRMATION
+        const usersResult = await notificationPool.request().query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE DEPTCODE = 'OPPROD' AND ACTIVE = 1 AND ROWID = '99'`);
+        const users = usersResult.recordset;
+        for (const userToNotify of users) {
+          const notifyPrep = await notificationPool.request()
+            .input('mirNo', mirNo)
+            .input('user', userToNotify.NAME)
+            .input('userName', user)
+            .query(`INSERT INTO [SYSTEM.NOTIFICATIONMASTER] (RECEIVER, CATEGORY, FORM, REFERENCENO, SENDER, DATESENT) 
+                  VALUES (@user, 'Material issuance request SERVED and now ready for confirmation', 'ERP MOBILE', @mirNo, @userName, GETDATE())`);
+        }
       }
+
+      // Commit transaction
+      await transaction.commit();
+      isCommitted = true;
 
       console.log('Issuance posted successfully:', { clientIP, issIdNumber, transRefNo, dateIssued, dateCreated });
       res.json({

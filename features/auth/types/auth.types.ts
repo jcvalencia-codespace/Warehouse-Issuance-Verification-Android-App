@@ -1,8 +1,8 @@
 export interface UserAccount {
   USERNAME: string;
+  NAME: string;
   USERLEVEL?: string;
   EMPLOYEEID?: string;
-  NAME?: string;
   DEPARTMENT?: string;
   DEPTCODE?: string;
   JOBTITLE?: string;
