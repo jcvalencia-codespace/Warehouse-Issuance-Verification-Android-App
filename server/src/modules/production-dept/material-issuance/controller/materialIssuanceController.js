@@ -1,7 +1,7 @@
 const sql = require('mssql');
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
-const { emitMaterialIssuanceUpdate } = require('../../../../utils/socketEvents');
+const { emitMaterialIssuanceUpdate, emitNotification } = require('../../../../utils/socketEvents');
 const { sendExpoPush } = require('../../../../utils/notificationService');
 
 exports.getItemCode = async (req, res) => {
@@ -121,7 +121,7 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
 
         try {
             const notificationPool = await getPool('GDB');
-            const usersResult = await notificationPool.request().query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE DEPTCODE = 'PAWHRM' AND ACTIVE = 1`);
+            const usersResult = await notificationPool.request().query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE NAME IN ('Jairus Valencia','Jayson Delos Reyes', 'Genesis Guinto', 'Lester A. Arceo')`);
             const users = usersResult.recordset;
             for (const user of users) {
                 await notificationPool.request()
@@ -133,6 +133,7 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
                     .query(`INSERT INTO [SYSTEM.NOTIFICATIONMASTER] (RECEIVER, CATEGORY, FORM, REFERENCENO, SENDER, DATESENT)
                             VALUES (@receiver, @category, @form, @referenceNo, @sender, GETDATE())`);
             }
+            emitNotification({ type: 'notification', data: { mirNo: finalMirNo, receiver: 'PAWHRM', category: 'New Material Issuance Request', form: 'ERP MOBILE', referenceno: finalMirNo, sender: createdBy } });
         } catch (notifError) {
             console.error('Notification error:', notifError);
         }
@@ -145,7 +146,7 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
                 sendExpoPush(row.DEVICE_TOKEN, 'New Material Issuance Request', `MIR No. ${finalMirNo} has been created.`, {
                     mirNo: finalMirNo,
                     type: 'MATERIAL_ISSUANCE_REQUESTED',
-                }).catch(() => {});
+                }).catch(() => { });
             }
         } catch (notifError) {
             console.error('Push notification error:', notifError);

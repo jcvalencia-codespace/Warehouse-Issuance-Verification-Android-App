@@ -10,6 +10,7 @@ export interface MaterialIssuanceRequestHeader {
 export interface MaterialIssuanceRequestDetail {
   ROWID: number;
   MIRNO: string;
+  DATECREATED: string;
   ITEMNMBR: string;
   ITEMDESC?: string;
   QUANTITY: number;

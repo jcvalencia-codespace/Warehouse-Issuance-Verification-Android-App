@@ -13,6 +13,18 @@ const emitMaterialIssuanceUpdate = (eventType, data) => {
   }
 };
 
+const emitNotification = (notification) => {
+  try {
+    const io = getIO();
+    if (io) {
+      io.emit('notification', notification);
+    }
+  } catch (error) {
+    console.error('Socket emit error:', error.message);
+  }
+};
+
 module.exports = {
   emitMaterialIssuanceUpdate,
+  emitNotification,
 };

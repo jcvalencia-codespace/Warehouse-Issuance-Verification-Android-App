@@ -3,7 +3,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { notificationService } from '@/features/shared/services/notificationService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Animated,
   FlatList,
@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { socketService } from "../shared/services/socketService";
 
 interface NotificationItem {
   ROWID: number;
@@ -37,7 +38,7 @@ export function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user) return;
     try {
       const data = await notificationService.getNotifications(user.NAME || user.USERNAME || '');
@@ -53,11 +54,21 @@ export function NotificationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user, fadeAnim]);
 
   useEffect(() => {
     fetchNotifications();
-  }, [user]);
+
+    socketService.connect();
+    const handler = () => {
+      fetchNotifications();
+    };
+    socketService.onNotification(handler);
+
+    return () => {
+      socketService.offNotification(handler);
+    };
+  }, [user, fetchNotifications]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -113,13 +124,20 @@ export function NotificationsScreen() {
     const categoryColor = getCategoryColor(item.CATEGORY);
     const categoryIcon = getCategoryIcon(item.CATEGORY);
 
+    const onPress = () => {
+      if (item.FORM === 'ERP MOBILE' && item.CATEGORY === 'New Material Issuance Request') {
+        router.push('/raw-materials-dept/material-issuance-confirmation');
+      } else if (item.FORM === 'ERP MOBILE' && item.CATEGORY === 'Material issuance request SERVED and now ready for confirmation') {
+        router.push({
+          pathname: '/raw-materials-dept/material-issuance-confirmation',
+          params: { source: 'production', filter: 'served' },
+        });
+      }
+    };
     return (
       <Animated.View
         style={[
-          styles.notificationCard,
           {
-            backgroundColor: colors.cardBackground,
-            borderColor: colors.cardBorder,
             opacity: fadeAnim,
             transform: [
               {
@@ -132,36 +150,48 @@ export function NotificationsScreen() {
           },
         ]}
       >
-        <View style={[styles.iconContainer, { backgroundColor: categoryColor + '18' }]}>
-          <MaterialCommunityIcons name={categoryIcon as any} size={24} color={categoryColor} />
-        </View>
-        <View style={styles.notificationContent}>
-          <View style={styles.categoryRow}>
-            <Text style={[styles.category, { color: colors.text }]} numberOfLines={1}>
-              {item.CATEGORY}
-            </Text>
-            <View style={[styles.categoryBadge, { backgroundColor: categoryColor + '18' }]}>
-              <Text style={[styles.categoryBadgeText, { color: categoryColor }]}>
-                {item.FORM}
-              </Text>
-            </View>
+        <TouchableOpacity
+          onPress={onPress}
+          activeOpacity={0.7}
+          style={[
+            styles.notificationCard,
+            {
+              backgroundColor: colors.cardBackground,
+              borderColor: colors.cardBorder,
+            },
+          ]}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: categoryColor + '18' }]}>
+            <MaterialCommunityIcons name={categoryIcon as any} size={24} color={categoryColor} />
           </View>
-          <Text style={[styles.reference, { color: colors.textSecondary }]}>
-            Ref: {item.REFERENCENO}
-          </Text>
-          <View style={styles.metaRow}>
-            <View style={styles.senderRow}>
-              <MaterialCommunityIcons name="account-outline" size={12} color={colors.textTertiary} />
+          <View style={styles.notificationContent}>
+            <View style={styles.categoryRow}>
+              <Text style={[styles.category, { color: colors.text }]} numberOfLines={1}>
+                {item.CATEGORY}
+              </Text>
+              <View style={[styles.categoryBadge, { backgroundColor: categoryColor + '18' }]}>
+                <Text style={[styles.categoryBadgeText, { color: categoryColor }]}>
+                  {item.FORM}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.reference, { color: colors.text }]}>
+              Ref: {item.REFERENCENO}
+            </Text>
+            <View style={styles.metaRow}>
+              <View style={styles.senderRow}>
+                <MaterialCommunityIcons name="account-outline" size={12} color={colors.text} />
+                <Text style={[styles.metaText, { color: colors.text }]}>
+                  {item.SENDER}
+                </Text>
+              </View>
               <Text style={[styles.metaText, { color: colors.textTertiary }]}>
-                {item.SENDER}
+                {formatDate(item.DATESENT)}
               </Text>
             </View>
-            <Text style={[styles.metaText, { color: colors.textTertiary }]}>
-              {formatDate(item.DATESENT)}
-            </Text>
           </View>
-        </View>
-        <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+        </TouchableOpacity>
       </Animated.View>
     );
   };
@@ -361,14 +391,14 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   categoryBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   reference: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
   },
   metaRow: {
     flexDirection: 'row',
@@ -381,9 +411,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     flex: 1,
+    fontSize: 15,
   },
   metaText: {
-    fontSize: 12,
+    fontSize: 15,
   },
 });
 

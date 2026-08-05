@@ -159,13 +159,13 @@ export class MaterialIssuanceConfirmationService {
         }
     }
 
-    async getServedItemsToday(company?: string): Promise<MaterialIssuanceRequestDetail[]> {
+    async getServedItems(company?: string): Promise<MaterialIssuanceRequestDetail[]> {
         try {
             if (!this.baseUrl) {
                 throw new Error('API URL not configured');
             }
             const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestDetail[] }>(
-                `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/get-served-items-today`,
+                `${this.baseUrl}/raw-materials-dept/material-issuance-confirmation/get-served-items`,
                 { params: company ? { company } : undefined }
             );
             if (response.data.success) {

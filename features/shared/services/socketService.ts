@@ -1,5 +1,5 @@
-import { io, Socket } from 'socket.io-client';
 import Constants from 'expo-constants';
+import { io, Socket } from 'socket.io-client';
 
 class SocketService {
   private static instance: SocketService;
@@ -63,6 +63,21 @@ class SocketService {
       this.socket?.off('material-issuance:update', callback);
     } else {
       this.socket?.off('material-issuance:update');
+    }
+  }
+
+  onNotification(callback: (data: any) => void): void {
+    if (!this.socket) {
+      this.connect();
+    }
+    this.socket?.on('notification', callback);
+  }
+
+  offNotification(callback?: (data: any) => void): void {
+    if (callback) {
+      this.socket?.off('notification', callback);
+    } else {
+      this.socket?.off('notification');
     }
   }
 }

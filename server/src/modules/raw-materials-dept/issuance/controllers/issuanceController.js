@@ -1,7 +1,7 @@
 // server/src/modules/issuance/controllers/issuanceController.js
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
-const { emitMaterialIssuanceUpdate } = require('../../../../utils/socketEvents');
+const { emitMaterialIssuanceUpdate, emitNotification } = require('../../../../utils/socketEvents');
 
 /**
  * Allocate bags from inventory using FIFO method
@@ -315,15 +315,30 @@ exports.postIssuance = async (req, res) => {
         const detailsServedQuery = await notificationPool.request()
           .input('mirNo', mirNo)
           .query(`SELECT COUNT(*) AS ServedCount FROM SFC.DBO.[PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo AND IS_SERVED = 1`);
+        const notificationValuesToTransfer = await notificationPool.request()
+          .input('mirNo', mirNo)
+          .query(`SELECT * FROM [SYSTEM.NOTIFICATIONMASTER] WHERE REFERENCENO = @mirNo AND FORM = 'ERP MOBILE'`);
 
         if (detailsServedQuery.recordset[0].ServedCount > 0) {
+          for (const row of notificationValuesToTransfer.recordset) {
+            await notificationPool.request()
+              .input('mirNo', mirNo)
+              .input('receiver', row.RECEIVER)
+              .input('category', row.CATEGORY)
+              .input('form', row.FORM)
+              .input('referenceno', row.REFERENCENO)
+              .input('sender', row.SENDER)
+              .input('datesent', row.DATESENT)
+              .query(`INSERT INTO [SYSTEM.NOTIFICATIONMASTERHISTORY] (RECEIVER, CATEGORY, FORM, REFERENCENO, SENDER, DATESENT, DATEACKNOWLEDGE, IS_ARCHIVEDBYSYSTEM)
+                            VALUES (@receiver, @category, @form, @referenceno, @sender, @datesent, GETDATE(), 0)`);
+          }
           await notificationPool.request()
             .input('mirNo', mirNo)
             .query(`DELETE FROM [SYSTEM.NOTIFICATIONMASTER] WHERE REFERENCENO = @mirNo AND FORM = 'ERP MOBILE'`);
         }
 
         //NOTIFYING PREP FOR SERVED ITEMS FOR CONFIRMATION
-        const usersResult = await notificationPool.request().query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE DEPTCODE = 'OPPROD' AND ACTIVE = 1 AND ROWID = '99'`);
+        const usersResult = await notificationPool.request().query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE NAME IN ('Jairus Valencia', 'Joenas De Guzman', 'Rheynel L. Valencia', 'Arc Angel Yap', 'Sabas L. Secuya', 'Juanito Legaspi', 'Mike Antonio Giron', 'Cesar Tolentino') AND ACTIVE = 1 AND SANTEH = 1`);
         const users = usersResult.recordset;
         for (const userToNotify of users) {
           const notifyPrep = await notificationPool.request()
@@ -333,6 +348,7 @@ exports.postIssuance = async (req, res) => {
             .query(`INSERT INTO [SYSTEM.NOTIFICATIONMASTER] (RECEIVER, CATEGORY, FORM, REFERENCENO, SENDER, DATESENT) 
                   VALUES (@user, 'Material issuance request SERVED and now ready for confirmation', 'ERP MOBILE', @mirNo, @userName, GETDATE())`);
         }
+        emitNotification({ type: 'notification', data: { mirNo, receiver: 'OPPROD', category: 'Material issuance request SERVED and now ready for confirmation', form: 'ERP MOBILE', referenceno: mirNo, sender: user } });
       }
 
       // Commit transaction

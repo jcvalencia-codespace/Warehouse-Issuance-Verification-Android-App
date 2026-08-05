@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, useColorScheme, useWindowDimensions, View } from 'react-native';
+import { socketService } from "../../../shared/services/socketService";
 
 const COMPANY_LOGOS: Record<string, any> = {
   SFC: require('@/assets/images/SFC.png'),
@@ -59,14 +60,6 @@ export function WarehouseHeader({
   const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
     const fetchNotifications = async () => {
       if (!user) return;
       const notifications = await notificationService.getNotifications(user.NAME || user.USERNAME || '');
@@ -74,9 +67,16 @@ export function WarehouseHeader({
     };
 
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
 
-    return () => clearInterval(interval);
+    socketService.connect();
+    const handler = () => {
+      fetchNotifications();
+    };
+    socketService.onNotification(handler);
+
+    return () => {
+      socketService.offNotification(handler);
+    };
   }, [user]);
 
   const formatDate = (date: Date) => {

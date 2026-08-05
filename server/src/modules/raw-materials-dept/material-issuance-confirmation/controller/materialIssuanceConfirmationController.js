@@ -1,7 +1,7 @@
 const sql = require('mssql');
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
-const { emitMaterialIssuanceUpdate } = require('../../../../utils/socketEvents');
+const { emitMaterialIssuanceUpdate, emitNotification } = require('../../../../utils/socketEvents');
 
 exports.getMaterialIssuanceRequestHeader = async (req, res) => {
     const { company } = req.query;
@@ -108,8 +108,24 @@ exports.markItemAsConfirmed = async (req, res) => {
         const detailsServedQuery = await notificationPool.request()
             .input('mirNo', mirNo)
             .query(`SELECT COUNT(*) AS ServedCount FROM SFC.DBO.[PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo AND IS_SERVED = 1`);
+        const notificationValuesToTransfer = await notificationPool.request()
+            .input('mirNo', mirNo)
+            .query(`SELECT * FROM [SYSTEM.NOTIFICATIONMASTER] WHERE REFERENCENO = @mirNo AND FORM = 'ERP MOBILE'`);
 
         if (detailsServedQuery.recordset[0].ServedCount > 0) {
+            for (const row of notificationValuesToTransfer.recordset) {
+                await notificationPool.request()
+                    .input('mirNo', mirNo)
+                    .input('receiver', row.RECEIVER)
+                    .input('category', row.CATEGORY)
+                    .input('form', row.FORM)
+                    .input('referenceno', row.REFERENCENO)
+                    .input('sender', row.SENDER)
+                    .input('datesent', row.DATESENT)
+                    .query(`INSERT INTO [SYSTEM.NOTIFICATIONMASTERHISTORY] (RECEIVER, CATEGORY, FORM, REFERENCENO, SENDER, DATESENT, DATEACKNOWLEDGE, IS_ARCHIVEDBYSYSTEM)
+                            VALUES (@receiver, @category, @form, @referenceno, @sender, @datesent, GETDATE(), 0)`);
+            }
+
             await notificationPool.request()
                 .input('mirNo', mirNo)
                 .query(`DELETE FROM [SYSTEM.NOTIFICATIONMASTER] WHERE REFERENCENO = @mirNo AND FORM = 'ERP MOBILE'`);
@@ -194,18 +210,18 @@ exports.getPreparedItems = async (req, res) => {
             .query(query);
         res.json({ success: true, data: result.recordset });
     } catch (error) {
-        console.error('Error fetching preparing items:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch preparing items' });
+        console.error('Error fetching prepared items:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch prepared items' });
     }
 }
 
-exports.getServedItemsToday = async (req, res) => {
+exports.getServedItems = async (req, res) => {
     const { company } = req.query;
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
 
     const query = `SELECT D.*, I.ITEMDESC FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] D
-                    INNER JOIN IV00101 I ON D.ITEMNMBR = I.ITEMNMBR WHERE D.IS_SERVED = 1 AND D.IS_CONFIRMED = 0 ORDER BY D.MIRNO`;
+                    INNER JOIN IV00101 I ON D.ITEMNMBR = I.ITEMNMBR WHERE D.IS_SERVED = 1 AND D.IS_CONFIRMED = 0 ORDER BY D.DATECREATED`;
 
     try {
         const result = await pool.request()
@@ -223,7 +239,7 @@ exports.getConfirmedItemsToday = async (req, res) => {
     const pool = await getPool(dbName);
 
     const query = `SELECT D.*, I.ITEMDESC FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] D
-                    INNER JOIN IV00101 I ON D.ITEMNMBR = I.ITEMNMBR WHERE D.IS_CONFIRMED = 1 AND CAST(D.DATECONFIRMED AS DATE) = CAST(GETDATE() AS DATE) ORDER BY D.MIRNO`;
+                    INNER JOIN IV00101 I ON D.ITEMNMBR = I.ITEMNMBR WHERE D.IS_CONFIRMED = 1 AND CAST(D.DATECONFIRMED AS DATE) = CAST(GETDATE() AS DATE) ORDER BY D.DATECREATED`;
 
     try {
         const result = await pool.request()

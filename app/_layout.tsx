@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
+import { NotificationPopUp } from '@/features/notification/components/NotificationPopUp';
 import { useColorScheme } from '../hooks/use-color-scheme';
 import { LoadingScreen } from '../shared/components/LoadingScreen';
 import { ToastProvider } from '../shared/components/ui/toast';
@@ -122,6 +123,7 @@ function RootLayoutNav() {
             <Stack.Screen name="(tabs)" />
             
             {/**RM ROUTE */}
+            <Stack.Screen name="raw-materials-dept/material-issuance-confirmation" options={{ title: 'Material Issuance Confirmation' }} />
             <Stack.Screen name="raw-materials-dept/posted-warehouse-confirmation" 
               options={{ title: 'Posted Warehouse Confirmation' }} 
             />
@@ -140,6 +142,7 @@ function RootLayoutNav() {
             
           </Stack>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <NotificationPopUp />
         </ToastProvider>
       </ThemeProvider>
     </SafeAreaProvider>

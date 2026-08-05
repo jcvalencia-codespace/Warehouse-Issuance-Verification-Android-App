@@ -8,18 +8,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
     useColorScheme,
-    View,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { socketService } from '../../shared/services/socketService';
 import { MaterialIssuanceConfirmationService } from './services/materialIssuanceConfirmationService';
-import { socketService } from './services/socketService';
 
 interface FlatItem {
     ROWID: number;
@@ -87,6 +86,7 @@ export default function MaterialIssuanceConfirmationScreen({ onBack, source }: {
     const router = useRouter();
     const routeSource = useLocalSearchParams<{ source?: string }>().source;
     const isProductionMode = (source || routeSource) === 'production';
+    const filter = useLocalSearchParams<{ filter?: string }>().filter as SectionType | undefined;
 
     const [items, setItems] = useState<FlatItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -103,7 +103,9 @@ export default function MaterialIssuanceConfirmationScreen({ onBack, source }: {
     const [cancelRemarksVisible, setCancelRemarksVisible] = useState(false);
     const [cancelRemarksItem, setCancelRemarksItem] = useState<FlatItem | null>(null);
     const [cancelSuccessVisible, setCancelSuccessVisible] = useState(false);
-    const [activeFilter, setActiveFilter] = useState<SectionType | 'all'>('all');
+    const [activeFilter, setActiveFilter] = useState<SectionType | 'all'>(
+        filter === 'served' || source === 'production' ? 'served' : 'all'
+    );
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     const fetchAllItems = useCallback(async () => {
@@ -145,7 +147,7 @@ export default function MaterialIssuanceConfirmationScreen({ onBack, source }: {
 
             try {
                 const servedDetails = await MaterialIssuanceConfirmationService.getInstance()
-                    .getServedItemsToday(user?.COMPANY);
+                    .getServedItems(user?.COMPANY);
                 for (const detail of servedDetails) {
                     allItems.push({
                         ROWID: detail.ROWID,
@@ -153,7 +155,7 @@ export default function MaterialIssuanceConfirmationScreen({ onBack, source }: {
                         SHIFT: '',
                         REVIEWEDBY: '',
                         CREATEDBY: '',
-                        DATECREATED: '',
+                        DATECREATED: detail.DATECREATED,
                         POSTSTATUS: 0,
                         ITEMNMBR: detail.ITEMNMBR,
                         ITEMDESC: detail.ITEMDESC,
@@ -195,7 +197,7 @@ export default function MaterialIssuanceConfirmationScreen({ onBack, source }: {
                 // skip confirmed items if fetch fails
             }
 
-            allItems.sort((a, b) => a.MIRNO.localeCompare(b.MIRNO));
+            allItems.sort((a, b) => a.DATECREATED.localeCompare(b.DATECREATED));
             setItems(allItems);
         } catch (err: any) {
             setError(err?.message || 'Failed to fetch material issuance requests.');
@@ -364,6 +366,7 @@ export default function MaterialIssuanceConfirmationScreen({ onBack, source }: {
                 waiting.push(item);
             }
         }
+        served.sort((a, b) => (a.DATECREATED || '').localeCompare(b.DATECREATED || ''));
         return [
             { type: 'preparing', title: 'NOW PREPARING', count: preparing.length, data: preparing },
             { type: 'prepared', title: 'PREPARED ITEMS', count: prepared.length, data: prepared },
@@ -715,7 +718,7 @@ export default function MaterialIssuanceConfirmationScreen({ onBack, source }: {
                             <MaterialCommunityIcons name="check" size={20} color="#FFFFFF" />
                         </View>
                         <Text style={[styles.servedEmptyText, { color: colors.textSecondary }]}>
-                            No served items today.
+                            No served items.
                         </Text>
                         <Text style={[styles.servedEmptySubtext, { color: colors.served }]}>
                             Requests you mark as served will appear here.

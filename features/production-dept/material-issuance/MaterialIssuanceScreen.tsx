@@ -14,7 +14,7 @@ import {
     useColorScheme
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { socketService } from '../../raw-materials-dept/material-issuance-confirmation/services/socketService';
+import { socketService } from '../../shared/services/socketService';
 import { MaterialIssuanceDetails, MaterialIssuanceDetailsRef } from './components/MaterialIssuanceDetails';
 import { MaterialIssuanceHeader, MaterialIssuanceHeaderRef } from './components/MaterialIssuanceHeader';
 import { MaterialIssuanceService } from './services/materialIssuanceService';

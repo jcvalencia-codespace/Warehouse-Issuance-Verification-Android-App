@@ -9,7 +9,7 @@ router.put('/set-to-preparing', MaterialIssuanceConfirmationController.markItemA
 router.put('/set-to-prepared', MaterialIssuanceConfirmationController.markItemAsPrepared);
 router.get('/get-material-issuance-request-details', MaterialIssuanceConfirmationController.getMaterialsIssuanceRequestDetails);
 router.get('/get-material-issuance-request-details/:mirNo', MaterialIssuanceConfirmationController.getMaterialsIssuanceRequestDetails);
-router.get('/get-served-items-today', MaterialIssuanceConfirmationController.getServedItemsToday);
+router.get('/get-served-items', MaterialIssuanceConfirmationController.getServedItems);
 router.get('/get-confirmed-items-today', MaterialIssuanceConfirmationController.getConfirmedItemsToday);
 router.put('/cancel-item', MaterialIssuanceConfirmationController.cancelItem);
 module.exports = router;

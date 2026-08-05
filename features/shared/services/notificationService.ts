@@ -99,7 +99,7 @@ async function getNotifications(user: string): Promise<any[]> {
   }
 
   const url = `${baseUrl}/notification/get-notifications?user=${encodeURIComponent(user)}`;
-  console.log('Fetching notifications from:', url);
+  // console.log('Fetching notifications from:', url);
 
   try {
     const response = await fetch(url, {
