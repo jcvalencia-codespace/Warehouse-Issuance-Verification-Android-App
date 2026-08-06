@@ -1,8 +1,10 @@
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { notificationService } from '@/features/shared/services/notificationService';
 import { socketService } from '@/features/shared/services/socketService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,7 +24,7 @@ interface NotificationPayload {
 
 export function NotificationPopUp() {
   const [visible, setVisible] = useState(false);
-  const [payload, setPayload] = useState<NotificationPayload | null>(null);
+  const [notification, setNotification] = useState<any | null>(null);
   const [borderColorState, setBorderColorState] = useState<string>('');
   const router = useRouter();
   const scheme = useColorScheme();
@@ -34,6 +36,9 @@ export function NotificationPopUp() {
   const blinkRef = React.useRef<Animated.CompositeAnimation | null>(null);
   const borderIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const activeCategoryColor = React.useRef<string>(colors.primary);
+  const { user } = useAuth();
+  const hasShownInitialRef = useRef(false);
+  const queueRef = React.useRef<any[]>([]);
 
   const getCategoryColor = (category?: string) => {
     const lower = (category || '').toLowerCase();
@@ -88,54 +93,110 @@ export function NotificationPopUp() {
     }
   };
 
-  useEffect(() => {
-    const handleNotification = (data: NotificationPayload) => {
-      setPayload(data);
-      activeCategoryColor.current = getCategoryColor(data.data?.category);
-      setBorderColorState(activeCategoryColor.current);
-      setVisible(true);
-      startBlinking();
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
+  const showNext = () => {
+    const next = queueRef.current.shift();
+    if (!next) {
+      setVisible(false);
+      setNotification(null);
+      return;
+    }
+    setNotification(next);
+    activeCategoryColor.current = getCategoryColor(next.CATEGORY || next.category);
+    setBorderColorState(activeCategoryColor.current);
+    setVisible(true);
+    startBlinking();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const enqueue = (items: any[]) => {
+    queueRef.current = [...queueRef.current, ...items];
+    if (!visible) {
+      showNext();
+    }
+  };
+
+  const handleSocketNotification = (data: NotificationPayload) => {
+    const incoming = data.data;
+    if (!incoming) {
+      return;
+    }
+    const item = {
+      CATEGORY: incoming.category ,
+      // || incoming.CATEGORY,
+      FORM: incoming.form ,
+      // || incoming.FORM,
+      REFERENCENO: incoming.referenceno ,
+      // || incoming.REFERENCENO,
+      MIRNO: incoming.mirNo ,
+      // || incoming.MIRNO,
+      SENDER: incoming.sender, 
+      // || incoming.SENDER,
+      RECEIVER: incoming.receiver ,
+      // || incoming.RECEIVER,
     };
+    queueRef.current = queueRef.current.filter(
+      (existing) =>
+        (existing.REFERENCENO || existing.referenceno) === item.REFERENCENO &&
+        (existing.CATEGORY || existing.category) === item.CATEGORY
+    );
+    enqueue([item]);
+  };
 
+  useEffect(() => {
     socketService.connect();
-    socketService.onNotification(handleNotification);
-
+    socketService.onNotification(handleSocketNotification);
     return () => {
-      socketService.offNotification(handleNotification);
+      socketService.offNotification(handleSocketNotification);
       stopBlinking();
     };
   }, [fadeAnim, slideAnim]);
 
+  useEffect(() => {
+    if (!user) {
+      queueRef.current = [];
+      setNotification(null);
+      setVisible(false);
+      hasShownInitialRef.current = false;
+      return;
+    }
+
+    let cancelled = false;
+    const loadExistingNotifications = async () => {
+      try {
+        const notifications = await notificationService.getNotifications(user.NAME || user.USERNAME || '');
+        if (cancelled) {
+          return;
+        }
+        if (notifications.length > 0 && !hasShownInitialRef.current) {
+          hasShownInitialRef.current = true;
+          enqueue(notifications);
+        }
+      } catch (error) {
+        console.error('Failed to load existing notifications for popup:', error);
+      }
+    };
+
+    loadExistingNotifications();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   const handlePress = () => {
-    if (!payload?.data) return;
-
-    // const category = payload.data.category || '';
-    // if (category === 'Material issuance request SERVED and now ready for confirmation') {
-    //   router.push({
-    //     pathname: '/raw-materials-dept/material-issuance-confirmation',
-    //     params: { source: 'production' },
-    //   });
-    // } else if (category === 'New Material Issuance Request') {
-    //   router.push('/raw-materials-dept/material-issuance-confirmation');
-    // } else {
-    //   router.push('/notifications');
-    // }
-
     router.push('/notifications');
-
     hidePopup();
   };
 
@@ -154,17 +215,19 @@ export function NotificationPopUp() {
       }),
     ]).start(() => {
       setVisible(false);
-      setPayload(null);
+      setNotification(null);
     });
   };
 
-  if (!visible || !payload?.data) {
+  if (!visible || !notification) {
     return null;
   }
 
-  const category = payload.data.category || 'Notification';
-  const message = payload.data.form || category;
-  const reference = payload.data.referenceno ? `Ref: ${payload.data.referenceno}` : '';
+  const category = notification.CATEGORY || notification.category || 'Notification';
+  const message = notification.FORM || notification.form || category;
+  const reference = notification.REFERENCENO || notification.referenceno ? `Ref: ${notification.REFERENCENO || notification.referenceno}` : '';
+  const iconColor = getCategoryColor(category);
+  const iconName = getCategoryIcon(category);
 
   return (
     <Animated.View
@@ -189,7 +252,7 @@ export function NotificationPopUp() {
               backgroundColor: colors.cardBackground,
               borderColor: borderColorState,
               opacity: blinkAnim,
-              shadowColor: getCategoryColor(category),
+              shadowColor: iconColor,
               shadowOpacity: blinkAnim.interpolate({
                 inputRange: [0.25, 1],
                 outputRange: [0.05, 0.35],
@@ -213,42 +276,26 @@ export function NotificationPopUp() {
             },
           ]}
         >
-        <Animated.View
-          style={[
-            styles.iconContainer,
-            {
-              backgroundColor: getCategoryColor(category) + '18',
-              transform: [
-                {
-                  scale: blinkAnim.interpolate({
-                    inputRange: [0.25, 1],
-                    outputRange: [0.85, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <MaterialCommunityIcons
-            name={getCategoryIcon(category) as any}
-            size={28}
-            color={getCategoryColor(category)}
-          />
-        </Animated.View>
-        <View style={styles.content}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {category}
-          </Text>
-          <Text style={[styles.message, { color: colors.textSecondary }]} numberOfLines={2}>
-            {message}
-          </Text>
-          {reference ? (
-            <Text style={[styles.reference, { color: colors.textTertiary }]} numberOfLines={1}>
-              {reference}
+          <View style={[styles.iconContainer, { backgroundColor: iconColor + '18' }]}>
+            <MaterialCommunityIcons name={iconName as any} size={28} color={iconColor} />
+          </View>
+          <View style={styles.content}>
+            <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+              {category}
             </Text>
-          ) : null}
-        </View>
-        <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textTertiary} />
+            <Text style={[styles.message, { color: colors.textSecondary }]} numberOfLines={2}>
+              {message}
+            </Text>
+            {reference ? (
+              <Text style={[styles.reference, { color: colors.textTertiary }]} numberOfLines={1}>
+                {reference}
+              </Text>
+            ) : null}
+          </View>
+          {/* <View style={styles.badge}>
+            <Text style={styles.badgeText}>{queueRef.current.length + 1}</Text>
+          </View> */}
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textTertiary} />
         </Animated.View>
       </TouchableOpacity>
     </Animated.View>
@@ -301,5 +348,19 @@ const styles = StyleSheet.create({
   reference: {
     fontSize: 20,
     fontWeight: '600',
+  },
+  badge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6b7280',
   },
 });
