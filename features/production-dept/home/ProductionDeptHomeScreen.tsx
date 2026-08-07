@@ -15,18 +15,18 @@ const PRODUCTION_MODULES: ModuleCardData[] = [
     icon: 'file-check-outline',
     color: 'primary',
   },
-{
+  {
     id: 'material-issuance-confirmation',
     title: 'Material Issuance Confirmation',
     description: 'Confirm and validate pending material issuances',
     icon: 'file-lock-outline',
-    color: 'warning',      
+    color: 'warning',
   },
   {
-    id: 'production-issuance-posted',
-    title: 'Posted Production Issuance',
-    description: 'View posted production issuance transactions',
-    icon: 'package-variant-closed-check',
+    id: 'material-utilization',
+    title: 'Material Utilization',
+    description: 'Analyze material usage and production efficiency',
+    icon: 'chart-box-outline',
     color: 'success',
   },
 ];

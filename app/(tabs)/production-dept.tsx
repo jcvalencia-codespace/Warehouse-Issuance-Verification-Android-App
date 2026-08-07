@@ -26,8 +26,8 @@ export default function ProductionDeptRoute() {
       case 'material-issuance-confirmation':
         router.push({ pathname: '/production-dept/material-issuance-confirmation', params: { source: 'production' } } as any);
         break;
-      case 'production-issuance-posted':
-        router.push('/production-dept/posted-issuance' as any);
+      case 'material-utilization':
+        router.push('/production-dept/material-utilization' as any);
         break;
       default:
         console.log('Module not implemented:', moduleId);

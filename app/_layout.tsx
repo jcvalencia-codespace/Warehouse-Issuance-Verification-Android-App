@@ -2,8 +2,12 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import 'react-native-reanimated';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+if (Platform.OS !== 'web') {
+  require('react-native-reanimated');
+}
 
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { NotificationPopUp } from '@/features/notification/components/NotificationPopUp';
@@ -151,7 +155,7 @@ function RootLayoutNav() {
 
 function RootLayoutWithNotifications() {
   useEffect(() => {
-    if (!Notifications) return;
+    if (!Notifications || Platform.OS === 'web') return;
 
     Notifications.getLastNotificationResponseAsync().then((response: any) => {
       if (response?.notification?.request?.content?.data?.type === 'MATERIAL_ISSUANCE_REQUESTED') {
