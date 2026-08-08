@@ -13,7 +13,7 @@ import {
   useColorScheme,
   View
 } from 'react-native';
-import { ItemCodeModal } from '../components/ItemCodeModal';
+import { ItemCodeModal } from '../../../../components/ItemCodeModal';
 import { DropdownOption, MaterialIssuanceService } from '../services/materialIssuanceService';
 import {
   MaterialIssuanceLineItem,

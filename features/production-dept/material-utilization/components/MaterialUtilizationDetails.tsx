@@ -1,9 +1,11 @@
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import {
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -12,8 +14,10 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
+import { ItemCodeModal } from '../../../../components/ItemCodeModal';
+import { MaterialUtilizationService } from '../services/materialUtilizationService';
 import {
-  FormulationMaterial,
+  DropdownOption,
   MaterialUtilizationDetailsRef,
   MaterialUtilizationLineItem,
 } from '../types/materialUtilization.types';
@@ -21,17 +25,19 @@ import {
 export { MaterialUtilizationDetailsRef };
 
 interface MaterialUtilizationDetailsProps {
-  materials?: FormulationMaterial[];
   value?: MaterialUtilizationLineItem[];
   onItemsChange?: (items: MaterialUtilizationLineItem[]) => void;
 }
 
 export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsRef, MaterialUtilizationDetailsProps>(
-  ({ materials = [], value, onItemsChange }, ref) => {
+  ({ value, onItemsChange }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
+    const { user } = useAuth();
 
-    const [selectedMaterial, setSelectedMaterial] = useState('');
+    const [itemCodeOptions, setItemCodeOptions] = useState<DropdownOption[]>([]);
+    const [selectedItemCode, setSelectedItemCode] = useState('');
+    const [itemModalVisible, setItemModalVisible] = useState(false);
     const [weightLoaded, setWeightLoaded] = useState('');
     const [processType, setProcessType] = useState<'Prepared and Loaded' | 'Oil'>('Prepared and Loaded');
     const [randomSampled, setRandomSampled] = useState(false);
@@ -45,7 +51,11 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const [barcodeScannerVisible, setBarcodeScannerVisible] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
 
-    const selectedOption = materials.find((o) => o.itemNo === selectedMaterial);
+    const selectedItem = itemCodeOptions.find((o) => o.value === selectedItemCode);
+
+    useEffect(() => {
+      loadItemCodes();
+    }, []);
 
     useEffect(() => {
       if (value !== undefined) {
@@ -59,8 +69,17 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       }
     }, [items]);
 
+    const loadItemCodes = async () => {
+      try {
+        const options = await MaterialUtilizationService.getInstance().getItemCode(user?.COMPANY);
+        setItemCodeOptions(options);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to fetch item codes.');
+      }
+    };
+
     const resetForm = () => {
-      setSelectedMaterial('');
+      setSelectedItemCode('');
       setWeightLoaded('');
       setProcessType('Prepared and Loaded');
       setRandomSampled(false);
@@ -73,7 +92,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const handleAdd = () => {
       const newErrors: Record<string, string> = {};
 
-      if (!selectedMaterial) {
+      if (!selectedItemCode) {
         newErrors.material = 'Material is required';
       }
 
@@ -89,9 +108,9 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
       const newItem: MaterialUtilizationLineItem = {
         id: editIndex !== null ? items[editIndex].id : Date.now().toString(),
-        itemNo: selectedMaterial,
-        itemDescription: selectedOption?.itemDescription || '',
-        requiredWeight: selectedOption?.requiredWeight || 0,
+        itemNo: selectedItemCode,
+        itemDescription: selectedItem?.description || '',
+        requiredWeight: 0,
         weightLoaded: weightLoadedValue,
         processType,
         randomSampled,
@@ -113,7 +132,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const handleEdit = (index: number) => {
       const item = items[index];
       if (!item) return;
-      setSelectedMaterial(item.itemNo);
+      setSelectedItemCode(item.itemNo);
       setWeightLoaded(String(item.weightLoaded));
       setProcessType(item.processType);
       setRandomSampled(item.randomSampled);
@@ -151,13 +170,11 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     useImperativeHandle(ref, () => ({
       clear: () => {
         setItems([]);
+        setSelectedItemCode('');
+        setItemModalVisible(false);
         resetForm();
         setRequiredError(false);
         onItemsChange?.([]);
-      },
-      setFormulationMaterials: (newMaterials: FormulationMaterial[]) => {
-        setSelectedMaterial('');
-        resetForm();
       },
       validate: () => {
         if (items.length === 0) {
@@ -283,64 +300,33 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                   <Text style={[styles.label, { color: colors.text }]}>Material</Text>
                   <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
                 </View>
-                <View style={styles.materialRow}>
-                  <TouchableOpacity
+                <TouchableOpacity
+                  style={[
+                    styles.inputContainer,
+                    styles.materialField,
+                    {
+                      borderColor: errors.material ? colors.error : colors.cardBorder,
+                      backgroundColor: colors.background,
+                    },
+                  ]}
+                  onPress={() => setItemModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="barcode" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                  <Text
                     style={[
-                      styles.inputContainer,
-                      styles.materialField,
-                      {
-                        borderColor: errors.material ? colors.error : colors.cardBorder,
-                        backgroundColor: colors.background,
-                      },
+                      styles.dropdownText,
+                      { color: selectedItemCode ? colors.text : colors.textTertiary },
                     ]}
-                    onPress={() => {}}
-                    activeOpacity={0.7}
+                    numberOfLines={1}
                   >
-                    <MaterialCommunityIcons name="barcode" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        { color: selectedMaterial ? colors.text : colors.textTertiary },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {selectedMaterial || 'Select material'}
-                    </Text>
-                    <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                   <FlatList
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    data={materials}
-                    keyExtractor={(item) => item.itemNo}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={[
-                          styles.materialChip,
-                          {
-                            backgroundColor: selectedMaterial === item.itemNo ? colors.primary + '20' : colors.background,
-                            borderColor: selectedMaterial === item.itemNo ? colors.primary : colors.cardBorder,
-                          },
-                        ]}
-                        onPress={() => setSelectedMaterial(item.itemNo)}
-                      >
-                        <Text
-                          style={[
-                            styles.materialChipText,
-                            { color: selectedMaterial === item.itemNo ? colors.primary : colors.textSecondary },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.itemNo}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    contentContainerStyle={styles.chipList}
-                  />
-                </View>
-                {selectedOption?.itemDescription ? (
+                    {selectedItemCode || 'Select material'}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {selectedItem?.description ? (
                   <Text style={[styles.materialDescription, { color: colors.textSecondary }]}>
-                    {selectedOption.itemDescription}
+                    {selectedItem.description}
                   </Text>
                 ) : null}
                 {errors.material ? (
@@ -368,7 +354,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                 >
                   <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
                   <Text style={[styles.readOnlyText, { color: colors.textSecondary }]}>
-                    {selectedOption ? selectedOption.requiredWeight.toFixed(2) : '0.00'}
+                    {'0.00'}
                   </Text>
                 </View>
               </View>
@@ -467,24 +453,54 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
               <View style={styles.toggleItem}>
                 <Text style={[styles.toggleLabel, { color: colors.text }]}>Random Sampled</Text>
-                <TouchableOpacity
-                  style={[
-                    styles.switchTrack,
-                    {
-                      backgroundColor: randomSampled ? colors.success : colors.textSecondary + '40',
-                      justifyContent: randomSampled ? 'flex-end' : 'flex-start',
-                    },
-                  ]}
-                  onPress={() => {
-                    setRandomSampled(!randomSampled);
-                    if (randomSampled) {
+                <View style={[
+                  styles.toggleContainer,
+                  { backgroundColor: colors.background, borderColor: colors.cardBorder }
+                ]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.toggleOption,
+                      !randomSampled && {
+                        backgroundColor: colors.error,
+                      },
+                    ]}
+                    onPress={() => {
+                      setRandomSampled(false);
                       setQaName('');
-                    }
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.switchThumb, { backgroundColor: '#fff' }]} />
-                </TouchableOpacity>
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.toggleOptionText,
+                        {
+                          color: !randomSampled ? '#fff' : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      No
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.toggleOption,
+                      randomSampled && {
+                        backgroundColor: colors.success,
+                      },
+                    ]}
+                    onPress={() => setRandomSampled(true)}
+                  >
+                    <Text
+                      style={[
+                        styles.toggleOptionText,
+                        {
+                          color: randomSampled ? '#fff' : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      Yes
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
 
@@ -554,6 +570,22 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
             />
           </View>
         )}
+
+        <ItemCodeModal
+          visible={itemModalVisible}
+          options={itemCodeOptions}
+          selectedValue={selectedItemCode}
+          onSelect={(value) => {
+            setSelectedItemCode(value);
+            setErrors((prev) => {
+              if (!prev.material) return prev;
+              const next = { ...prev };
+              delete next.material;
+              return next;
+            });
+          }}
+          onClose={() => setItemModalVisible(false)}
+        />
 
         <BarcodeScanner
           visible={barcodeScannerVisible}

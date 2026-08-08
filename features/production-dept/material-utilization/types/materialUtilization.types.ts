@@ -73,6 +73,5 @@ export interface MaterialUtilizationHeaderRef {
 
 export interface MaterialUtilizationDetailsRef {
   clear: () => void;
-  setFormulationMaterials: (materials: FormulationMaterial[]) => void;
   validate: () => boolean;
 }

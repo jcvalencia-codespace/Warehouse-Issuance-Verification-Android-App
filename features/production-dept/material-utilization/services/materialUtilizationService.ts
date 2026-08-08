@@ -1,17 +1,16 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 import {
-    DropdownOption,
-    FormulationMaterial,
-    MaterialUtilizationPayload,
-    MaterialUtilizationPostResponse,
+  DropdownOption,
+  MaterialUtilizationPayload,
+  MaterialUtilizationPostResponse
 } from '../types/materialUtilization.types';
 
 export interface FeedTypeVariantRow {
-    ITEMNMBR: string;
-    ITEMDESC: string;
-    VARIANTCODE: string;
-    KGSPERBAG: number;
+  ITEMNMBR: string;
+  ITEMDESC: string;
+  VARIANTCODE: string;
+  KGSPERBAG: number;
 }
 
 export class MaterialUtilizationService {
@@ -64,8 +63,8 @@ export class MaterialUtilizationService {
       );
       if (response.data.success && response.data.data.length > 0) {
         return response.data.data.map((item) => ({
-          label: item.MACHINE_LINE || item.MACHINE_LINE_NAME || item.NAME || String(item.MACHINE_LINE_ID || item.MACHINELINE),
-          value: String(item.MACHINE_LINE_ID || item.MACHINELINE || item.MACHINE_LINE || item.NAME),
+          label: item.MACHINELINE || '',
+          value: item.MACHINELINE || '',
         }));
       }
       return [];
@@ -92,55 +91,20 @@ export class MaterialUtilizationService {
     }
   }
 
-  async getFormulations(
-    feedType: string,
-    variant: string,
-    company?: string
-  ): Promise<DropdownOption[]> {
+  async getItemCode(company?: string): Promise<DropdownOption[]> {
     try {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
       }
-      const response = await axios.get<{ success: boolean; data: any[] }>(
-        `${this.baseUrl}/production-dept/material-utilization/get-formulations`,
-        {
-          params: {
-            feedType,
-            variant,
-            ...(company ? { company } : {}),
-          },
-        }
-      );
-      if (response.data.success && response.data.data.length > 0) {
-        return response.data.data.map((item) => ({
-          label: item.FORMULATION_NO || item.FORMULATION_CODE || String(item.FORMULATION_ID),
-          value: String(item.FORMULATION_ID || item.FORMULATION_NO),
-          description: item.FORMULATION_NAME,
-        }));
-      }
-      return [];
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async getFormulationMaterials(
-    formulationNo: string,
-    company?: string
-  ): Promise<FormulationMaterial[]> {
-    try {
-      if (!this.baseUrl) {
-        throw new Error('API URL not configured');
-      }
-      const response = await axios.get<{ success: boolean; data: any[] }>(
-        `${this.baseUrl}/production-dept/material-utilization/get-formulation-materials/${encodeURIComponent(formulationNo)}`,
+      const response = await axios.get<{ success: boolean; items: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-item-code`,
         { params: company ? { company } : undefined }
       );
-      if (response.data.success && response.data.data.length > 0) {
-        return response.data.data.map((item) => ({
-          itemNo: item.ITEM_NO || item.ITEMNMBR || String(item.ITEM_ID),
-          itemDescription: item.ITEM_DESCRIPTION || item.ITEMDESC || '',
-          requiredWeight: Number(item.REQUIRED_WEIGHT || item.REQUIRED_QTY || 0),
+      if (response.data.success && response.data.items.length > 0) {
+        return response.data.items.map((item) => ({
+          label: `${item['ITEM CODE'].trim()} - ${item['ITEM DESCRIPTION'].trim()}`,
+          value: item['ITEM CODE'].trim(),
+          description: item['ITEM DESCRIPTION'].trim(),
         }));
       }
       return [];

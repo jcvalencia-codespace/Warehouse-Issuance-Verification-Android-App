@@ -45,7 +45,6 @@ type DropdownProps = FieldBaseProps & {
 
 interface MaterialUtilizationHeaderProps {
   onValidSubmit?: (data: MaterialUtilizationFormData) => void;
-  onFormulationChange?: (formulationNo: string) => void;
 }
 
 function Dropdown({
@@ -213,7 +212,7 @@ function Dropdown({
 }
 
 export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef, MaterialUtilizationHeaderProps>(
-  ({ onValidSubmit, onFormulationChange }, ref) => {
+  ({ onValidSubmit }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
@@ -237,7 +236,6 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
     const [machineLineOptions, setMachineLineOptions] = useState<DropdownOption[]>([]);
     const [feedTypeOptions, setFeedTypeOptions] = useState<DropdownOption[]>([]);
     const [variantOptions, setVariantOptions] = useState<DropdownOption[]>([]);
-    const [formulationOptions, setFormulationOptions] = useState<DropdownOption[]>([]);
     const [feedTypeVariantRows, setFeedTypeVariantRows] = useState<FeedTypeVariantRow[]>([]);
 
     const updateField = (field: keyof MaterialUtilizationFormData, value: string) => {
@@ -268,26 +266,12 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
         const uniqueFeedTypes = Array.from(
           new Map(rows.map((row) => [row.ITEMNMBR, row])).values()
         ).map((row) => ({
-          label: row.ITEMDESC || row.ITEMNMBR,
+          label: row.ITEMDESC ? `${row.ITEMNMBR} - ${row.ITEMDESC}` : row.ITEMNMBR,
           value: row.ITEMNMBR,
         }));
         setFeedTypeOptions(uniqueFeedTypes);
       } catch (error) {
         console.error('Failed to fetch feed types and variants:', error);
-      }
-    }, [user?.COMPANY]);
-
-    const fetchFormulations = useCallback(async (feedType: string, variant: string) => {
-      try {
-        if (!feedType || !variant) {
-          setFormulationOptions([]);
-          return;
-        }
-        const options = await MaterialUtilizationService.getInstance().getFormulations(feedType, variant, user?.COMPANY);
-        setFormulationOptions(options);
-      } catch (error) {
-        console.error('Failed to fetch formulations:', error);
-        setFormulationOptions([]);
       }
     }, [user?.COMPANY]);
 
@@ -312,16 +296,6 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
     }, [formData.feedType, feedTypeVariantRows]);
 
     useEffect(() => {
-      fetchFormulations(formData.feedType, formData.variant);
-    }, [fetchFormulations, formData.feedType, formData.variant]);
-
-    useEffect(() => {
-      if (formData.formulationNo) {
-        onFormulationChange?.(formData.formulationNo);
-      }
-    }, [formData.formulationNo, onFormulationChange]);
-
-    useEffect(() => {
       const fetchNextRefNo = async () => {
         try {
           const refNos = await MaterialUtilizationService.getInstance().getNextUsageRefNo(user?.COMPANY);
@@ -343,7 +317,6 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
         { field: 'shift', label: 'Shift' },
         { field: 'feedType', label: 'Feed Type' },
         { field: 'variant', label: 'Variant' },
-        { field: 'formulationNo', label: 'Formulation No.' },
         { field: 'batchNo', label: 'Batch No.' },
         { field: 'validatedBy', label: 'Validated By' },
         { field: 'weighedBy', label: 'Weighed By' },
@@ -561,17 +534,40 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
 
         <View style={styles.row}>
           <View style={styles.halfWidth}>
-            <Dropdown
-              label="Formulation No."
-              required
-              placeholder="Select formulation"
-              value={formData.formulationNo}
-              options={formulationOptions}
-              onSelect={(v) => updateField('formulationNo', v)}
-              error={errors.formulationNo}
-              colors={colors}
-              disabled={!formData.feedType || !formData.variant}
-            />
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: colors.text }]}>Formulation No.</Text>
+              </View>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    borderColor: errors.formulationNo ? colors.error : colors.cardBorder,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="text"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  value={formData.formulationNo}
+                  placeholder="Enter formulation no."
+                  placeholderTextColor={colors.textTertiary}
+                  onChangeText={(text) => updateField('formulationNo', text)}
+                />
+              </View>
+              {errors.formulationNo ? (
+                <View style={styles.errorContainer}>
+                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.formulationNo}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
           <View style={styles.halfWidth}>
             <View style={styles.inputGroup}>

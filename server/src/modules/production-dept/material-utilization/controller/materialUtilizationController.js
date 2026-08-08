@@ -19,7 +19,7 @@ exports.getMachineLines = async (req, res) => {
     const { company } = req.query;
     const pool = await getPool(getCompanyDbName(company));
     try {
-        const result = await pool.request().query('SELECT DISTINCT MACHINELINE FROM [PRODUCTION.USAGEHEADER] ORDER BY MACHINELINE');
+        const result = await pool.request().query('SELECT MACHINELINE FROM [PRODUCTION.MACHINEMASTERLIST]');
         res.json({ success: true, data: result.recordset });
     } catch (error) {
         console.error('Error fetching machine lines:', error);
@@ -43,34 +43,24 @@ exports.getFeedTypesAndVariant = async (req, res) => {
     }
 }
 
-exports.getFormulations = async (req, res) => {
-    const { company, feedType, variant } = req.query;
-    const pool = await getPool(getCompanyDbName(company));
-    try {
-        const result = await pool.request()
-            .input('feedType', feedType)
-            .input('variant', variant)
-            .query(`SELECT FORMULATION_ID, FORMULATION_NO, FORMULATION_NAME FROM [PRODUCTION.FORMULATION] WHERE FEED_TYPE = @feedType AND VARIANT = @variant AND IS_ACTIVE = 1 ORDER BY FORMULATION_NO`);
-        res.json({ success: true, data: result.recordset });
-    } catch (error) {
-        console.error('Error fetching formulations:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch formulations' });
-    }
-}
-
-exports.getFormulationMaterials = async (req, res) => {
+exports.getItemCode = async (req, res) => {
     const { company } = req.query;
-    const { formulationNo } = req.params;
-    const pool = await getPool(getCompanyDbName(company));
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
     try {
-        const result = await pool.request()
-            .input('formulationNo', formulationNo)
-            .query(`SELECT ITEM_NO, ITEM_DESCRIPTION, REQUIRED_WEIGHT FROM [PRODUCTION.FORMULATION_DETAILS] WHERE FORMULATION_NO = @formulationNo ORDER BY ITEM_NO`);
-        res.json({ success: true, data: result.recordset });
+        const result = await pool.request().query(`SELECT DISTINCT D.ITEMNMBR AS 'ITEM CODE', I.ITEMDESC 'ITEM DESCRIPTION'
+                                                    FROM [INVENTORY.QUANTITYMASTER3.HEADER] AS H 
+                                                    INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] AS D ON H.QM_IDNUMBER = D.QM_IDNUMBER
+                                                    INNER JOIN [IV00101] AS I ON D.ITEMNMBR = I.ITEMNMBR
+                                                    WHERE (H.LOCNCODE IN ('PAWHRM'))
+                                                    ORDER BY D.ITEMNMBR`);
+        res.json({ success: true, items: result.recordset });
     } catch (error) {
-        console.error('Error fetching formulation materials:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch formulation materials' });
+        console.error('Error fetching item codes:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch item codes' });
     }
+
 }
 
 exports.saveMaterialUtilization = async (req, res) => {

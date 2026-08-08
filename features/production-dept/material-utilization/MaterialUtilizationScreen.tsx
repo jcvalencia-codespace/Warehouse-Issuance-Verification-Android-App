@@ -37,28 +37,6 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
   const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
   const [pendingHeader, setPendingHeader] = useState<MaterialUtilizationFormData | null>(null);
   const [items, setItems] = useState<MaterialUtilizationLineItem[]>([]);
-  const [formulationMaterials, setFormulationMaterials] = useState<any[]>([]);
-
-  const handleFormulationChange = useCallback(async (formulationNo: string) => {
-    if (!formulationNo) {
-      setFormulationMaterials([]);
-      detailsRef.current?.setFormulationMaterials([]);
-      return;
-    }
-
-    try {
-      const materials = await MaterialUtilizationService.getInstance().getFormulationMaterials(
-        formulationNo,
-        user?.COMPANY
-      );
-      setFormulationMaterials(materials);
-      detailsRef.current?.setFormulationMaterials(materials);
-    } catch (error) {
-      console.error('Failed to fetch formulation materials:', error);
-      setFormulationMaterials([]);
-      detailsRef.current?.setFormulationMaterials([]);
-    }
-  }, [user?.COMPANY]);
 
   const handleClear = () => {
     setClearConfirmVisible(true);
@@ -68,7 +46,6 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
     headerRef.current?.clear();
     detailsRef.current?.clear();
     setItems([]);
-    setFormulationMaterials([]);
     setClearConfirmVisible(false);
   };
 
@@ -110,17 +87,16 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
           'Success',
           `Material utilization saved successfully.\nRef No.: ${result.usageRefNo || pendingHeader.usageRefNo}`,
           [
-            {
-              text: 'OK',
-              onPress: () => {
-                setConfirmVisible(false);
-                setPendingHeader(null);
-                setItems([]);
-                setFormulationMaterials([]);
-                headerRef.current?.clear();
-                detailsRef.current?.clear();
+              {
+                text: 'OK',
+                onPress: () => {
+                  setConfirmVisible(false);
+                  setPendingHeader(null);
+                  setItems([]);
+                  headerRef.current?.clear();
+                  detailsRef.current?.clear();
+                },
               },
-            },
           ]
         );
       } else {
@@ -152,11 +128,9 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
           <MaterialUtilizationHeader
             ref={headerRef}
             onValidSubmit={handleValidSubmit}
-            onFormulationChange={handleFormulationChange}
           />
           <MaterialUtilizationDetails
             ref={detailsRef}
-            materials={formulationMaterials}
             value={items}
             onItemsChange={setItems}
           />
