@@ -40,8 +40,9 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const [itemModalVisible, setItemModalVisible] = useState(false);
     const [weightLoaded, setWeightLoaded] = useState('');
     const [processType, setProcessType] = useState<'Prepared and Loaded' | 'Oil'>('Prepared and Loaded');
-    const [randomSampled, setRandomSampled] = useState(false);
+    const [randomSampled, setRandomSampled] = useState(0);
     const [qaName, setQaName] = useState('');
+    const [remarks, setRemarks] = useState('');
     const [items, setItems] = useState<MaterialUtilizationLineItem[]>(value ?? []);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [editIndex, setEditIndex] = useState<number | null>(null);
@@ -82,8 +83,9 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       setSelectedItemCode('');
       setWeightLoaded('');
       setProcessType('Prepared and Loaded');
-      setRandomSampled(false);
+      setRandomSampled(0);
       setQaName('');
+      setRemarks('');
       setErrors({});
       setEditIndex(null);
       setIsEditMode(false);
@@ -114,7 +116,8 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
         weightLoaded: weightLoadedValue,
         processType,
         randomSampled,
-        qaName: randomSampled ? qaName : '',
+        qaName: randomSampled === 1 ? qaName : '',
+        remarks,
       };
 
       let updatedItems: MaterialUtilizationLineItem[];
@@ -137,6 +140,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       setProcessType(item.processType);
       setRandomSampled(item.randomSampled);
       setQaName(item.qaName || '');
+      setRemarks(item.remarks || '');
       setEditIndex(index);
       setIsEditMode(true);
     };
@@ -164,7 +168,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const handleBarcodeScanned = (data: string) => {
       setBarcodeScannerVisible(false);
       setQaName(data);
-      setRandomSampled(true);
+      setRandomSampled(1);
     };
 
     useImperativeHandle(ref, () => ({
@@ -251,23 +255,29 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
               <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Random Sampled</Text>
               <View style={[
                 styles.sampledBadge,
-                { backgroundColor: item.randomSampled ? colors.success + '20' : colors.textSecondary + '20' }
+                 { backgroundColor: item.randomSampled === 1 ? colors.success + '20' : colors.textSecondary + '20' }
               ]}>
                 <Text style={[
                   styles.sampledBadgeText,
-                  { color: item.randomSampled ? colors.success : colors.textSecondary }
+                   { color: item.randomSampled === 1 ? colors.success : colors.textSecondary }
                 ]}>
-                  {item.randomSampled ? 'Yes' : 'No'}
+                   {item.randomSampled === 1 ? 'Yes' : 'No'}
                 </Text>
               </View>
             </View>
-            {item.randomSampled && item.qaName ? (
-              <View style={styles.detailItem}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>QA Name</Text>
-                <Text style={[styles.detailValue, { color: colors.text }]}>{item.qaName}</Text>
-              </View>
-            ) : null}
-          </View>
+             {item.randomSampled === 1 && item.qaName ? (
+               <View style={styles.detailItem}>
+                 <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>QA Name</Text>
+                 <Text style={[styles.detailValue, { color: colors.text }]}>{item.qaName}</Text>
+               </View>
+             ) : null}
+             {item.remarks ? (
+               <View style={styles.detailItem}>
+                 <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Remarks</Text>
+                 <Text style={[styles.detailValue, { color: colors.text }]}>{item.remarks}</Text>
+               </View>
+             ) : null}
+           </View>
         </View>
       );
     };
@@ -373,7 +383,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                     },
                   ]}
                 >
-                  <MaterialCommunityIcons name="scale" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                  <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.text }]}
                     value={weightLoaded}
@@ -465,7 +475,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                       },
                     ]}
                     onPress={() => {
-                      setRandomSampled(false);
+                      setRandomSampled(0);
                       setQaName('');
                     }}
                   >
@@ -483,11 +493,11 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                   <TouchableOpacity
                     style={[
                       styles.toggleOption,
-                      randomSampled && {
+                      randomSampled === 1 && {
                         backgroundColor: colors.success,
                       },
                     ]}
-                    onPress={() => setRandomSampled(true)}
+                    onPress={() => setRandomSampled(1)}
                   >
                     <Text
                       style={[
@@ -504,7 +514,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
               </View>
             </View>
 
-            {randomSampled && (
+            {randomSampled === 1 && (
               <View style={styles.qaRow}>
                 <View style={styles.qaInputContainer}>
                   <View style={styles.labelRow}>
@@ -544,6 +554,39 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                 </TouchableOpacity>
               </View>
             )}
+
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: colors.text }]}>Remarks</Text>
+              </View>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    borderColor: colors.cardBorder,
+                    backgroundColor: colors.background,
+                    height: 80,
+                    alignItems: 'flex-start',
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="text"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={[styles.inputIcon, { marginTop: 8 }]}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text, height: 72 }]}
+                  value={remarks}
+                  placeholder="Enter remarks"
+                  placeholderTextColor={colors.textTertiary}
+                  onChangeText={setRemarks}
+                  multiline
+                  textAlignVertical="top"
+                />
+              </View>
+            </View>
 
             <TouchableOpacity
               style={[styles.addButton, { backgroundColor: colors.primary }]}
@@ -718,7 +761,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    paddingVertical: 0,
+    paddingVertical: 6,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -915,6 +958,9 @@ const styles = StyleSheet.create({
   sampledBadgeText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  inputGroup: {
+    marginBottom: 16,
   },
   formContainer: {
     gap: 4,

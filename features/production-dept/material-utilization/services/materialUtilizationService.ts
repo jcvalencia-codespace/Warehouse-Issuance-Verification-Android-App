@@ -33,17 +33,17 @@ export class MaterialUtilizationService {
     return MaterialUtilizationService.instance;
   }
 
-  async getNextUsageRefNo(company?: string): Promise<string[]> {
+  async getNextusageNo(company?: string): Promise<string[]> {
     try {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
       }
-      const response = await axios.get<{ success: boolean; usageRefNo?: string; refNos?: string[] }>(
+      const response = await axios.get<{ success: boolean; usageNo?: string; refNos?: string[] }>(
         `${this.baseUrl}/production-dept/material-utilization/get-next-usage-ref-no`,
         { params: company ? { company } : undefined }
       );
       if (response.data.success) {
-        const refNo = response.data.usageRefNo || response.data.refNos?.[0];
+        const refNo = response.data.usageNo || response.data.refNos?.[0];
         return refNo ? [String(refNo)] : [];
       }
       return [];
@@ -121,7 +121,7 @@ export class MaterialUtilizationService {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
       }
-      const response = await axios.put<MaterialUtilizationPostResponse>(
+      const response = await axios.post<MaterialUtilizationPostResponse>(
         `${this.baseUrl}/production-dept/material-utilization/save-material-utilization`,
         payload,
         { params: company ? { company } : undefined }

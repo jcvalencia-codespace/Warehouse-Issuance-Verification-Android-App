@@ -17,7 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DropdownOption } from '../services/materialIssuanceService';
+import { DropdownOption } from '../features/production-dept/material-issuance/services/materialIssuanceService';
 
 interface ItemCodeModalProps {
   visible: boolean;

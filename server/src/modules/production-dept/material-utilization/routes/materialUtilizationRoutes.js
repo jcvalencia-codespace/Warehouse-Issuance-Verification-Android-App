@@ -6,5 +6,5 @@ router.get('/get-next-usage-ref-no', MaterialUtilizationController.getNextUsageR
 router.get('/get-machine-lines', MaterialUtilizationController.getMachineLines);
 router.get('/get-feed-types-and-variant', MaterialUtilizationController.getFeedTypesAndVariant);
 router.get('/get-item-code', MaterialUtilizationController.getItemCode);
-router.put('/save-material-utilization', MaterialUtilizationController.saveMaterialUtilization);
+router.post('/save-material-utilization', MaterialUtilizationController.saveMaterialUtilization);
 module.exports = router;

@@ -2,16 +2,25 @@ const sql = require('mssql');
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
 
+function escapeXml(unsafe) {
+    return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
 exports.getNextUsageRefNo = async (req, res) => {
     const { company } = req.query;
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
     try {
         const result = await pool.request().query('SELECT TOP 1 USAGENO + 1 as USAGENO FROM [PRODUCTION.USAGEHEADER] ORDER BY DATECREATED DESC');
-        res.json({ success: true, usageRefNo: result.recordset[0]?.USAGENO });
+        res.json({ success: true, usageNo: result.recordset[0]?.USAGENO });
     } catch (error) {
-        console.error('Error fetching next usage ref no:', error);
-        res.status(500).json({ success: false, message: error.message || 'Failed to fetch next usage ref no' });
+        console.error('Error fetching next usage no:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to fetch next usage no' });
     }
 }
 
@@ -64,66 +73,123 @@ exports.getItemCode = async (req, res) => {
 }
 
 exports.saveMaterialUtilization = async (req, res) => {
-    const { company } = req.query;
-    const dbName = getCompanyDbName(company);
-    const pool = await getPool(dbName);
-
-    const { usageDate, usageRefNo, machineLineName, shift, feedType, variant, formulationNo, batchNo, remarks, validatedBy, weighedBy, details } = req.body;
-
-    const headerQuery = `INSERT INTO [PRODUCTION.USAGEHEADER] (USAGENO, USAGEDATE, MACHINELINE, SHIFT, FEEDTYPE, VARIANT, FORMULATIONNO, BATCHNO, REMARKS, VALIDATEDBY, WEIGHEDBY, POSTSTATUS, DATECREATED)
-                     VALUES (@usageRefNo, @usageDate, @machineLineName, @shift, @feedType, @variant, @formulationNo, @batchNo, @remarks, @validatedBy, @weighedBy, 1, GETDATE())`;
-
-    const detailsQuery = `INSERT INTO [PRODUCTION.USAGEDETAILS] (USAGENO, ITEMNO, REQUIREDWEIGHT, WEIGHTLOADED, PROCESSTYPE, RANDOMSAMPLED, QANAME, DATECREATED)
-                      VALUES (@usageRefNo, @itemNo, @requiredWeight, @weightLoaded, @processType, @randomSampled, @qaName, GETDATE())`;
-
-    const transaction = new sql.Transaction(pool);
     try {
-        await transaction.begin();
+        const { company } = req.query;
 
-        const headerRequest = new sql.Request(transaction);
-        await headerRequest
-            .input('usageRefNo', usageRefNo)
-            .input('usageDate', usageDate)
-            .input('machineLineName', machineLineName)
-            .input('shift', shift)
-            .input('feedType', feedType)
-            .input('variant', variant)
-            .input('formulationNo', formulationNo)
-            .input('batchNo', batchNo)
-            .input('remarks', remarks || '')
-            .input('validatedBy', validatedBy)
-            .input('weighedBy', weighedBy)
-            .query(headerQuery);
+        const dbName = getCompanyDbName(company);
+        const pool = await getPool(dbName);
 
-        for (const detailItem of details) {
-            const detailsRequest = new sql.Request(transaction);
-            await detailsRequest
-                .input('usageRefNo', usageRefNo)
-                .input('itemNo', detailItem.itemNo)
-                .input('requiredWeight', detailItem.requiredWeight)
-                .input('weightLoaded', detailItem.weightLoaded)
-                .input('processType', detailItem.processType)
-                .input('randomSampled', detailItem.randomSampled ? 1 : 0)
-                .input('qaName', detailItem.qaName || '')
-                .query(detailsQuery);
+        const { usageDate, usageNo, usageRefNo, machineLineName, shift,
+                feedType, variant, formulationNo, batchNo, remarks,
+                validatedBy, weighedBy, user, details } = req.body;
+            
+
+        /* =====================================================
+           VALIDATION
+           ===================================================== */
+           
+        if (!details || !Array.isArray(details) || details.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Material utilization details are required.'
+            });
         }
 
-        await transaction.commit();
-        res.json({
+
+        /* =====================================================
+           BUILD XML
+           ===================================================== */
+
+        const detailsXml = `
+            <Details>
+                ${details.map(detail => `
+                    <Detail>
+                        <itemNo>${escapeXml(detail.itemNo)}</itemNo>
+                        <requiredWeight>${Number(detail.requiredWeight) || 0}</requiredWeight>
+                        <weightLoaded>${Number(detail.weightLoaded) || 0}</weightLoaded>
+                        <processType>${escapeXml(detail.processType)}</processType>
+                        <randomSampled>${Number(detail.randomSampled) || 0}</randomSampled>
+                        <qaName>${escapeXml(detail.qaName || '')}</qaName>
+                        <remarks>${escapeXml(detail.remarks || '')}</remarks>
+                    </Detail>
+                `).join('')}
+            </Details>
+        `;
+
+
+        /* =====================================================
+           STORED PROCEDURE
+           ===================================================== */
+
+        const request = pool.request();
+
+        request.input('UsageNo', Number(usageNo));
+        request.input('UsageDate', usageDate);
+        request.input('UsageRefNo', usageRefNo || null);
+        request.input('MachineLineName', machineLineName);
+        request.input('Shift', shift);
+        request.input('FeedType', feedType);
+        request.input('Variant', variant);
+        request.input('FormulationNo', formulationNo);
+        request.input('BatchNo', batchNo);
+        request.input('Remarks', remarks || '' );
+        request.input('ValidatedBy', validatedBy || null );
+        request.input('WeighedBy', weighedBy || null);
+        request.input('CreatedBy', user);
+        request.input('Details', sql.Xml, detailsXml);
+
+
+        const result = await request.execute(
+            '[2026.spProducationMaterialUtilizationSave]'
+        );
+
+
+        /* =====================================================
+           RESULT
+           ===================================================== */
+
+        const resultData = result.recordset?.[0];
+
+        if (!resultData) {
+            return res.status(500).json({
+                success: false,
+                message: 'No response received from stored procedure.'
+            });
+        }
+
+        if (!resultData.Success) {
+            console.error(
+                'Material utilization SQL error:',
+                resultData
+            );
+
+            return res.status(500).json({
+                success: false,
+                message: resultData.Message ||
+                    'Failed to save material utilization.'
+            });
+        }
+
+
+        return res.json({
             success: true,
-            message: 'Material utilization saved successfully',
-            usageRefNo: usageRefNo
+            message: resultData.Message,
+            usageNo: resultData.UsageNo,
+            usageRefNo: resultData.UsageRefNo
         });
-    } catch (error) {
-        try {
-            if (transaction.active) {
-                await transaction.rollback();
-            }
-        } catch (rollbackError) {
-            console.error('Rollback failed:', rollbackError);
-        }
-        console.error('saveMaterialUtilization failed:', error);
-        res.status(500).json({ success: false, message: error.message || 'Failed to save material utilization' });
-    }
-}
 
+    } catch (error) {
+
+        console.error(
+            'saveMaterialUtilization failed:',
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                error.message ||
+                'Failed to save material utilization.'
+        });
+    }
+};

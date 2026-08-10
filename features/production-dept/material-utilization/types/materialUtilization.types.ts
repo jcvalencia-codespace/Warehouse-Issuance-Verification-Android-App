@@ -1,6 +1,6 @@
 export interface MaterialUtilizationFormData {
   usageDate: string;
-  usageRefNo: string;
+  usageNo: string;
   machineLineName: string;
   shift: string;
   feedType: string;
@@ -19,13 +19,14 @@ export interface MaterialUtilizationLineItem {
   requiredWeight: number;
   weightLoaded: number;
   processType: 'Prepared and Loaded' | 'Oil';
-  randomSampled: boolean;
+  randomSampled: number;
   qaName: string;
+  remarks: string;
 }
 
 export interface MaterialUtilizationPayload {
   usageDate: string;
-  usageRefNo: string;
+  usageNo: string;
   machineLineName: string;
   shift: string;
   feedType: string;
@@ -35,13 +36,14 @@ export interface MaterialUtilizationPayload {
   remarks: string;
   validatedBy: string;
   weighedBy: string;
+  user:string;
   details: MaterialUtilizationLineItem[];
 }
 
 export interface MaterialUtilizationPostResponse {
   success: boolean;
   message?: string;
-  usageRefNo?: string;
+  usageNo?: string;
 }
 
 export interface FormulationMaterial {
@@ -66,7 +68,7 @@ export interface FeedTypeVariantRow {
 export interface MaterialUtilizationHeaderRef {
   submit: () => void;
   clear: () => void;
-  refreshUsageRefNo: () => Promise<void>;
+  refreshusageNo: () => Promise<void>;
   setField: (field: keyof MaterialUtilizationFormData, value: string) => void;
   getField: (field: keyof MaterialUtilizationFormData) => string;
 }

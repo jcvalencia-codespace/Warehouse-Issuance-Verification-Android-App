@@ -1,8 +1,9 @@
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { SuccessModal } from '@/components/SuccessModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -14,9 +15,9 @@ import {
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialUtilizationService } from './services/materialUtilizationService';
 import { MaterialUtilizationDetails, MaterialUtilizationDetailsRef } from './components/MaterialUtilizationDetails';
 import { MaterialUtilizationHeader, MaterialUtilizationHeaderRef } from './components/MaterialUtilizationHeader';
+import { MaterialUtilizationService } from './services/materialUtilizationService';
 import { MaterialUtilizationFormData, MaterialUtilizationLineItem, MaterialUtilizationPayload } from './types/materialUtilization.types';
 
 interface MaterialUtilizationScreenProps {
@@ -38,12 +39,16 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
   const [pendingHeader, setPendingHeader] = useState<MaterialUtilizationFormData | null>(null);
   const [items, setItems] = useState<MaterialUtilizationLineItem[]>([]);
 
+  const [successVisible, setSuccessVisible] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
   const handleClear = () => {
     setClearConfirmVisible(true);
   };
 
-  const handleConfirmClear = () => {
+  const handleConfirmClear = async () => {
     headerRef.current?.clear();
+    await headerRef.current?.refreshusageNo();
     detailsRef.current?.clear();
     setItems([]);
     setClearConfirmVisible(false);
@@ -64,7 +69,7 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
     try {
       const basePayload: MaterialUtilizationPayload = {
         usageDate: pendingHeader.usageDate,
-        usageRefNo: pendingHeader.usageRefNo,
+        usageNo: pendingHeader.usageNo,
         machineLineName: pendingHeader.machineLineName,
         shift: pendingHeader.shift,
         feedType: pendingHeader.feedType,
@@ -74,6 +79,7 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         remarks: pendingHeader.remarks,
         validatedBy: pendingHeader.validatedBy,
         weighedBy: pendingHeader.weighedBy,
+        user: user?.NAME || '',
         details: items,
       };
 
@@ -83,28 +89,26 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
       );
 
       if (result.success) {
-        Alert.alert(
-          'Success',
-          `Material utilization saved successfully.\nRef No.: ${result.usageRefNo || pendingHeader.usageRefNo}`,
-          [
-              {
-                text: 'OK',
-                onPress: () => {
-                  setConfirmVisible(false);
-                  setPendingHeader(null);
-                  setItems([]);
-                  headerRef.current?.clear();
-                  detailsRef.current?.clear();
-                },
-              },
-          ]
-        );
+        setConfirmVisible(false);
+        setSuccessMessage(result.message || 'Material utilization saved successfully.');
+        setPendingHeader((prev) => prev ? { ...prev, usageNo: result.usageNo || prev.usageNo } : prev);
+        setSuccessVisible(true);
       } else {
         Alert.alert('Error', result.message || 'Failed to submit material utilization.');
       }
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to submit material utilization.');
     }
+  };
+
+  const handleDone = async () => {
+    setSuccessVisible(false);
+    setSuccessMessage('');
+    setPendingHeader(null);
+    setItems([]);
+    headerRef.current?.clear();
+    await headerRef.current?.refreshusageNo();
+    detailsRef.current?.clear();
   };
 
   return (
@@ -204,6 +208,14 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         confirmText="Clear"
         onConfirm={handleConfirmClear}
         onCancel={() => setClearConfirmVisible(false)}
+      />
+
+      <SuccessModal
+        visible={successVisible}
+        title="Success"
+        message={successMessage}
+        buttonText="Done"
+        onDone={handleDone}
       />
     </SafeAreaView>
   );

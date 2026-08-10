@@ -219,7 +219,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
 
     const [formData, setFormData] = useState<MaterialUtilizationFormData>({
       usageDate: new Date().toISOString().split('T')[0],
-      usageRefNo: '',
+      usageNo: '',
       machineLineName: '',
       shift: '',
       feedType: '',
@@ -298,9 +298,9 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
     useEffect(() => {
       const fetchNextRefNo = async () => {
         try {
-          const refNos = await MaterialUtilizationService.getInstance().getNextUsageRefNo(user?.COMPANY);
+          const refNos = await MaterialUtilizationService.getInstance().getNextusageNo(user?.COMPANY);
           if (refNos && refNos.length > 0) {
-            setFormData((prev) => ({ ...prev, usageRefNo: refNos[0] }));
+            setFormData((prev) => ({ ...prev, usageNo: refNos[0] }));
           }
         } catch (error) {
           console.error('Failed to fetch next usage ref no:', error);
@@ -312,7 +312,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
     const handleSubmit = () => {
       const required: { field: keyof MaterialUtilizationFormData; label: string }[] = [
         { field: 'usageDate', label: 'Usage Date' },
-        { field: 'usageRefNo', label: 'Usage Ref. No.' },
+        { field: 'usageNo', label: 'Usage Ref. No.' },
         { field: 'machineLineName', label: 'Machine Line Name' },
         { field: 'shift', label: 'Shift' },
         { field: 'feedType', label: 'Feed Type' },
@@ -346,7 +346,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
       clear: () => {
         setFormData({
           usageDate: new Date().toISOString().split('T')[0],
-          usageRefNo: '',
+          usageNo: '',
           machineLineName: '',
           shift: '',
           feedType: '',
@@ -359,11 +359,11 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
         });
         setErrors({});
       },
-      refreshUsageRefNo: async () => {
+      refreshusageNo: async () => {
         try {
-          const refNos = await MaterialUtilizationService.getInstance().getNextUsageRefNo(user?.COMPANY);
+          const refNos = await MaterialUtilizationService.getInstance().getNextusageNo(user?.COMPANY);
           if (refNos && refNos.length > 0) {
-            setFormData((prev) => ({ ...prev, usageRefNo: refNos[0] }));
+            setFormData((prev) => ({ ...prev, usageNo: refNos[0] }));
           }
         } catch (error) {
           console.error('Failed to refresh usage ref no:', error);
@@ -457,13 +457,13 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
                   style={styles.inputIcon}
                 />
                 <Text style={[styles.readOnlyText, { color: colors.text }]}>
-                  {formData.usageRefNo || 'Fetching...'}
+                  PMU-{formData.usageNo || 'Fetching...'}
                 </Text>
               </View>
-              {errors.usageRefNo ? (
+              {errors.usageNo ? (
                 <View style={styles.errorContainer}>
                   <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.usageRefNo}</Text>
+                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.usageNo}</Text>
                 </View>
               ) : null}
             </View>
@@ -585,7 +585,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
                 ]}
               >
                 <MaterialCommunityIcons
-                  name="package-variant"
+                  name="numeric"
                   size={20}
                   color={colors.textSecondary}
                   style={styles.inputIcon}
@@ -595,6 +595,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
                   value={formData.batchNo}
                   placeholder="Enter batch no."
                   placeholderTextColor={colors.textTertiary}
+                  keyboardType="numeric"
                   onChangeText={(text) => updateField('batchNo', text)}
                 />
               </View>
@@ -783,7 +784,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    paddingVertical: 0,
+    paddingVertical: 6,
   },
   readOnlyText: {
     flex: 1,
