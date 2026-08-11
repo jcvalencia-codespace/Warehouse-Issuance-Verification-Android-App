@@ -89,7 +89,11 @@ export function useLogin(): UseLoginReturn {
       if (user) {
         setUser(user);
         
-        const homeRoute = user.DEPTCODE === 'PAWHSP' ? '/(tabs)/supplies-dept' : '/(tabs)';
+        const homeRoute = user.DEPTCODE === 'OPPROD'
+          ? '/(tabs)/production-dept'
+          : user.DEPTCODE === 'PAWHSP'
+          ? '/(tabs)/supplies-dept'
+          : '/(tabs)';
         router.replace(homeRoute);
 
         showModal('Success', 'Login successful!', 'success');

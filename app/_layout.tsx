@@ -38,16 +38,16 @@ function RootLayoutNav() {
         setInitProgress(10);
         await new Promise(resolve => setTimeout(resolve, 400));
         setInitProgress(30);
-        
+
         await new Promise(resolve => setTimeout(resolve, 300));
         setInitProgress(50);
-        
+
         await new Promise(resolve => setTimeout(resolve, 200));
         setInitProgress(70);
-        
+
         await new Promise(resolve => setTimeout(resolve, 200));
         setInitProgress(100);
-        
+
         setIsAppReady(true);
       } catch {
         setIsAppReady(true);
@@ -66,14 +66,17 @@ function RootLayoutNav() {
   useEffect(() => {
     // Don't navigate until component is mounted and app is ready
     if (!isMounted || !isAppReady) return;
-    
+
     const inAuthGroup = segments[0] === 'auth';
-    
+
     if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to login if not authenticated and not already on auth page
       router.replace('/auth');
     } else if (isAuthenticated && inAuthGroup) {
-      const homeRoute = user?.DEPTCODE === 'PAWHSP' ? '/(tabs)/supplies-dept' : '/(tabs)';
+      const homeRoute = user?.DEPTCODE === 'OPPROD'
+        ? '/(tabs)/production-dept'
+        : user?.DEPTCODE === 'PAWHSP'
+        ? '/(tabs)/supplies-dept'
+        : '/(tabs)';
       router.replace(homeRoute);
     }
   }, [isAuthenticated, segments, router, isMounted, isAppReady, user?.DEPTCODE]);
@@ -125,11 +128,11 @@ function RootLayoutNav() {
           >
             <Stack.Screen name="auth" options={{ animation: 'fade' }} />
             <Stack.Screen name="(tabs)" />
-            
+
             {/**RM ROUTE */}
             <Stack.Screen name="raw-materials-dept/material-issuance-confirmation" options={{ title: 'Material Issuance Confirmation' }} />
-            <Stack.Screen name="raw-materials-dept/posted-warehouse-confirmation" 
-              options={{ title: 'Posted Warehouse Confirmation' }} 
+            <Stack.Screen name="raw-materials-dept/posted-warehouse-confirmation"
+              options={{ title: 'Posted Warehouse Confirmation' }}
             />
             <Stack.Screen name="raw-materials-dept/issuance-verification" options={{ title: 'Issuance Verification' }} />
             <Stack.Screen name="raw-materials-dept/pending-warehouse-confirmation" options={{ title: 'Pending Warehouse Confirmation' }} />
@@ -143,7 +146,7 @@ function RootLayoutNav() {
             <Stack.Screen name="production-dept/material-issuance-confirmation" options={{ title: 'Material Issuance Confirmation' }} />
             <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
             <Stack.Screen name="coming-soon" options={{ title: 'Coming Soon' }} />
-            
+
           </Stack>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <NotificationPopUp />

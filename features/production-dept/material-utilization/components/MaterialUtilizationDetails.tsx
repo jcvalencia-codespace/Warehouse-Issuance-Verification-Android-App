@@ -5,6 +5,7 @@ import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verificat
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   StyleSheet,
@@ -16,6 +17,7 @@ import {
 } from 'react-native';
 import { ItemCodeModal } from '../../../../components/ItemCodeModal';
 import { MaterialUtilizationService } from '../services/materialUtilizationService';
+import { MaterialUtilizationTagService } from '../../material-utilization-tag/services/materialUtilizationTagService';
 import {
   DropdownOption,
   MaterialUtilizationDetailsRef,
@@ -51,12 +53,33 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
     const [barcodeScannerVisible, setBarcodeScannerVisible] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [tagEnabled, setTagEnabled] = useState(false);
+    const [allocationData, setAllocationData] = useState<any[]>([]);
+    const [loadingAllocation, setLoadingAllocation] = useState(false);
+    const [tagLoading, setTagLoading] = useState(true);
 
     const selectedItem = itemCodeOptions.find((o) => o.value === selectedItemCode);
 
+    const loadTagStatus = async () => {
+      setTagLoading(true);
+      try {
+        const tags = await MaterialUtilizationTagService.getInstance().getTag(user?.COMPANY);
+        if (tags && tags.length > 0) {
+          setTagEnabled(Boolean(tags[0].IS_TAGGED_IN_QM4D));
+        }
+      } catch (error) {
+        console.error('Failed to load tag status:', error);
+      } finally {
+        setTagLoading(false);
+      }
+    };
+
     useEffect(() => {
-      loadItemCodes();
-    }, []);
+      if (user?.COMPANY) {
+        loadItemCodes();
+        loadTagStatus();
+      }
+    }, [user?.COMPANY]);
 
     useEffect(() => {
       if (value !== undefined) {
@@ -67,8 +90,28 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     useEffect(() => {
       if (items.length > 0) {
         setRequiredError(false);
+        if (tagEnabled) {
+          fetchAllocation(items[items.length - 1].itemNo, items[items.length - 1].weightLoaded);
+        }
       }
-    }, [items]);
+    }, [items, tagEnabled]);
+
+    const fetchAllocation = async (itemNo: string, weightLoaded: number) => {
+      setLoadingAllocation(true);
+      try {
+        const data = await MaterialUtilizationService.getInstance().getAllocation(
+          user?.COMPANY,
+          itemNo,
+          weightLoaded
+        );
+        setAllocationData(data);
+      } catch (error) {
+        console.error('Failed to fetch allocation:', error);
+        setAllocationData([]);
+      } finally {
+        setLoadingAllocation(false);
+      }
+    };
 
     const loadItemCodes = async () => {
       try {
@@ -335,9 +378,20 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                   <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {selectedItem?.description ? (
-                  <Text style={[styles.materialDescription, { color: colors.textSecondary }]}>
-                    {selectedItem.description}
-                  </Text>
+                  <View
+                    style={[
+                      styles.materialDescriptionContainer,
+                      styles.inputContainer,
+                      {
+                        borderColor: colors.cardBorder,
+                        backgroundColor: colors.cardBackground,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.materialDescription, { color: colors.textSecondary }]}>
+                      {selectedItem.description}
+                    </Text>
+                  </View>
                 ) : null}
                 {errors.material ? (
                   <View style={styles.errorContainer}>
@@ -614,6 +668,38 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
           </View>
         )}
 
+        {tagEnabled && (
+          <View style={styles.allocationSection}>
+            <Text style={[styles.allocationTitle, { color: colors.text }]}>
+              Stock Allocation
+            </Text>
+            {loadingAllocation ? (
+              <ActivityIndicator size="small" color={colors.primary} style={styles.allocationLoading} />
+            ) : allocationData.length > 0 ? (
+              <View style={[styles.allocationTable, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                <View style={[styles.allocationHeader, { borderBottomColor: colors.cardBorder }]}>
+                  <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>LOT NO.</Text>
+                  <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>QTY TRANS</Text>
+                  <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>ALLOCATED</Text>
+                  <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>REMAINING</Text>
+                </View>
+                {allocationData.map((row) => (
+                  <View key={row.QM4DROWID} style={[styles.allocationRow, { borderBottomColor: colors.cardBorder }]}>
+                    <Text style={[styles.allocationCell, { color: colors.text }]}>{row.LOTNUMBER || '—'}</Text>
+                    <Text style={[styles.allocationCell, { color: colors.textSecondary }]}>{row.QUANTITY_TRANS} kg</Text>
+                    <Text style={[styles.allocationCell, { color: colors.success }]}>{row.KGS_ALLOCATED} kg</Text>
+                    <Text style={[styles.allocationCell, { color: colors.text }]}>{row.REMAINING_QTY} kg</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={[styles.allocationEmpty, { color: colors.textSecondary }]}>
+                No allocation data available for the selected item.
+              </Text>
+            )}
+          </View>
+        )}
+
         <ItemCodeModal
           visible={itemModalVisible}
           options={itemCodeOptions}
@@ -706,9 +792,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   materialDescription: {
-    fontSize: 12,
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  materialDescriptionContainer: {
     marginTop: 6,
-    fontStyle: 'italic',
+    paddingHorizontal: 4,
+    height: 56,
+    justifyContent: 'center',
   },
   weightColumn: {
     flex: 1,
@@ -964,5 +1056,53 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     gap: 4,
+  },
+  allocationSection: {
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  allocationTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  allocationLoading: {
+    marginTop: 16,
+    alignSelf: 'center',
+  },
+  allocationTable: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  allocationHeader: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  allocationHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    flex: 1,
+    textAlign: 'center',
+  },
+  allocationRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  allocationCell: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'center',
+  },
+  allocationEmpty: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });

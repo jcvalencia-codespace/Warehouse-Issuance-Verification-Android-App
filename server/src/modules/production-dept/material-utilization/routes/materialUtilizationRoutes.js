@@ -4,7 +4,9 @@ const MaterialUtilizationController = require('../controller/materialUtilization
 
 router.get('/get-next-usage-ref-no', MaterialUtilizationController.getNextUsageRefNo);
 router.get('/get-machine-lines', MaterialUtilizationController.getMachineLines);
-router.get('/get-feed-types-and-variant', MaterialUtilizationController.getFeedTypesAndVariant);
+router.get('/get-feed-types', MaterialUtilizationController.getFeedTypes);
+router.get('/get-variants-by-feed-type', MaterialUtilizationController.getVariantsByFeedType);
 router.get('/get-item-code', MaterialUtilizationController.getItemCode);
+router.get('/get-allocation', MaterialUtilizationController.getAllocation);
 router.post('/save-material-utilization', MaterialUtilizationController.saveMaterialUtilization);
 module.exports = router;

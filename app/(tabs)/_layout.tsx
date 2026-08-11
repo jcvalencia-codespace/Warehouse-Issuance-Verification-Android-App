@@ -177,6 +177,10 @@ export default function TabLayout() {
                 e.preventDefault();
                 handleIndexChange(1);
                 router.push('/(tabs)/supplies-dept');
+              } else if (user?.DEPTCODE === 'OPPROD') {
+                e.preventDefault();
+                handleIndexChange(1);
+                router.push('/(tabs)/production-dept');
               } else {
                 handleIndexChange(1);
               }

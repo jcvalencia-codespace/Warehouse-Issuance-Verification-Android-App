@@ -3,8 +3,9 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  FlatList,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,7 +16,6 @@ import {
 import { MaterialUtilizationService } from '../services/materialUtilizationService';
 import {
   DropdownOption,
-  FeedTypeVariantRow,
   MaterialUtilizationFormData,
   MaterialUtilizationHeaderRef,
 } from '../types/materialUtilization.types';
@@ -41,6 +41,7 @@ type DropdownProps = FieldBaseProps & {
   error?: string;
   searchable?: boolean;
   disabled?: boolean;
+  loading?: boolean;
 };
 
 interface MaterialUtilizationHeaderProps {
@@ -58,6 +59,7 @@ function Dropdown({
   colors,
   searchable = true,
   disabled = false,
+  loading = false,
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
@@ -116,22 +118,39 @@ function Dropdown({
           ]}
           onPress={toggle}
           activeOpacity={0.7}
-          disabled={disabled}
+          disabled={disabled || loading}
         >
-          <Text
-            style={[
-              styles.dropdownText,
-              { color: selected ? colors.text : colors.textTertiary },
-            ]}
-            numberOfLines={1}
-          >
-            {selected ? selected.label : placeholder}
-          </Text>
-          <MaterialCommunityIcons
-            name={open ? 'chevron-up' : 'chevron-down'}
-            size={22}
-            color={colors.textSecondary}
-          />
+          {loading ? (
+            <View style={styles.dropdownLoadingContent}>
+              <ActivityIndicator size="small" color={colors.primary} style={styles.inputIcon} />
+              <Text
+                style={[
+                  styles.dropdownText,
+                  { color: selected ? colors.text : colors.textTertiary },
+                ]}
+                numberOfLines={1}
+              >
+                {selected ? selected.label : placeholder}
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Text
+                style={[
+                  styles.dropdownText,
+                  { color: selected ? colors.text : colors.textTertiary },
+                ]}
+                numberOfLines={1}
+              >
+                {selected ? selected.label : placeholder}
+              </Text>
+              <MaterialCommunityIcons
+                name={open ? 'chevron-up' : 'chevron-down'}
+                size={22}
+                color={colors.textSecondary}
+              />
+            </>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -167,36 +186,37 @@ function Dropdown({
                 )}
               </View>
             )}
-            <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
-              {filteredOptions.length > 0 ? (
-                filteredOptions.map((option, index) => (
-                  <TouchableOpacity
-                    key={`${option.value}-${index}`}
-                    style={styles.dropdownOption}
-                    onPress={() => handleSelect(option.value)}
+            <FlatList
+              data={filteredOptions}
+              keyExtractor={(item, index) => `${item.value}-${index}`}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.dropdownOption}
+                  onPress={() => handleSelect(item.value)}
+                >
+                  <Text
+                    style={[styles.dropdownOptionText, { color: colors.text }]}
                   >
-                    <Text
-                      style={[styles.dropdownOptionText, { color: colors.text }]}
-                    >
-                      {option.label}
-                    </Text>
-                    {value === option.value && (
-                      <MaterialCommunityIcons
-                        name="check"
-                        size={20}
-                        color={colors.primary}
-                      />
-                    )}
-                  </TouchableOpacity>
-                ))
-              ) : (
+                    {item.label}
+                  </Text>
+                  {value === item.value && (
+                    <MaterialCommunityIcons
+                      name="check"
+                      size={20}
+                      color={colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
                 <View style={styles.dropdownEmpty}>
                   <Text style={[styles.dropdownOptionText, { color: colors.textSecondary }]}>
                     No results found
                   </Text>
                 </View>
-              )}
-            </ScrollView>
+              }
+              style={styles.dropdownScrollView}
+            />
           </View>
         </TouchableOpacity>
       </Modal>
@@ -236,7 +256,8 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
     const [machineLineOptions, setMachineLineOptions] = useState<DropdownOption[]>([]);
     const [feedTypeOptions, setFeedTypeOptions] = useState<DropdownOption[]>([]);
     const [variantOptions, setVariantOptions] = useState<DropdownOption[]>([]);
-    const [feedTypeVariantRows, setFeedTypeVariantRows] = useState<FeedTypeVariantRow[]>([]);
+    const [loadingFeedTypes, setLoadingFeedTypes] = useState(true);
+    const [loadingVariants, setLoadingVariants] = useState(false);
 
     const updateField = (field: keyof MaterialUtilizationFormData, value: string) => {
       setFormData((prev) => ({ ...prev, [field]: value }));
@@ -258,42 +279,52 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
       }
     }, [user?.COMPANY]);
 
-    const fetchFeedTypesAndVariants = useCallback(async () => {
+    const fetchFeedTypes = useCallback(async () => {
+      setLoadingFeedTypes(true);
       try {
-        const rows = await MaterialUtilizationService.getInstance().getFeedTypesAndVariant(user?.COMPANY);
-        setFeedTypeVariantRows(rows);
-
-        const uniqueFeedTypes = Array.from(
-          new Map(rows.map((row) => [row.ITEMNMBR, row])).values()
-        ).map((row) => ({
-          label: row.ITEMDESC ? `${row.ITEMNMBR} - ${row.ITEMDESC}` : row.ITEMNMBR,
-          value: row.ITEMNMBR,
-        }));
-        setFeedTypeOptions(uniqueFeedTypes);
+        const options = await MaterialUtilizationService.getInstance().getFeedTypes(user?.COMPANY);
+        setFeedTypeOptions(options);
       } catch (error) {
-        console.error('Failed to fetch feed types and variants:', error);
+        console.error('Failed to fetch feed types:', error);
+      } finally {
+        setLoadingFeedTypes(false);
       }
     }, [user?.COMPANY]);
 
-    useEffect(() => {
-      fetchMachineLines();
-      fetchFeedTypesAndVariants();
-    }, [fetchMachineLines, fetchFeedTypesAndVariants]);
+    const fetchVariants = useCallback(
+      async (itemNmbr: string) => {
+        if (!itemNmbr) {
+          setVariantOptions([]);
+          return;
+        }
+        setLoadingVariants(true);
+        try {
+          const options = await MaterialUtilizationService.getInstance().getVariantsByFeedType(
+            user?.COMPANY,
+            itemNmbr
+          );
+          setVariantOptions(options);
+        } catch (error) {
+          console.error('Failed to fetch variants:', error);
+        } finally {
+          setLoadingVariants(false);
+        }
+      },
+      [user?.COMPANY]
+    );
 
     useEffect(() => {
-      if (formData.feedType && feedTypeVariantRows.length > 0) {
-        const variantRows = feedTypeVariantRows.filter((row) => row.ITEMNMBR === formData.feedType);
-        const uniqueVariants = Array.from(
-          new Map(variantRows.map((row) => [row.VARIANTCODE, row])).values()
-        ).map((row) => ({
-          label: row.VARIANTCODE,
-          value: row.VARIANTCODE,
-        }));
-        setVariantOptions(uniqueVariants);
+      fetchMachineLines();
+      fetchFeedTypes();
+    }, [fetchMachineLines, fetchFeedTypes]);
+
+    useEffect(() => {
+      if (formData.feedType) {
+        fetchVariants(formData.feedType);
       } else {
         setVariantOptions([]);
       }
-    }, [formData.feedType, feedTypeVariantRows]);
+    }, [formData.feedType, fetchVariants]);
 
     useEffect(() => {
       const fetchNextRefNo = async () => {
@@ -505,13 +536,15 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
               placeholder="Select feed type"
               value={formData.feedType}
               options={feedTypeOptions}
-              onSelect={(v) => {
-                updateField('feedType', v);
-                updateField('variant', '');
-                updateField('formulationNo', '');
-              }}
+               onSelect={(v) => {
+                 updateField('feedType', v);
+                 updateField('variant', '');
+                 updateField('formulationNo', '');
+                 fetchVariants(v);
+               }}
               error={errors.feedType}
               colors={colors}
+              loading={loadingFeedTypes}
             />
           </View>
           <View style={styles.halfWidth}>
@@ -525,9 +558,10 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
                 updateField('variant', v);
                 updateField('formulationNo', '');
               }}
-              error={errors.variant}
+               error={errors.variant}
               colors={colors}
               disabled={!formData.feedType}
+              loading={loadingVariants}
             />
           </View>
         </View>
@@ -814,6 +848,11 @@ const styles = StyleSheet.create({
   },
   dropdownScrollView: {
     maxHeight: 220,
+  },
+  dropdownLoadingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   dropdownSearchContainer: {
     flexDirection: 'row',

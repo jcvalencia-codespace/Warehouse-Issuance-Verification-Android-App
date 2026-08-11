@@ -3,7 +3,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { ModuleCardData, ModuleGrid } from '@/features/raw-materials-dept/home/components/ModuleCard';
 import { WarehouseHeader } from '@/features/raw-materials-dept/home/components/WarehouseHeader';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,6 +29,13 @@ const PRODUCTION_MODULES: ModuleCardData[] = [
     icon: 'chart-box-outline',
     color: 'success',
   },
+  {
+    id: 'material-utilization-tag',
+    title: 'Material Utilization Tag',
+    description: 'Manage function for material utilization',
+    icon: 'tag-outline',
+    color: 'info',
+  },
 ];
 
 interface ProductionDeptHomeScreenProps {
@@ -46,11 +53,16 @@ export function ProductionDeptHomeScreen({
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const isTablet = false;
-  const { user } = useAuth();
+   const { user, isAdmin } = useAuth();
 
   const [displayUserName, setDisplayUserName] = useState(userName);
   const [displayUserDepartment, setDisplayUserDepartment] = useState(userDepartment);
-
+  const filteredModules = useMemo(() => {
+    if (isAdmin) {
+      return PRODUCTION_MODULES;
+    }
+    return PRODUCTION_MODULES.filter(module => module.id !== 'material-utilization-tag');
+  }, [isAdmin]);
   useEffect(() => {
     if (user) {
       setDisplayUserName(user.NAME || user.USERNAME || 'Warehouse Operator');
@@ -105,7 +117,7 @@ export function ProductionDeptHomeScreen({
               </Text>
             </View>
             <ModuleGrid
-              modules={PRODUCTION_MODULES.map(module => ({
+              modules={filteredModules.map(module => ({
                 ...module,
                 color: getModuleColor(module.color || 'primary'),
               }))}

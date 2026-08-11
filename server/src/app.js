@@ -70,6 +70,7 @@ const forkliftOperatorRoutes = require('./modules/raw-materials-dept/forklift-op
 const materialIssuanceRoutes = require('./modules/production-dept/material-issuance/routes/materialIssuanceRoutes');
 const materialIssuanceConfirmationRoutes = require('./modules/raw-materials-dept/material-issuance-confirmation/routes/materialIssuanceConfirmationRoutes');
 const materialUtilizationRoutes = require('./modules/production-dept/material-utilization/routes/materialUtilizationRoutes');
+const materialUtilizationTagRoutes = require('./modules/production-dept/material-utilization-tag/routes/materialUtilizationTagRoutes');
 const notificationRoutes = require('./modules/notification/routes/notificationRoutes');
 const warehouseController = require('./modules/raw-materials-dept/warehouse/controllers/warehouseController');
 const AuthController = require('./modules/auth/controllers/authController');
@@ -86,6 +87,7 @@ app.use('/forklift-operators', forkliftOperatorRoutes);
 app.use('/production-dept/material-issuance', materialIssuanceRoutes);
 app.use('/raw-materials-dept/material-issuance-confirmation', materialIssuanceConfirmationRoutes);
 app.use('/production-dept/material-utilization', materialUtilizationRoutes);
+app.use('/production-dept/material-utilization-tag', materialUtilizationTagRoutes);
 app.use('/notification', notificationRoutes);
 
 // Stock balance endpoint (direct route)

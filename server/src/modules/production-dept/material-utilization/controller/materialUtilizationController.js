@@ -36,19 +36,39 @@ exports.getMachineLines = async (req, res) => {
     }
 }
 
-exports.getFeedTypesAndVariant = async (req, res) => {
+exports.getFeedTypes = async (req, res) => {
     const { company } = req.query;
     const pool = await getPool(getCompanyDbName(company));
     try {
-        const result = await pool.request().query(`SELECT [SALES.VARIANTITEM].ITEMNMBR, RTRIM(IV00101.ITEMDESC) AS ITEMDESC, [SALES.VARIANTITEM].VARIANTCODE, [SALES.VARIANTITEM].KGSPERBAG
-                                                    FROM [SALES.VARIANTITEM] INNER JOIN
-                                                    IV00101 ON [SALES.VARIANTITEM].ITEMNMBR = IV00101.ITEMNMBR
-                                                    WHERE [SALES.VARIANTITEM].IS_ACTIVE = 1
-                                                    ORDER BY [SALES.VARIANTITEM].ITEMNMBR, [SALES.VARIANTITEM].VARIANTCODE`);
-        res.json({ success: true, feedTypes: result.recordset });
+        const result = await pool.request().query(`SELECT DISTINCT U.ITEMNMBR, ITEMDESC
+                                                    FROM [SALES.VARIANTITEM] AS U
+                                                    INNER JOIN IV00101 AS I ON U.ITEMNMBR = I.ITEMNMBR
+                                                    WHERE U.IS_ACTIVE = 1
+                                                    ORDER BY U.ITEMNMBR`);
+        const data = result.recordset.map(r => ({ ITEMNMBR: r.ITEMNMBR, ITEMDESC: r.ITEMDESC ? r.ITEMDESC.trimEnd() : r.ITEMDESC }));
+        res.json({ success: true, data });
+        console.log('total feed types:', data.length);
     } catch (error) {
         console.error('Error fetching feed types:', error);
         res.status(500).json({ success: false, message: error.message || 'Failed to fetch feed types' });
+    }
+}
+
+exports.getVariantsByFeedType = async (req, res) => {
+    const { company } = req.query;
+    const { feedType } = req.query;
+    const pool = await getPool(getCompanyDbName(company));
+    try {
+        const result = await pool.request()
+            .input('ItemNmbr', feedType)
+            .query(`SELECT VARIANTCODE, KGSPERBAG
+                    FROM [SALES.VARIANTITEM]
+                    WHERE IS_ACTIVE = 1 AND ITEMNMBR = @ItemNmbr
+                    ORDER BY VARIANTCODE`);
+        res.json({ success: true, data: result.recordset });
+    } catch (error) {
+        console.error('Error fetching variants:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to fetch variants' });
     }
 }
 
@@ -72,6 +92,51 @@ exports.getItemCode = async (req, res) => {
 
 }
 
+exports.getAllocation = async (req, res) => {
+    const { company, itemNo, kgsUsed } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    try {
+        const allocationQuery = `
+            WITH Stock AS
+            (
+                SELECT
+                    QM4D.QM4DROWID, QM4D.FROMISSUANCENOID, QM4D.LOTNUMBER, QM4D.QUANTITY_TRANS, QM4D.BAG_TRANS,
+                    QM4D.BAGS_OUT, QM4H.DATERECEIVED,
+                    SUM(QM4D.QUANTITY_TRANS) OVER (ORDER BY QM4H.DATERECEIVED, QM4D.QM4DROWID
+                        ROWS UNBOUNDED PRECEDING) AS RUNNING_QTY
+                FROM [INVENTORY.QUANTITYMASTER4.DETAILS] QM4D
+                INNER JOIN [INVENTORY.QUANTITYMASTER4.HEADER] AS QM4H ON QM4D.TRANSREFNO = QM4H.TRANSREFNO
+                WHERE QM4D.ITEMNMBR = @itemNo
+            ),
+            Allocation AS
+            (
+                SELECT *, CASE
+                    WHEN RUNNING_QTY - QUANTITY_TRANS >= @kgsUsed THEN 0
+                    WHEN RUNNING_QTY >= @kgsUsed THEN @kgsUsed - (RUNNING_QTY - QUANTITY_TRANS)
+                    ELSE QUANTITY_TRANS END AS KGS_ALLOCATED
+                FROM Stock
+            )
+            SELECT QM4DROWID, FROMISSUANCENOID, LOTNUMBER,
+                QUANTITY_TRANS, KGS_ALLOCATED,
+                QUANTITY_TRANS - KGS_ALLOCATED AS REMAINING_QTY
+            FROM Allocation
+            WHERE KGS_ALLOCATED > 0
+            ORDER BY DATERECEIVED, QM4DROWID;`;
+
+        const result = await pool.request()
+            .input('itemNo', sql.VarChar(50), itemNo)
+            .input('kgsUsed', sql.Int, parseInt(kgsUsed, 10) || 0)
+            .query(allocationQuery);
+
+        res.json({ success: true, data: result.recordset });
+    } catch (error) {
+        console.error('Error fetching allocation:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to fetch allocation' });
+    }
+};
+
 exports.saveMaterialUtilization = async (req, res) => {
     try {
         const { company } = req.query;
@@ -80,14 +145,14 @@ exports.saveMaterialUtilization = async (req, res) => {
         const pool = await getPool(dbName);
 
         const { usageDate, usageNo, usageRefNo, machineLineName, shift,
-                feedType, variant, formulationNo, batchNo, remarks,
-                validatedBy, weighedBy, user, details } = req.body;
-            
+            feedType, variant, formulationNo, batchNo, remarks,
+            validatedBy, weighedBy, user, details } = req.body;
+
 
         /* =====================================================
            VALIDATION
            ===================================================== */
-           
+
         if (!details || !Array.isArray(details) || details.length === 0) {
             return res.status(400).json({
                 success: false,
@@ -132,8 +197,8 @@ exports.saveMaterialUtilization = async (req, res) => {
         request.input('Variant', variant);
         request.input('FormulationNo', formulationNo);
         request.input('BatchNo', batchNo);
-        request.input('Remarks', remarks || '' );
-        request.input('ValidatedBy', validatedBy || null );
+        request.input('Remarks', remarks || '');
+        request.input('ValidatedBy', validatedBy || null);
         request.input('WeighedBy', weighedBy || null);
         request.input('CreatedBy', user);
         request.input('Details', sql.Xml, detailsXml);

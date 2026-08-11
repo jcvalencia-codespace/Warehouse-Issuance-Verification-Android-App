@@ -29,6 +29,9 @@ export default function ProductionDeptRoute() {
       case 'material-utilization':
         router.push('/production-dept/material-utilization' as any);
         break;
+      case 'material-utilization-tag':
+        router.push('/production-dept/material-utilization-tag' as any);
+        break;
       default:
         console.log('Module not implemented:', moduleId);
     }
