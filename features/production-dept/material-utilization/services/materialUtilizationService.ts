@@ -83,9 +83,6 @@ export class MaterialUtilizationService {
   }
 
   async getFeedTypes(company?: string): Promise<DropdownOption[]> {
-    if (this.feedTypeCache && this.feedTypeCache.company === company) {
-      return this.feedTypeCache.data;
-    }
     try {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
@@ -99,7 +96,7 @@ export class MaterialUtilizationService {
           label: item.ITEMDESC ? `${item.ITEMNMBR} - ${item.ITEMDESC}` : item.ITEMNMBR,
           value: item.ITEMNMBR,
         }));
-        this.feedTypeCache = { company, data: options };
+
         return options;
       }
       return [];
@@ -173,9 +170,6 @@ export class MaterialUtilizationService {
   }
 
   async getItemCode(company?: string): Promise<DropdownOption[]> {
-    if (this.itemCodeCache && this.itemCodeCache.company === company) {
-      return this.itemCodeCache.data;
-    }
     try {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
@@ -190,7 +184,6 @@ export class MaterialUtilizationService {
           value: item['ITEM CODE'].trim(),
           description: item['ITEM DESCRIPTION'].trim(),
         }));
-        this.itemCodeCache = { company, data: options };
         return options;
       }
       return [];

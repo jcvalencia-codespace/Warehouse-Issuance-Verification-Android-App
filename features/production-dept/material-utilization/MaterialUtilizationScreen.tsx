@@ -81,6 +81,7 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         weighedBy: pendingHeader.weighedBy,
         user: user?.NAME || '',
         details: items,
+        subDetails: detailsRef.current?.getSubDetails() || [],
       };
 
       const result = await MaterialUtilizationService.getInstance().saveMaterialUtilization(

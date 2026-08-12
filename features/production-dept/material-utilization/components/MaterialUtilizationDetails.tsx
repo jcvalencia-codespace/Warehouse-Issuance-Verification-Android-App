@@ -16,12 +16,13 @@ import {
   View,
 } from 'react-native';
 import { ItemCodeModal } from '../../../../components/ItemCodeModal';
-import { MaterialUtilizationService } from '../services/materialUtilizationService';
 import { MaterialUtilizationTagService } from '../../material-utilization-tag/services/materialUtilizationTagService';
+import { MaterialUtilizationService } from '../services/materialUtilizationService';
 import {
   DropdownOption,
   MaterialUtilizationDetailsRef,
   MaterialUtilizationLineItem,
+  MaterialUtilizationSubDetail,
 } from '../types/materialUtilization.types';
 
 export { MaterialUtilizationDetailsRef };
@@ -35,7 +36,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
   ({ value, onItemsChange }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
-    const { user } = useAuth();
+    const { user, isAdmin } = useAuth();
 
     const [itemCodeOptions, setItemCodeOptions] = useState<DropdownOption[]>([]);
     const [selectedItemCode, setSelectedItemCode] = useState('');
@@ -54,8 +55,8 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const [barcodeScannerVisible, setBarcodeScannerVisible] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [tagEnabled, setTagEnabled] = useState(false);
-    const [allocationData, setAllocationData] = useState<any[]>([]);
-    const [loadingAllocation, setLoadingAllocation] = useState(false);
+    const [allocationDataMap, setAllocationDataMap] = useState<Map<string, any[]>>(new Map());
+    const [loadingAllocationMap, setLoadingAllocationMap] = useState<Set<string>>(new Set());
     const [tagLoading, setTagLoading] = useState(true);
 
     const selectedItem = itemCodeOptions.find((o) => o.value === selectedItemCode);
@@ -87,31 +88,49 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       }
     }, [value]);
 
-    useEffect(() => {
-      if (items.length > 0) {
-        setRequiredError(false);
-        if (tagEnabled) {
-          fetchAllocation(items[items.length - 1].itemNo, items[items.length - 1].weightLoaded);
-        }
-      }
-    }, [items, tagEnabled]);
-
-    const fetchAllocation = async (itemNo: string, weightLoaded: number) => {
-      setLoadingAllocation(true);
+    const fetchAllocationForItem = async (itemNo: string, weightLoaded: number, isAdmin: boolean) => {
+      if (!isAdmin) return;
+      const itemKey = `${itemNo}:${weightLoaded}`;
+      if (allocationDataMap.has(itemKey)) return;
+      
+      setLoadingAllocationMap(prev => new Set(prev).add(itemKey));
       try {
         const data = await MaterialUtilizationService.getInstance().getAllocation(
           user?.COMPANY,
           itemNo,
           weightLoaded
         );
-        setAllocationData(data);
+        setAllocationDataMap(prev => {
+          const next = new Map(prev);
+          next.set(itemKey, data);
+          return next;
+        });
       } catch (error) {
         console.error('Failed to fetch allocation:', error);
-        setAllocationData([]);
+        setAllocationDataMap(prev => {
+          const next = new Map(prev);
+          next.set(itemKey, []);
+          return next;
+        });
       } finally {
-        setLoadingAllocation(false);
+        setLoadingAllocationMap(prev => {
+          const next = new Set(prev);
+          next.delete(itemKey);
+          return next;
+        });
       }
     };
+
+    useEffect(() => {
+      if (items.length > 0 && tagEnabled) {
+        setRequiredError(false);
+        items.forEach(item => {
+          if (!allocationDataMap.has(`${item.itemNo}:${item.weightLoaded}`)) {
+            fetchAllocationForItem(item.itemNo, item.weightLoaded, isAdmin ?? false);
+          }
+        });
+      }
+    }, [items, tagEnabled]);
 
     const loadItemCodes = async () => {
       try {
@@ -231,6 +250,33 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
         setRequiredError(false);
         return true;
       },
+      getSubDetails: () => {
+        const allSubDetails: MaterialUtilizationSubDetail[] = [];
+        const validKeys = new Set(
+          items.map(item => `${item.itemNo}:${item.weightLoaded}`)
+        );
+        allocationDataMap.forEach((allocations, itemKey) => {
+          if (!validKeys.has(itemKey)) return;
+          allocations.forEach((row) => {
+            const kgsAllocated = Number(row.KGS_ALLOCATED) || 0;
+            const quantityTrans = Number(row.QUANTITY_TRANS) || 0;
+            const bagTrans = Number(row.BAG_TRANS) || 0;
+            const bagsOut = quantityTrans > 0
+              ? (kgsAllocated / quantityTrans) * bagTrans
+              : 0;
+            allSubDetails.push({
+              pudRowId: 0,
+              qm4dRowId: Number(row.QM4DROWID) || 0,
+              fromIssuanceNoId: Number(row.FROMISSUANCENOID) || 0,
+              itemNo: row.ITEMNMBR || '',
+              lotNumber: row.LOTNUMBER || '',
+              qtyOut: kgsAllocated,
+              bagsOut: bagsOut,
+            });
+          });
+        });
+        return allSubDetails;
+      },
     }));
 
     const renderItem = ({ item, index }: { item: MaterialUtilizationLineItem; index: number }) => {
@@ -271,11 +317,11 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
             </View>
           </View>
 
-          <View style={styles.detailsRow}>
-            <View style={styles.detailItem}>
+           <View style={styles.detailsRow}>
+            {/* <View style={styles.detailItem}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Required Weight</Text>
               <Text style={[styles.detailValue, { color: colors.text }]}>{item.requiredWeight} kg</Text>
-            </View>
+            </View> */}
             <View style={styles.detailItem}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Weight Loaded</Text>
               <Text style={[styles.detailValue, { color: colors.text }]}>{item.weightLoaded} kg</Text>
@@ -298,29 +344,68 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
               <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Random Sampled</Text>
               <View style={[
                 styles.sampledBadge,
-                 { backgroundColor: item.randomSampled === 1 ? colors.success + '20' : colors.textSecondary + '20' }
+                { backgroundColor: item.randomSampled === 1 ? colors.success + '20' : colors.textSecondary + '20' }
               ]}>
                 <Text style={[
                   styles.sampledBadgeText,
-                   { color: item.randomSampled === 1 ? colors.success : colors.textSecondary }
+                  { color: item.randomSampled === 1 ? colors.success : colors.textSecondary }
                 ]}>
-                   {item.randomSampled === 1 ? 'Yes' : 'No'}
+                  {item.randomSampled === 1 ? 'Yes' : 'No'}
                 </Text>
               </View>
             </View>
-             {item.randomSampled === 1 && item.qaName ? (
-               <View style={styles.detailItem}>
-                 <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>QA Name</Text>
-                 <Text style={[styles.detailValue, { color: colors.text }]}>{item.qaName}</Text>
-               </View>
-             ) : null}
-             {item.remarks ? (
-               <View style={styles.detailItem}>
-                 <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Remarks</Text>
-                 <Text style={[styles.detailValue, { color: colors.text }]}>{item.remarks}</Text>
-               </View>
-             ) : null}
-           </View>
+            {item.randomSampled === 1 && item.qaName ? (
+              <View style={styles.detailItem}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>QA Name</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>{item.qaName}</Text>
+              </View>
+            ) : null}
+            {item.remarks ? (
+              <View style={styles.detailItem}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Remarks</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>{item.remarks}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {tagEnabled && isAdmin && (() => {
+            const itemKey = `${item.itemNo}:${item.weightLoaded}`;
+            const itemAllocationData = allocationDataMap.get(itemKey) || [];
+            const isLoading = loadingAllocationMap.has(itemKey);
+            return (
+              <View style={styles.allocationSection}>
+                <Text style={[styles.allocationTitle, { color: colors.text }]}>
+                  Stock Allocation (Admin View Only)
+                </Text>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} style={styles.allocationLoading} />
+                ) : itemAllocationData.length > 0 ? (
+                  <View style={[styles.allocationTable, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                    <View style={[styles.allocationHeader, { borderBottomColor: colors.cardBorder }]}>
+                      {/* <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>ITEM CODE</Text> */}
+                      <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>LOT NO.</Text>
+                      <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>QTY TRANS</Text>
+                      <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>ALLOCATED</Text>
+                      <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>REMAINING</Text>
+                    </View>
+                    {itemAllocationData.map((row) => (
+                      <View key={row.QM4DROWID} style={[styles.allocationRow, { borderBottomColor: colors.cardBorder }]}>
+                        {/* <Text style={[styles.allocationCell, { color: colors.text }]}>{row.ITEMNMBR || '—'}</Text> */}
+                        <Text style={[styles.allocationCell, { color: colors.text }]}>{row.LOTNUMBER || '—'}</Text>
+                        <Text style={[styles.allocationCell, { color: colors.textSecondary }]}>{row.QUANTITY_TRANS} kg</Text>
+                        <Text style={[styles.allocationCell, { color: colors.success }]}>{row.KGS_ALLOCATED} kg</Text>
+                        <Text style={[styles.allocationCell, { color: colors.text }]}>{row.REMAINING_QTY} kg</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={[styles.allocationEmpty, { color: colors.textSecondary }]}>
+                    No allocation data available for the selected item.
+                  </Text>
+                )}
+              </View>
+            );
+           })()}
         </View>
       );
     };
@@ -403,10 +488,10 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
             </View>
 
             <View style={styles.rowContainer}>
-              <View style={styles.weightColumn}>
+              {/* <View style={styles.weightColumn}>
                 <View style={styles.labelRow}>
                   <Text style={[styles.label, { color: colors.text }]}>Required Weight (kg)</Text>
-                </View>
+                </View> 
                 <View
                   style={[
                     styles.inputContainer,
@@ -421,7 +506,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                     {'0.00'}
                   </Text>
                 </View>
-              </View>
+              </View> */}
 
               <View style={styles.weightColumn}>
                 <View style={styles.labelRow}>
@@ -665,38 +750,6 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
               scrollEnabled={false}
               contentContainerStyle={styles.itemsListContent}
             />
-          </View>
-        )}
-
-        {tagEnabled && (
-          <View style={styles.allocationSection}>
-            <Text style={[styles.allocationTitle, { color: colors.text }]}>
-              Stock Allocation
-            </Text>
-            {loadingAllocation ? (
-              <ActivityIndicator size="small" color={colors.primary} style={styles.allocationLoading} />
-            ) : allocationData.length > 0 ? (
-              <View style={[styles.allocationTable, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-                <View style={[styles.allocationHeader, { borderBottomColor: colors.cardBorder }]}>
-                  <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>LOT NO.</Text>
-                  <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>QTY TRANS</Text>
-                  <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>ALLOCATED</Text>
-                  <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>REMAINING</Text>
-                </View>
-                {allocationData.map((row) => (
-                  <View key={row.QM4DROWID} style={[styles.allocationRow, { borderBottomColor: colors.cardBorder }]}>
-                    <Text style={[styles.allocationCell, { color: colors.text }]}>{row.LOTNUMBER || '—'}</Text>
-                    <Text style={[styles.allocationCell, { color: colors.textSecondary }]}>{row.QUANTITY_TRANS} kg</Text>
-                    <Text style={[styles.allocationCell, { color: colors.success }]}>{row.KGS_ALLOCATED} kg</Text>
-                    <Text style={[styles.allocationCell, { color: colors.text }]}>{row.REMAINING_QTY} kg</Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <Text style={[styles.allocationEmpty, { color: colors.textSecondary }]}>
-                No allocation data available for the selected item.
-              </Text>
-            )}
           </View>
         )}
 
@@ -963,7 +1016,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   itemsListContent: {
-    gap: 12,
+    gap: 8,
   },
   itemCard: {
     borderRadius: 16,
@@ -989,12 +1042,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   itemCode: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     marginBottom: 2,
   },
   itemDescription: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
   },
   itemActions: {
@@ -1003,8 +1056,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconButton: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1018,17 +1071,17 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(0,0,0,0.06)',
   },
   detailItem: {
-    minWidth: '45%',
+    minWidth: '30%',
     marginBottom: 8,
   },
   detailLabel: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   detailValue: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '600',
   },
   processBadge: {
@@ -1038,7 +1091,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   processBadgeText: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '700',
   },
   sampledBadge: {
@@ -1048,7 +1101,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   sampledBadgeText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
   },
   inputGroup: {

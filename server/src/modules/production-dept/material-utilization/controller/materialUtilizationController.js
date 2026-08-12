@@ -1,6 +1,7 @@
 const sql = require('mssql');
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
+const { getTagValue } = require('../../material-utilization-tag/controller/materialUtilizationTagController');
 
 function escapeXml(unsafe) {
     return String(unsafe)
@@ -78,12 +79,38 @@ exports.getItemCode = async (req, res) => {
     const pool = await getPool(dbName);
 
     try {
-        const result = await pool.request().query(`SELECT DISTINCT D.ITEMNMBR AS 'ITEM CODE', I.ITEMDESC 'ITEM DESCRIPTION'
-                                                    FROM [INVENTORY.QUANTITYMASTER3.HEADER] AS H 
-                                                    INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] AS D ON H.QM_IDNUMBER = D.QM_IDNUMBER
-                                                    INNER JOIN [IV00101] AS I ON D.ITEMNMBR = I.ITEMNMBR
-                                                    WHERE (H.LOCNCODE IN ('PAWHRM'))
-                                                    ORDER BY D.ITEMNMBR`);
+
+        let tagTrueQuery = `SELECT DISTINCT D.ITEMNMBR AS 'ITEM CODE', I.ITEMDESC AS 'ITEM DESCRIPTION'
+                            FROM [INVENTORY.QUANTITYMASTER3.HEADER] AS H 
+                            INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] AS D ON H.QM_IDNUMBER = D.QM_IDNUMBER
+                            INNER JOIN [IV00101] AS I ON D.ITEMNMBR = I.ITEMNMBR
+                            WHERE H.LOCNCODE = 'PAWHRM'
+                              AND EXISTS (
+                                    SELECT *
+                                    FROM [INVENTORY.QUANTITYMASTER4.DETAILS] QM4D
+                                    WHERE QM4D.ITEMNMBR = D.ITEMNMBR
+                                    GROUP BY QM4D.ITEMNMBR
+                                    HAVING SUM(ISNULL(QM4D.QUANTITY_RECV,0) + ISNULL(QM4D.QUANTITY_PADJ,0))
+                                         - SUM(ISNULL(QM4D.QUANTITY_OUT,0)  + ISNULL(QM4D.QUANTITY_NADJ,0)) > 0
+                                  )
+                            ORDER BY D.ITEMNMBR`;
+
+        let tagFalseQuery = `SELECT DISTINCT D.ITEMNMBR AS 'ITEM CODE', I.ITEMDESC 'ITEM DESCRIPTION'
+                             FROM [INVENTORY.QUANTITYMASTER3.HEADER] AS H 
+                             INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] AS D ON H.QM_IDNUMBER = D.QM_IDNUMBER
+                             INNER JOIN [IV00101] AS I ON D.ITEMNMBR = I.ITEMNMBR
+                             WHERE (H.LOCNCODE IN ('PAWHRM'))
+                             ORDER BY D.ITEMNMBR`;
+
+        let result = '';
+        const tagValue = await getTagValue(company);
+        console.log('Tag Value: ' + tagValue);
+        if (tagValue === 1) {
+            result = await pool.request().query(tagTrueQuery);
+        } else {
+            result = await pool.request().query(tagFalseQuery);
+        }
+        console.log('total items: ' + result.recordset.length + 'tag Value: ' + tagValue);
         res.json({ success: true, items: result.recordset });
     } catch (error) {
         console.error('Error fetching item codes:', error);
@@ -102,7 +129,7 @@ exports.getAllocation = async (req, res) => {
             WITH Stock AS
             (
                 SELECT
-                    QM4D.QM4DROWID, QM4D.FROMISSUANCENOID, QM4D.LOTNUMBER, QM4D.QUANTITY_TRANS, QM4D.BAG_TRANS,
+                    QM4D.QM4DROWID, QM4D.ITEMNMBR, QM4D.FROMISSUANCENOID, QM4D.LOTNUMBER, QM4D.QUANTITY_TRANS, QM4D.BAG_TRANS,
                     QM4D.BAGS_OUT, QM4H.DATERECEIVED,
                     SUM(QM4D.QUANTITY_TRANS) OVER (ORDER BY QM4H.DATERECEIVED, QM4D.QM4DROWID
                         ROWS UNBOUNDED PRECEDING) AS RUNNING_QTY
@@ -118,12 +145,12 @@ exports.getAllocation = async (req, res) => {
                     ELSE QUANTITY_TRANS END AS KGS_ALLOCATED
                 FROM Stock
             )
-            SELECT QM4DROWID, FROMISSUANCENOID, LOTNUMBER,
-                QUANTITY_TRANS, KGS_ALLOCATED,
+            SELECT QM4DROWID, ITEMNMBR, FROMISSUANCENOID, LOTNUMBER,
+                QUANTITY_TRANS, KGS_ALLOCATED, BAG_TRANS, BAGS_OUT,
                 QUANTITY_TRANS - KGS_ALLOCATED AS REMAINING_QTY
             FROM Allocation
             WHERE KGS_ALLOCATED > 0
-            ORDER BY DATERECEIVED, QM4DROWID;`;
+            ORDER BY DATERECEIVED, QM4DROWID`;
 
         const result = await pool.request()
             .input('itemNo', sql.VarChar(50), itemNo)
@@ -146,8 +173,7 @@ exports.saveMaterialUtilization = async (req, res) => {
 
         const { usageDate, usageNo, usageRefNo, machineLineName, shift,
             feedType, variant, formulationNo, batchNo, remarks,
-            validatedBy, weighedBy, user, details } = req.body;
-
+            validatedBy, weighedBy, user, details, subDetails } = req.body;
 
         /* =====================================================
            VALIDATION
@@ -181,6 +207,42 @@ exports.saveMaterialUtilization = async (req, res) => {
             </Details>
         `;
 
+        /* =====================================================
+        BUILD XML FOR SUB DETAILS IF TAG VALUE IS 1 
+        ===================================================== */
+
+        let subDetailXml = '<SubDetails />';
+        let transType = 0;
+        const tagValue = await getTagValue(company);
+        if (tagValue === 1) {
+            transType = 1;
+
+            if (!subDetails || !Array.isArray(subDetails) || subDetails.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Sub-detail allocation is required for transaction type 1.'
+                });
+            }
+
+            subDetailXml = `
+                <SubDetails>
+                    ${subDetails.map(subDetail => `
+                        <SubDetail>
+                            <qm4dRowId>${Number(subDetail.qm4dRowId) || 0}</qm4dRowId>
+                            <fromIssuanceNoId>${Number(subDetail.fromIssuanceNoId) || 0}</fromIssuanceNoId>
+                            <itemNo>${escapeXml(subDetail.itemNo || '')}</itemNo>
+                            <lotNumber>${escapeXml(subDetail.lotNumber || '')}</lotNumber>
+                            <qtyOut>${Number(subDetail.qtyOut) || 0}</qtyOut>
+                            <bagsOut>${Number(subDetail.bagsOut) || 0}</bagsOut>
+                        </SubDetail>
+                    `).join('')}
+                </SubDetails>
+            `;
+        }
+
+
+        console.log('SubDetail XML:', subDetailXml);
+
 
         /* =====================================================
            STORED PROCEDURE
@@ -202,12 +264,10 @@ exports.saveMaterialUtilization = async (req, res) => {
         request.input('WeighedBy', weighedBy || null);
         request.input('CreatedBy', user);
         request.input('Details', sql.Xml, detailsXml);
+        request.input('TRANSTYPE', sql.Int, transType);
+        request.input('SubDetails', sql.Xml, subDetailXml);
 
-
-        const result = await request.execute(
-            '[2026.spProducationMaterialUtilizationSave]'
-        );
-
+        const result = await request.execute('[2026.spProducationMaterialUtilizationSave]');
 
         /* =====================================================
            RESULT
@@ -223,16 +283,8 @@ exports.saveMaterialUtilization = async (req, res) => {
         }
 
         if (!resultData.Success) {
-            console.error(
-                'Material utilization SQL error:',
-                resultData
-            );
-
-            return res.status(500).json({
-                success: false,
-                message: resultData.Message ||
-                    'Failed to save material utilization.'
-            });
+            console.error('Material utilization SQL error:', resultData);
+            return res.status(500).json({ success: false, message: resultData.Message || 'Failed to save material utilization.' });
         }
 
 
@@ -244,15 +296,9 @@ exports.saveMaterialUtilization = async (req, res) => {
         });
 
     } catch (error) {
-
-        console.error(
-            'saveMaterialUtilization failed:',
-            error
-        );
-
+        console.error('saveMaterialUtilization failed:', error);
         return res.status(500).json({
-            success: false,
-            message:
+            success: false, message:
                 error.message ||
                 'Failed to save material utilization.'
         });

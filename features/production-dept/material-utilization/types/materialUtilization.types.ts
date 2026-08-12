@@ -24,6 +24,16 @@ export interface MaterialUtilizationLineItem {
   remarks: string;
 }
 
+export interface MaterialUtilizationSubDetail {
+  pudRowId: number;
+  qm4dRowId: number;
+  fromIssuanceNoId: number;
+  itemNo: string;
+  lotNumber: string;
+  qtyOut: number;
+  bagsOut: number;
+}
+
 export interface MaterialUtilizationPayload {
   usageDate: string;
   usageNo: string;
@@ -38,6 +48,7 @@ export interface MaterialUtilizationPayload {
   weighedBy: string;
   user:string;
   details: MaterialUtilizationLineItem[];
+  subDetails?: MaterialUtilizationSubDetail[];
 }
 
 export interface MaterialUtilizationPostResponse {
@@ -76,4 +87,5 @@ export interface MaterialUtilizationHeaderRef {
 export interface MaterialUtilizationDetailsRef {
   clear: () => void;
   validate: () => boolean;
+  getSubDetails: () => MaterialUtilizationSubDetail[];
 }

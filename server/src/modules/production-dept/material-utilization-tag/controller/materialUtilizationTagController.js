@@ -18,6 +18,15 @@ exports.getTag = async (req, res) => {
     }
 };
 
+exports.getTagValue = async (company) => {
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+    const result = await pool.request().query(
+        'SELECT TOP 1 IS_TAGGED_IN_QM4D FROM [PRODUCTION.USAGETAG]'
+    );
+    return result.recordset[0]?.IS_TAGGED_IN_QM4D;
+};
+
 exports.updateTag = async (req, res) => {
     const company = req.query.company;
     const dbName = getCompanyDbName(company);
