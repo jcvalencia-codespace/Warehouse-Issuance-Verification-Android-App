@@ -129,25 +129,44 @@ exports.getAllocation = async (req, res) => {
             WITH Stock AS
             (
                 SELECT
-                    QM4D.QM4DROWID, QM4D.ITEMNMBR, QM4D.FROMISSUANCENOID, QM4D.LOTNUMBER, QM4D.QUANTITY_TRANS, QM4D.BAG_TRANS,
-                    QM4D.BAGS_OUT, QM4H.DATERECEIVED,
-                    SUM(QM4D.QUANTITY_TRANS) OVER (ORDER BY QM4H.DATERECEIVED, QM4D.QM4DROWID
-                        ROWS UNBOUNDED PRECEDING) AS RUNNING_QTY
+                    QM4D.QM4DROWID, QM4D.ITEMNMBR, QM4D.FROMISSUANCENOID, QM4D.LOTNUMBER,
+                    QM4D.QUANTITY_RECV, QM4D.QUANTITY_PADJ, QM4D.QUANTITY_NADJ, QM4D.QUANTITY_OUT,
+                    QM4D.BAG_TRANS, QM4D.BAGS_OUT, QM4H.DATERECEIVED,
+                    ((QM4D.QUANTITY_RECV + QM4D.QUANTITY_PADJ) - (QM4D.QUANTITY_OUT + QM4D.QUANTITY_NADJ)) AS BALANCE,
+                    -- only sum positive balances into the running total; negative lines don't add "available stock"
+                    SUM(CASE WHEN ((QM4D.QUANTITY_RECV + QM4D.QUANTITY_PADJ) - (QM4D.QUANTITY_OUT + QM4D.QUANTITY_NADJ)) > 0
+                            THEN ((QM4D.QUANTITY_RECV + QM4D.QUANTITY_PADJ) - (QM4D.QUANTITY_OUT + QM4D.QUANTITY_NADJ))
+                            ELSE 0 END)
+                        OVER (ORDER BY QM4H.DATERECEIVED, QM4D.QM4DROWID
+                            ROWS UNBOUNDED PRECEDING) AS RUNNING_QTY
                 FROM [INVENTORY.QUANTITYMASTER4.DETAILS] QM4D
                 INNER JOIN [INVENTORY.QUANTITYMASTER4.HEADER] AS QM4H ON QM4D.TRANSREFNO = QM4H.TRANSREFNO
                 WHERE QM4D.ITEMNMBR = @itemNo
             ),
+            RawAllocation AS
+            (
+                SELECT *,
+                    CASE WHEN BALANCE <= 0 THEN 0
+                        WHEN RUNNING_QTY - BALANCE >= @kgsUsed THEN 0
+                        WHEN RUNNING_QTY >= @kgsUsed THEN @kgsUsed - (RUNNING_QTY - BALANCE)
+                        ELSE BALANCE END AS RAW_KGS_ALLOCATED
+                FROM Stock
+            ),
             Allocation AS
             (
-                SELECT *, CASE
-                    WHEN RUNNING_QTY - QUANTITY_TRANS >= @kgsUsed THEN 0
-                    WHEN RUNNING_QTY >= @kgsUsed THEN @kgsUsed - (RUNNING_QTY - QUANTITY_TRANS)
-                    ELSE QUANTITY_TRANS END AS KGS_ALLOCATED
-                FROM Stock
+                SELECT *,
+                    CASE
+                        -- if the leftover after a partial allocation is a tiny dust amount, just take the whole balance
+                        WHEN RAW_KGS_ALLOCATED > 0
+                            AND (BALANCE - RAW_KGS_ALLOCATED) BETWEEN 0.00001 AND 0.99999
+                        THEN BALANCE
+                        ELSE RAW_KGS_ALLOCATED
+                    END AS KGS_ALLOCATED
+                FROM RawAllocation
             )
             SELECT QM4DROWID, ITEMNMBR, FROMISSUANCENOID, LOTNUMBER,
-                QUANTITY_TRANS, KGS_ALLOCATED, BAG_TRANS, BAGS_OUT,
-                QUANTITY_TRANS - KGS_ALLOCATED AS REMAINING_QTY
+                BALANCE, RUNNING_QTY, KGS_ALLOCATED, BAG_TRANS, BAGS_OUT,
+                BALANCE - KGS_ALLOCATED AS REMAINING_QTY
             FROM Allocation
             WHERE KGS_ALLOCATED > 0
             ORDER BY DATERECEIVED, QM4DROWID`;

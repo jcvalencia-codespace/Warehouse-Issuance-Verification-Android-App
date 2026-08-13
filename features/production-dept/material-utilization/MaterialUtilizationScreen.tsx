@@ -13,8 +13,9 @@ import {
   Text,
   TouchableOpacity,
   useColorScheme,
+  View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialUtilizationDetails, MaterialUtilizationDetailsRef } from './components/MaterialUtilizationDetails';
 import { MaterialUtilizationHeader, MaterialUtilizationHeaderRef } from './components/MaterialUtilizationHeader';
 import { MaterialUtilizationService } from './services/materialUtilizationService';
@@ -28,11 +29,11 @@ interface MaterialUtilizationScreenProps {
 export default function MaterialUtilizationScreen({ onBack, onSubmit }: MaterialUtilizationScreenProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
-  const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
   const headerRef = React.useRef<MaterialUtilizationHeaderRef>(null);
   const detailsRef = React.useRef<MaterialUtilizationDetailsRef>(null);
+  const scrollViewRef = React.useRef<ScrollView>(null);
 
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
@@ -114,7 +115,7 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
 
   return (
     <SafeAreaView
-      edges={['top']}
+      edges={['top', 'bottom']}
       style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
       <KeyboardAvoidingView
@@ -122,10 +123,11 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         style={styles.keyboardAvoid}
       >
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: 16 + insets.bottom },
+            { paddingBottom: 16 },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -133,59 +135,60 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
           <MaterialUtilizationHeader
             ref={headerRef}
             onValidSubmit={handleValidSubmit}
+            scrollViewRef={scrollViewRef}
           />
           <MaterialUtilizationDetails
             ref={detailsRef}
             value={items}
             onItemsChange={setItems}
           />
+          <View style={{ height: 80 }} />
         </ScrollView>
+
+        <View
+          style={[
+            styles.footer,
+            { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.cancelButton,
+              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+            ]}
+            onPress={onBack}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
+            <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+              Back
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.clearButton,
+              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+            ]}
+            onPress={handleClear}
+          >
+            <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
+            <Text style={[styles.clearButtonText, { color: colors.text }]}>
+              Clear
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.submitButton, { backgroundColor: colors.primary }]}
+            onPress={() => headerRef.current?.submit()}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
+            <Text style={styles.buttonText}>
+              Submit
+            </Text>
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
-
-      <SafeAreaView
-        edges={['bottom']}
-        style={[
-          styles.footer,
-          { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.cancelButton,
-            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-          ]}
-          onPress={onBack}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
-          <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-            Back
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.clearButton,
-            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-          ]}
-          onPress={handleClear}
-        >
-          <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
-          <Text style={[styles.clearButtonText, { color: colors.text }]}>
-            Clear
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.submitButton, { backgroundColor: colors.primary }]}
-          onPress={() => headerRef.current?.submit()}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
-          <Text style={styles.buttonText}>
-            Submit
-          </Text>
-        </TouchableOpacity>
-      </SafeAreaView>
 
       <ConfirmModal
         visible={confirmVisible}

@@ -1,3 +1,4 @@
+import { DatePickerModal } from '@/components/DatePickerModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -6,6 +7,7 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -46,7 +48,30 @@ type DropdownProps = FieldBaseProps & {
 
 interface MaterialUtilizationHeaderProps {
   onValidSubmit?: (data: MaterialUtilizationFormData) => void;
+  scrollViewRef?: React.RefObject<ScrollView | null>;
 }
+
+const FIELD_SCROLL_OFFSETS: Record<string, number> = {
+  usageDate: 0,
+  usageNo: 0,
+  machineLineName: 120,
+  shift: 120,
+  feedType: 240,
+  variant: 240,
+  formulationNo: 360,
+  batchNo: 360,
+  validatedBy: 480,
+  weighedBy: 480,
+};
+
+const scrollToField = (scrollViewRef: React.RefObject<ScrollView | null> | null, fieldName: string) => {
+  if (!scrollViewRef?.current) return;
+  const offset = FIELD_SCROLL_OFFSETS[fieldName] ?? 0;
+  scrollViewRef.current.scrollTo({
+    y: offset,
+    animated: true,
+  });
+};
 
 function Dropdown({
   label,
@@ -70,8 +95,8 @@ function Dropdown({
   const filteredOptions = search.trim() === ''
     ? options
     : options.filter((o) =>
-        o.label.toLowerCase().includes(search.trim().toLowerCase())
-      );
+      o.label.toLowerCase().includes(search.trim().toLowerCase())
+    );
 
   const handleSelect = (optionValue: string) => {
     onSelect(optionValue);
@@ -232,7 +257,7 @@ function Dropdown({
 }
 
 export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef, MaterialUtilizationHeaderProps>(
-  ({ onValidSubmit }, ref) => {
+  ({ onValidSubmit, scrollViewRef }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
@@ -252,6 +277,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
     const [machineLineOptions, setMachineLineOptions] = useState<DropdownOption[]>([]);
     const [feedTypeOptions, setFeedTypeOptions] = useState<DropdownOption[]>([]);
@@ -268,6 +294,25 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
           return next;
         });
       }
+    };
+
+    const parseUsageDate = (dateStr: string): Date => {
+      if (!dateStr) return new Date();
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      }
+      return new Date();
+    };
+
+    const formatUsageDate = (date: Date): string => {
+      return date.toISOString().split('T')[0];
+    };
+
+    const formatUsageDateDisplay = (dateStr: string): string => {
+      if (!dateStr) return 'Select date';
+      const date = parseUsageDate(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
     const fetchMachineLines = useCallback(async () => {
@@ -366,6 +411,8 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
       setErrors(newErrors);
 
       if (missing.length > 0) {
+        const firstErrorField = Object.keys(newErrors)[0];
+        scrollToField(scrollViewRef ?? null, firstErrorField);
         return;
       }
 
@@ -435,14 +482,17 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
                 <Text style={[styles.label, { color: colors.text }]}>Usage Date</Text>
                 <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
               </View>
-              <View
+              <TouchableOpacity
                 style={[
                   styles.inputContainer,
+                  styles.datePickerContainer,
                   {
                     borderColor: errors.usageDate ? colors.error : colors.cardBorder,
                     backgroundColor: colors.background,
                   },
                 ]}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
                   name="calendar"
@@ -450,14 +500,13 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
                   color={colors.textSecondary}
                   style={styles.inputIcon}
                 />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={formData.usageDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textTertiary}
-                  onChangeText={(text) => updateField('usageDate', text)}
-                />
-              </View>
+                <Text
+                  style={[styles.input, { color: formData.usageDate ? colors.text : colors.textTertiary }]}
+                  numberOfLines={1}
+                >
+                  {formData.usageDate ? formatUsageDateDisplay(formData.usageDate) : 'Select date'}
+                </Text>
+              </TouchableOpacity>
               {errors.usageDate ? (
                 <View style={styles.errorContainer}>
                   <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
@@ -751,9 +800,27 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
               ) : null}
             </View>
           </View>
-        </View>
       </View>
-    );
+
+      <DatePickerModal
+        visible={showDatePicker}
+        mode="start"
+        selectedDate={parseUsageDate(formData.usageDate)}
+        onClose={() => setShowDatePicker(false)}
+        onConfirm={(date) => {
+          setShowDatePicker(false);
+          updateField('usageDate', formatUsageDate(date));
+        }}
+        colors={{
+          primary: colors.primary,
+          cardBackground: colors.cardBackground,
+          divider: colors.cardBorder,
+          text: colors.text,
+          textSecondary: colors.textSecondary,
+        }}
+      />
+    </View >
+  );
   }
 );
 
@@ -819,6 +886,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     paddingVertical: 6,
+  },
+  datePickerContainer: {
+    alignItems: 'center',
   },
   readOnlyText: {
     flex: 1,

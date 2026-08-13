@@ -158,6 +158,8 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
       if (!selectedItemCode) {
         newErrors.material = 'Material is required';
+      } else if (items.some((item) => item.itemNo === selectedItemCode)) {
+        newErrors.material = 'This material has already been added!';
       }
 
       const weightLoadedValue = Number(weightLoaded);
