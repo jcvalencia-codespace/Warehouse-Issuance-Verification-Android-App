@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_TABLET = SCREEN_WIDTH > 768;
 const IS_PORTRAIT = SCREEN_HEIGHT > SCREEN_WIDTH;
-const IS_LANDSCAPE = !IS_PORTRAIT;
 
 interface DatePickerModalProps {
   visible: boolean;
@@ -23,6 +22,7 @@ interface DatePickerModalProps {
   selectedDate: Date;
   onClose: () => void;
   onConfirm: (date: Date) => void;
+  horizontal?: boolean;
   colors?: {
     primary?: string;
     cardBackground?: string;
@@ -38,6 +38,7 @@ export function DatePickerModal({
   selectedDate,
   onClose,
   onConfirm,
+  horizontal = false,
   colors = {}
 }: DatePickerModalProps) {
   const {
@@ -46,7 +47,9 @@ export function DatePickerModal({
     divider = '#E5E5E5',
     text = '#000000',
     textSecondary = '#8E8E93',
-  } = colors;
+   } = colors;
+
+  const IS_LANDSCAPE = !IS_PORTRAIT || horizontal;
 
   // Initialize state directly - avoid useEffect delay
   const [selectedYear, setSelectedYear] = useState<number>(() => selectedDate.getFullYear());

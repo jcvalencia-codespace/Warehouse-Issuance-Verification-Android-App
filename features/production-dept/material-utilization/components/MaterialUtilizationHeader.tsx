@@ -805,6 +805,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
       <DatePickerModal
         visible={showDatePicker}
         mode="start"
+        horizontal
         selectedDate={parseUsageDate(formData.usageDate)}
         onClose={() => setShowDatePicker(false)}
         onConfirm={(date) => {
