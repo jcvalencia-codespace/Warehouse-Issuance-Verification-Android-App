@@ -490,26 +490,6 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
             </View>
 
             <View style={styles.rowContainer}>
-              {/* <View style={styles.weightColumn}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.label, { color: colors.text }]}>Required Weight (kg)</Text>
-                </View> 
-                <View
-                  style={[
-                    styles.inputContainer,
-                    {
-                      borderColor: colors.cardBorder,
-                      backgroundColor: colors.cardBackground,
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                  <Text style={[styles.readOnlyText, { color: colors.textSecondary }]}>
-                    {'0.00'}
-                  </Text>
-                </View>
-              </View> */}
-
               <View style={styles.weightColumn}>
                 <View style={styles.labelRow}>
                   <Text style={[styles.label, { color: colors.text }]}>Weight Loaded (kg)</Text>

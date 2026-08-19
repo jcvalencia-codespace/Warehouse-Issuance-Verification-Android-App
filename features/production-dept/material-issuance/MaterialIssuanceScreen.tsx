@@ -11,6 +11,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    View,
     useColorScheme
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +33,7 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
     const { user } = useAuth();
     const headerRef = useRef<MaterialIssuanceHeaderRef>(null);
     const detailsRef = useRef<MaterialIssuanceDetailsRef>(null);
+    const scrollViewRef = React.useRef<ScrollView>(null);
 
     const [confirmVisible, setConfirmVisible] = useState(false);
     const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
@@ -68,7 +70,7 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
         await headerRef.current?.refreshMirNo();
     };
 
-     const handleValidSubmit = (headerData: any) => {
+    const handleValidSubmit = (headerData: any) => {
         const isDetailsValid = detailsRef.current?.validate();
         if (!isDetailsValid) {
             return;
@@ -81,43 +83,43 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
         if (!pendingHeader) return;
         setSubmitting(true);
         try {
-             const basePayload: MaterialIssuancePayload = {
-                 mirNo: pendingHeader.mirNo,
-                 shift: pendingHeader.shift,
-                 reviewedBy: pendingHeader.reviewedBy,
-                 createdBy: user?.NAME || user?.USERNAME || '',
-                 dateCreated: pendingHeader.dateCreated,
-                 details: items,
-             };
+            const basePayload: MaterialIssuancePayload = {
+                mirNo: pendingHeader.mirNo,
+                shift: pendingHeader.shift,
+                reviewedBy: pendingHeader.reviewedBy,
+                createdBy: user?.NAME || user?.USERNAME || '',
+                dateCreated: pendingHeader.dateCreated,
+                details: items,
+            };
 
-             const result = await MaterialIssuanceService.getInstance().saveMaterialIssuanceRequest(
-                 basePayload,
-                 user?.COMPANY || ''
-             );
+            const result = await MaterialIssuanceService.getInstance().saveMaterialIssuanceRequest(
+                basePayload,
+                user?.COMPANY || ''
+            );
 
-             if (result.success) {
-                 const originalMirNo = pendingHeader.mirNo;
-                 const savedMirNo = result.mirNo || pendingHeader.mirNo;
-                 const mirNoChanged = originalMirNo && savedMirNo && originalMirNo !== savedMirNo;
+            if (result.success) {
+                const originalMirNo = pendingHeader.mirNo;
+                const savedMirNo = result.mirNo || pendingHeader.mirNo;
+                const mirNoChanged = originalMirNo && savedMirNo && originalMirNo !== savedMirNo;
 
-                 Alert.alert(
-                     mirNoChanged ? 'MIR No. Changed' : 'Success',
-                     mirNoChanged
-                         ? `MIR No. ${originalMirNo} already exists.\nSaved as ${savedMirNo}.`
-                         : `Material issuance saved successfully.\nMIR No.: ${savedMirNo}`,
+                Alert.alert(
+                    mirNoChanged ? 'MIR No. Changed' : 'Success',
+                    mirNoChanged
+                        ? `MIR No. ${originalMirNo} already exists.\nSaved as ${savedMirNo}.`
+                        : `Material issuance saved successfully.\nMIR No.: ${savedMirNo}`,
                     [
                         {
-                             text: 'OK',
-                                 onPress: async () => {
-                                     setConfirmVisible(false);
-                                     setSubmitting(false);
-                                     setPendingHeader(null);
-                                     setItems([]);
-                                     setSelectedIssuance(null);
-                                     headerRef.current?.clear();
-                                     detailsRef.current?.clear();
-                                     await headerRef.current?.refreshMirNo();
-                                 },
+                            text: 'OK',
+                            onPress: async () => {
+                                setConfirmVisible(false);
+                                setSubmitting(false);
+                                setPendingHeader(null);
+                                setItems([]);
+                                setSelectedIssuance(null);
+                                headerRef.current?.clear();
+                                detailsRef.current?.clear();
+                                await headerRef.current?.refreshMirNo();
+                            },
                         },
                     ]
                 );
@@ -141,10 +143,11 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 style={styles.keyboardAvoid}
             >
                 <ScrollView
+                    ref={scrollViewRef}
                     style={styles.scrollView}
                     contentContainerStyle={[
                         styles.scrollContent,
-                        { paddingBottom: 16 + insets.bottom },
+                        { paddingBottom: 16 },
                     ]}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
@@ -160,78 +163,79 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                         value={items}
                         onItemsChange={setItems}
                     />
+                    {/* <View style={{ height: 80 }} /> */}
                 </ScrollView>
-            </KeyboardAvoidingView>
 
-            <SafeAreaView
-                edges={['bottom']}
-                style={[
-                    styles.footer,
-                    { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
-                ]}
-            >
-                <TouchableOpacity
+
+                <View
                     style={[
-                        styles.cancelButton,
-                        { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                        styles.footer,
+                        { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
                     ]}
-                    onPress={onBack}
                 >
-                    <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
-                    <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-                        Back
-                    </Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.cancelButton,
+                            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                        ]}
+                        onPress={onBack}
+                    >
+                        <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
+                        <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                            Back
+                        </Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[
-                        styles.clearButton,
-                        { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-                    ]}
-                    onPress={handleClear}
-                >
-                    <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
-                    <Text style={[styles.clearButtonText, { color: colors.text }]}>
-                        Clear
-                    </Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.clearButton,
+                            { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                        ]}
+                        onPress={handleClear}
+                    >
+                        <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
+                        <Text style={[styles.clearButtonText, { color: colors.text }]}>
+                            Clear
+                        </Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.submitButton, { backgroundColor: colors.primary }]}
-                    onPress={() => headerRef.current?.submit()}
-                    activeOpacity={0.8}
-                >
-                    <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
-                    <Text style={styles.buttonText}>
-                        Submit
-                    </Text>
-                </TouchableOpacity>
-            </SafeAreaView>
+                    <TouchableOpacity
+                        style={[styles.submitButton, { backgroundColor: colors.primary }]}
+                        onPress={() => headerRef.current?.submit()}
+                        activeOpacity={0.8}
+                    >
+                        <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
+                        <Text style={styles.buttonText}>
+                            Submit
+                        </Text>
+                    </TouchableOpacity>
+                </View>
 
-            <ConfirmModal
-                visible={confirmVisible}
-                title="Submit and Post Material Issuance"
-                message="Are you sure you want to submit and post this material issuance?"
-                iconName="send-check"
-                iconColor={colors.primary}
-                cancelText="Cancel"
-                confirmText="Submit"
-                onConfirm={handleConfirmSubmit}
-                onCancel={() => setConfirmVisible(false)}
-            />
+                <ConfirmModal
+                    visible={confirmVisible}
+                    title="Submit and Post Material Issuance"
+                    message="Are you sure you want to submit and post this material issuance?"
+                    iconName="send-check"
+                    iconColor={colors.primary}
+                    cancelText="Cancel"
+                    confirmText="Submit"
+                    onConfirm={handleConfirmSubmit}
+                    onCancel={() => setConfirmVisible(false)}
+                />
 
-            <ConfirmModal
-                visible={clearConfirmVisible}
-                title="Clear All Data"
-                message="Are you sure you want to clear all issuance details? This action cannot be undone."
-                iconName="alert-outline"
-                iconColor={colors.warning}
-                cancelText="Cancel"
-                confirmText="Clear"
-                onConfirm={handleConfirmClear}
-                onCancel={() => setClearConfirmVisible(false)}
-            />
-        </SafeAreaView>
+                <ConfirmModal
+                    visible={clearConfirmVisible}
+                    title="Clear All Data"
+                    message="Are you sure you want to clear all issuance details? This action cannot be undone."
+                    iconName="alert-outline"
+                    iconColor={colors.warning}
+                    cancelText="Cancel"
+                    confirmText="Clear"
+                    onConfirm={handleConfirmClear}
+                    onCancel={() => setClearConfirmVisible(false)}
+                />
+            </KeyboardAvoidingView >
+        </SafeAreaView >
     );
 }
 

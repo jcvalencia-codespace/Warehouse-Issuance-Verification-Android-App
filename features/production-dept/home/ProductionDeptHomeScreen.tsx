@@ -10,10 +10,17 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 const PRODUCTION_MODULES: ModuleCardData[] = [
   {
     id: 'material-issuance',
-    title: 'New Material Issuance',
-    description: 'Create new material Issuance record',
+    title: 'New Material Issuance Request',
+    description: 'Create new material Issuance request record',
     icon: 'file-check-outline',
     color: 'primary',
+  },
+  {
+    id: 'material-request-review',
+    title: 'Material Issuance Request Review',
+    description: 'Review material Issuance requests record',
+    icon: 'package-check',
+    color: 'review',
   },
   {
     id: 'material-issuance-confirmation',
@@ -34,7 +41,7 @@ const PRODUCTION_MODULES: ModuleCardData[] = [
     title: 'Material Utilization Tag',
     description: 'Manage function for material utilization',
     icon: 'tag-outline',
-    color: 'info',
+    color: 'primary',
   },
 ];
 
@@ -77,6 +84,7 @@ export function ProductionDeptHomeScreen({
       success: 'success',
       error: 'error',
       textSecondary: 'textSecondary',
+      review: 'review',
     };
     const themeKey = colorMap[colorKey];
     return themeKey ? (colors[themeKey] as string) : colors.primary;

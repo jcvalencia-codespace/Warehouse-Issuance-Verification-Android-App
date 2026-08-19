@@ -55,6 +55,8 @@ export const Colors = {
     servedBorder: '#BBF7D0',
     cancelButtonBg,
     countBadgeBorder,
+
+    review: '#FFEDD5',
   },
   dark: {
     text: '#f1f5f9',
@@ -89,6 +91,8 @@ export const Colors = {
     servedBorder: '#065f46', // green-800
     cancelButtonBg: '#7f1d1d', // red-900
     countBadgeBorder: '#334155',
+
+    review: '#F97316',
   },
 };
 

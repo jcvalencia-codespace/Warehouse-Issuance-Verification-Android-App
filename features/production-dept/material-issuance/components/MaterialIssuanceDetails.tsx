@@ -89,18 +89,6 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
       if (!quantity.trim() || isNaN(quantityValue) || quantityValue <= 0) {
         newErrors.quantity = 'Enter a valid quantity';
       }
-      
-      const existingTotal = items.reduce((sum, item) => {
-        return sum + Number(item.quantity);
-      }, 0);
-
-      const adjustedTotal = editIndex !== null
-        ? existingTotal - Number(items[editIndex].quantity) + quantityValue
-        : existingTotal + quantityValue;
-
-      if (quantityValue >= 2201 || adjustedTotal >= 2201) {
-        newErrors.quantity = 'Quantity exceeds the total limit per item.'
-      }
 
       if (Object.keys(newErrors).length > 0) {
         setErrors(newErrors);
@@ -110,29 +98,47 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
       const selectedOption = itemCodeOptions.find((option) => option.value === selectedItemCode);
       const description = selectedOption?.label.split(' - ')[1] || '';
 
-      let allocations: MaterialQuantityAllocation[] = [];
-      try {
-        allocations = await MaterialIssuanceService.getInstance().getAssignQuantityAllocation(
-          selectedItemCode,
-          quantityValue,
-          user?.COMPANY
-        );
-      } catch (error) {
-        allocations = [];
+      const MAX_QTY_PER_ROW = 2200;
+      const fullChunks = Math.floor(quantityValue / MAX_QTY_PER_ROW);
+      const remainder = quantityValue % MAX_QTY_PER_ROW;
+
+      const chunks: number[] = [];
+      if (remainder > 0) {
+        chunks.push(remainder);
+      }
+      for (let i = 0; i < fullChunks; i++) {
+        chunks.push(MAX_QTY_PER_ROW);
       }
 
-      const newItem: MaterialIssuanceLineItem = {
-        itemCode: selectedItemCode,
-        description,
-        quantity: quantity.trim(),
-        allocations,
-      };
+      const splitItems: MaterialIssuanceLineItem[] = [];
+      for (const chunkQty of chunks) {
+        let allocations: MaterialQuantityAllocation[] = [];
+        try {
+          allocations = await MaterialIssuanceService.getInstance().getAssignQuantityAllocation(
+            selectedItemCode,
+            chunkQty,
+            user?.COMPANY
+          );
+        } catch (error) {
+          allocations = [];
+        }
+
+        splitItems.push({
+          itemCode: selectedItemCode,
+          description,
+          quantity: String(chunkQty),
+          allocations,
+        });
+      }
 
       let updatedItems: MaterialIssuanceLineItem[];
       if (editIndex !== null) {
-        updatedItems = items.map((item, i) => (i === editIndex ? newItem : item));
+        updatedItems = items
+          .map((item, i) => (i === editIndex ? null : item))
+          .filter((item): item is MaterialIssuanceLineItem => item !== null);
+        updatedItems.splice(editIndex, 0, ...splitItems);
       } else {
-        updatedItems = [...items, newItem];
+        updatedItems = [...items, ...splitItems];
       }
       setItems(updatedItems);
       onItemsChange?.(updatedItems);

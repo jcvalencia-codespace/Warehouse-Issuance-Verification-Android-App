@@ -23,6 +23,9 @@ export default function ProductionDeptRoute() {
       case 'material-issuance':
         router.push('/production-dept/material-issuance' as any);
         break;
+      case 'material-request-review':              // <-- match the module id
+        router.push('/production-dept/material-issuance-request-review' as any);
+        break;
       case 'material-issuance-confirmation':
         router.push({ pathname: '/production-dept/material-issuance-confirmation', params: { source: 'production' } } as any);
         break;
