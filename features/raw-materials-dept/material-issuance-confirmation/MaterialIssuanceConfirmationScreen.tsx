@@ -904,6 +904,7 @@ export default function MaterialIssuanceConfirmationScreen({ onBack, source }: {
 
             <CancelRemarks
                 visible={cancelRemarksVisible}
+                remarksRequired={true}
                 message="Please enter a reason for cancelling this request."
                 onConfirm={handleConfirmCancel}
                 onCancel={() => setCancelRemarksVisible(false)}

@@ -42,6 +42,11 @@ const SHIFT_OPTIONS = [
   { label: '2nd Shift', value: '2nd Shift' },
 ];
 
+const REVIEWED_BY_OPTION = [
+  {label: 'Joenas De Guzman', value: 'Joenas De Guzman'},
+  {label: 'Cesar Tolentino', value: 'Cesar Tolentino'},
+]
+
 type FieldBaseProps = {
   label: string;
   required?: boolean;
@@ -244,41 +249,16 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
 
         <View style={styles.row}>
           <View style={styles.halfWidth}>
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.label, { color: colors.text }]}>Reviewed By</Text>
-                <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
-              </View>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: errors.reviewedBy ? colors.error : colors.cardBorder,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="account-check"
-                  size={20}
-                  color={colors.textSecondary}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={formData.reviewedBy}
-                  placeholder="Enter reviewer name"
-                  placeholderTextColor={colors.textTertiary}
-                  onChangeText={(text) => updateField('reviewedBy', text)}
-                />
-              </View>
-              {errors.reviewedBy ? (
-                <View style={styles.errorContainer}>
-                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.reviewedBy}</Text>
-                </View>
-              ) : null}
-            </View>
+            <Dropdown 
+              label="Reviewed By"
+              required
+              placeholder="Select Reviewer"
+              value={formData.reviewedBy}
+              options={REVIEWED_BY_OPTION}
+              onSelect={(v) =>updateField('reviewedBy', v)}
+              error={errors.reviewedBy}
+              colors={colors}
+              />          
           </View>
           <View style={styles.halfWidth}>
             <View style={styles.inputGroup}>

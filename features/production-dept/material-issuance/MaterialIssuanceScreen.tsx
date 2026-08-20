@@ -1,4 +1,5 @@
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { SuccessModal } from '@/components/SuccessModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,7 +15,7 @@ import {
     View,
     useColorScheme
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { socketService } from '../../shared/services/socketService';
 import { MaterialIssuanceDetails, MaterialIssuanceDetailsRef } from './components/MaterialIssuanceDetails';
 import { MaterialIssuanceHeader, MaterialIssuanceHeaderRef } from './components/MaterialIssuanceHeader';
@@ -29,7 +30,6 @@ interface MaterialIssuanceProps {
 export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIssuanceProps) {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
-    const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const headerRef = useRef<MaterialIssuanceHeaderRef>(null);
     const detailsRef = useRef<MaterialIssuanceDetailsRef>(null);
@@ -37,10 +37,13 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
 
     const [confirmVisible, setConfirmVisible] = useState(false);
     const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
+    const [successVisible, setSuccessVisible] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [pendingHeader, setPendingHeader] = useState<any>(null);
     const [items, setItems] = useState<any[]>([]);
     const [selectedIssuance, setSelectedIssuance] = useState<any>(null);
+    const [successTitle, setSuccessTitle] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
 
     useEffect(() => {
         socketService.connect();
@@ -63,6 +66,11 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
     };
 
     const handleConfirmClear = async () => {
+        setConfirmVisible(false);
+        setSuccessVisible(false);
+        setSubmitting(false);
+        setPendingHeader(null);
+        setItems([]);
         headerRef.current?.clear();
         detailsRef.current?.clear();
         setClearConfirmVisible(false);
@@ -102,27 +110,13 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 const savedMirNo = result.mirNo || pendingHeader.mirNo;
                 const mirNoChanged = originalMirNo && savedMirNo && originalMirNo !== savedMirNo;
 
-                Alert.alert(
-                    mirNoChanged ? 'MIR No. Changed' : 'Success',
+                setSuccessTitle(mirNoChanged ? 'MIR No. Changed' : 'Success');
+                setSuccessMessage(
                     mirNoChanged
                         ? `MIR No. ${originalMirNo} already exists.\nSaved as ${savedMirNo}.`
-                        : `Material issuance saved successfully.\nMIR No.: ${savedMirNo}`,
-                    [
-                        {
-                            text: 'OK',
-                            onPress: async () => {
-                                setConfirmVisible(false);
-                                setSubmitting(false);
-                                setPendingHeader(null);
-                                setItems([]);
-                                setSelectedIssuance(null);
-                                headerRef.current?.clear();
-                                detailsRef.current?.clear();
-                                await headerRef.current?.refreshMirNo();
-                            },
-                        },
-                    ]
+                        : `Material issuance saved successfully.\nMIR No.: ${savedMirNo}`
                 );
+                setSuccessVisible(true);
             } else {
                 setSubmitting(false);
                 Alert.alert('Error', result.message || 'Failed to submit material issuance.');
@@ -233,6 +227,14 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                     confirmText="Clear"
                     onConfirm={handleConfirmClear}
                     onCancel={() => setClearConfirmVisible(false)}
+                />
+
+                <SuccessModal
+                    visible={successVisible}
+                    title={successTitle}
+                    message={successMessage}
+                    buttonText="Done"
+                    onDone={handleConfirmClear}
                 />
             </KeyboardAvoidingView >
         </SafeAreaView >

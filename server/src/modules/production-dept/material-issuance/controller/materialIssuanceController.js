@@ -51,7 +51,7 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
     } = req.body;
 
     const headerQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] (MIRNO, SHIFT, REVIEWEDBY, CREATEDBY, POSTSTATUS, DATECREATED)
-                     VALUES (@mirNo, @shift, @reviewedBy, @createdBy, 1, GETDATE())`;
+                     VALUES (@mirNo, @shift, @reviewedBy, @createdBy, 0, GETDATE())`;
 
     const detailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED)
                      VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, GETDATE())`;
@@ -118,39 +118,6 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
             mirNo: finalMirNo
         });
         emitMaterialIssuanceUpdate('posted', { mirNo: finalMirNo, shift, reviewedBy, createdBy, company });
-
-        try {
-            const notificationPool = await getPool('GDB');
-            const usersResult = await notificationPool.request().query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE NAME IN ('Jairus Valencia','Jayson Delos Reyes', 'Genesis Guinto', 'Lester A. Arceo')`);
-            const users = usersResult.recordset;
-            for (const user of users) {
-                await notificationPool.request()
-                    .input('receiver', user.NAME)
-                    .input('category', 'New Material Issuance Request')
-                    .input('form', 'ERP MOBILE')
-                    .input('referenceNo', finalMirNo)
-                    .input('sender', createdBy)
-                    .query(`INSERT INTO [SYSTEM.NOTIFICATIONMASTER] (RECEIVER, CATEGORY, FORM, REFERENCENO, SENDER, DATESENT)
-                            VALUES (@receiver, @category, @form, @referenceNo, @sender, GETDATE())`);
-            }
-            emitNotification({ type: 'notification', data: { mirNo: finalMirNo, receiver: 'PAWHRM', category: 'New Material Issuance Request', form: 'ERP MOBILE', referenceno: finalMirNo, sender: createdBy } });
-        } catch (notifError) {
-            console.error('Notification error:', notifError);
-        }
-
-        try {
-            const notificationPool = await getPool('GDB');
-            const tokenResult = await notificationPool.request().query(`SELECT DEVICE_TOKEN FROM dbo.PUSHNOTIFICATION WHERE IS_ACTIVE = 1`);
-            const tokens = tokenResult.recordset;
-            for (const row of tokens) {
-                sendExpoPush(row.DEVICE_TOKEN, 'New Material Issuance Request', `MIR No. ${finalMirNo} has been created.`, {
-                    mirNo: finalMirNo,
-                    type: 'MATERIAL_ISSUANCE_REQUESTED',
-                }).catch(() => { });
-            }
-        } catch (notifError) {
-            console.error('Push notification error:', notifError);
-        }
     } catch (error) {
         try {
             if (transaction.active) {
@@ -164,40 +131,5 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
         console.error('materialIssuanceRequest failed:', error);
         const statusCode = error.statusCode || 500;
         res.status(statusCode).json({ success: false, message: error.message || 'Failed to material issuance request' });
-    }
-}
-
-exports.getMaterialsIssuanceRequestHeader = async (req, res) => {
-    const { company } = req.query;
-    const dbName = getCompanyDbName(company);
-    const pool = await getPool(dbName);
-
-    const query = `SELECT * FROM [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] WHERE POSTSTATUS = 0 ORDER BY DATECREATED DESC`;
-
-    try {
-        const result = await pool.request().query(query);
-        res.json({ success: true, data: result.recordset });
-    } catch (error) {
-        console.error('Error fetching material issuance request headers:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch material issuance request headers' });
-    }
-}
-
-exports.getMaterialsIssuanceRequestDetails = async (req, res) => {
-    const { company } = req.query;
-    const dbName = getCompanyDbName(company);
-    const pool = await getPool(dbName);
-
-    const query = `SELECT * FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo ORDER BY DATECREATED DESC`;
-
-    try {
-        const result = await pool.request()
-            .input('mirNo', req.params.mirNo)
-            .query(query);
-        res.json({ success: true, data: result.recordset });
-    } catch (error) {
-        console.error('Error fetching material issuance request details:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch material issuance request details' });
-
     }
 }

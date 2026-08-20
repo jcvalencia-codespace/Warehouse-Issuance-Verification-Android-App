@@ -1,6 +1,6 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { MaterialIssuancePayload, MaterialIssuancePostResponse, MaterialIssuanceRequestDetail, MaterialIssuanceRequestHeader, MaterialQuantityAllocation } from '../types/materialIssuance.types';
+import { MaterialIssuancePayload, MaterialIssuancePostResponse, MaterialQuantityAllocation } from '../types/materialIssuance.types';
 
 export type DropdownOption = {
   label: string;
@@ -89,45 +89,6 @@ export class MaterialIssuanceService {
       throw error;
     }
   }
-   async getMaterialIssuanceRequestHeader(company?: string): Promise<MaterialIssuanceRequestHeader[]> {
-    try {
-      if (!this.baseUrl) {
-        throw new Error('API URL not configured');
-      }
-      const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestHeader[] }>(
-        `${this.baseUrl}/production-dept/material-issuance/get-material-issuance-request-header`,
-        { params: company ? { company } : undefined }
-      );
-      if (response.data.success) {
-        return response.data.data;
-      }
-      return [];
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async getMaterialIssuanceRequestDetails(mirNo?: string, company?: string): Promise<MaterialIssuanceRequestDetail[]> {
-    try {
-      if (!this.baseUrl) {
-        throw new Error('API URL not configured');
-      }
-      const url = mirNo
-        ? `${this.baseUrl}/production-dept/material-issuance/get-material-issuance-request-details/${encodeURIComponent(mirNo)}`
-        : `${this.baseUrl}/production-dept/material-issuance/get-material-issuance-request-details`;
-      const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestDetail[] }>(
-        url,
-        { params: company ? { company } : undefined }
-      );
-      if (response.data.success) {
-        return response.data.data;
-      }
-      return [];
-    } catch (error) {
-      throw error;
-    }
-  }
-
    async saveMaterialIssuanceRequest(payload: MaterialIssuancePayload, company?: string): Promise<MaterialIssuancePostResponse> {
     try {
       if (!this.baseUrl) {

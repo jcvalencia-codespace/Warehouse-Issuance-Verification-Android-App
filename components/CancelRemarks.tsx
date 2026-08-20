@@ -13,6 +13,7 @@ import {
 
 interface CancelRemarksProps {
     visible: boolean;
+    remarksRequired: boolean;
     title?: string;
     message?: string;
     placeholder?: string;
@@ -25,6 +26,7 @@ interface CancelRemarksProps {
 
 export function CancelRemarks({
     visible,
+    remarksRequired,
     title = 'Provide Remarks',
     message = 'Please enter a reason for cancelling this request.',
     placeholder = 'Enter remarks here...',
@@ -124,13 +126,13 @@ export function CancelRemarks({
                         <TouchableOpacity
                             style={[
                                 styles.confirmBtn,
-                                { backgroundColor: remarks.trim() ? '#EF4444' : colors.cardBorder },
+                                { backgroundColor: (!remarksRequired || remarks.trim()) ? '#EF4444' : colors.cardBorder },
                             ]}
                             onPress={handleConfirm}
                             activeOpacity={0.8}
-                            disabled={!remarks.trim()}
+                            disabled={remarksRequired && !remarks.trim()}
                         >
-                            <Text style={[styles.confirmBtnText, { color: remarks.trim() ? '#ffffff' : colors.textTertiary }]}>
+                            <Text style={[styles.confirmBtnText, { color: (!remarksRequired || remarks.trim()) ? '#ffffff' : colors.textTertiary }]}>
                                 {confirmText}
                             </Text>
                         </TouchableOpacity>

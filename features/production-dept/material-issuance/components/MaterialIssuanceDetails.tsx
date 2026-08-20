@@ -138,7 +138,7 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
           .filter((item): item is MaterialIssuanceLineItem => item !== null);
         updatedItems.splice(editIndex, 0, ...splitItems);
       } else {
-        updatedItems = [...items, ...splitItems];
+        updatedItems = [...splitItems, ...items];
       }
       setItems(updatedItems);
       onItemsChange?.(updatedItems);
