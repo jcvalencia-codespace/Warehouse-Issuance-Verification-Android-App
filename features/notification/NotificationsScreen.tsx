@@ -1,3 +1,5 @@
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { SuccessModal } from '@/components/SuccessModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { notificationService } from '@/features/shared/services/notificationService';
@@ -37,6 +39,9 @@ export function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const [acknowledge, setAcknowledge] = useState(false);
+  const [acknowledgeItem, setAcknowledgeItem] = useState<NotificationItem | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -125,15 +130,23 @@ export function NotificationsScreen() {
     const categoryIcon = getCategoryIcon(item.CATEGORY);
 
     const onPress = () => {
-      if (item.FORM === 'ERP MOBILE' && item.CATEGORY === 'New Material Issuance Request') {
-        router.push('/raw-materials-dept/material-issuance-confirmation');
-      } else if (item.FORM === 'ERP MOBILE' && item.CATEGORY === 'Material issuance request SERVED and now ready for confirmation') {
-        router.push({
-          pathname: '/raw-materials-dept/material-issuance-confirmation',
-          params: { source: 'production', filter: 'served' },
-        });
-      }
-    };
+        if (item.FORM === 'ERP MOBILE' && item.CATEGORY === 'New Material Issuance Request') {
+          router.push('/raw-materials-dept/material-issuance-confirmation');
+        } else if (item.FORM === 'ERP MOBILE' && item.CATEGORY === 'Material issuance request SERVED and now ready for confirmation') {
+          router.push({
+            pathname: '/raw-materials-dept/material-issuance-confirmation',
+            params: { source: 'production', filter: 'served' },
+          });
+        } else if (
+          item.FORM === 'ERP MOBILE' &&
+          (item.CATEGORY === 'New Material Issuance Request' ||
+            item.CATEGORY.startsWith('Material Issuance Request Rejected') ||
+            item.CATEGORY === '')
+        ) {
+          setAcknowledgeItem(item);
+          setAcknowledge(true);
+        }
+      };
     return (
       <Animated.View
         style={[
@@ -166,7 +179,7 @@ export function NotificationsScreen() {
           </View>
           <View style={styles.notificationContent}>
             <View style={styles.categoryRow}>
-              <Text style={[styles.category, { color: colors.text }]} numberOfLines={1}>
+              <Text style={[styles.category, { color: colors.text }]} numberOfLines={3}>
                 {item.CATEGORY}
               </Text>
               <View style={[styles.categoryBadge, { backgroundColor: categoryColor + '18' }]}>
@@ -250,6 +263,40 @@ export function NotificationsScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <ConfirmModal
+        visible={acknowledge}
+        title="Acknowledge Notification?"
+        message={acknowledgeItem?.CATEGORY || 'Are you sure you want to acknowledge this notification?'}
+        iconName="bell-check-outline"
+        iconColor={colors.primary}
+        confirmText="Acknowledge"
+        cancelText="Cancel"
+        onConfirm={async () => {
+          if (acknowledgeItem && user) {
+            await notificationService.acknowledgeNotification(
+              user.NAME || user.USERNAME || '',
+              acknowledgeItem.ROWID,
+            );
+          }
+          setAcknowledge(false);
+          setAcknowledgeItem(null);
+          setShowSuccess(true);
+          fetchNotifications();
+        }}
+        onCancel={() => {
+          setAcknowledge(false);
+          setAcknowledgeItem(null);
+        }}
+      />
+
+      <SuccessModal
+        visible={showSuccess}
+        title={'Success!'}
+        message={'Notification Successfully Acknowledged'}
+        buttonText='Confirm'
+        onDone={() => {setShowSuccess(false)}}
+      />
     </SafeAreaView>
   );
 }

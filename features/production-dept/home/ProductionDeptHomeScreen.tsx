@@ -60,16 +60,25 @@ export function ProductionDeptHomeScreen({
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const isTablet = false;
-   const { user, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [displayUserName, setDisplayUserName] = useState(userName);
   const [displayUserDepartment, setDisplayUserDepartment] = useState(userDepartment);
   const filteredModules = useMemo(() => {
-    if (isAdmin) {
-      return PRODUCTION_MODULES;
+    let modules = isAdmin
+      ? PRODUCTION_MODULES
+      : PRODUCTION_MODULES.filter(module => module.id !== 'material-utilization-tag');
+
+    const canReviewRequests =
+      user?.NAME === 'Joenas De Guzman' || user?.NAME === 'Cesar Tolentino';
+
+    if (!canReviewRequests) {
+      modules = modules.filter(module => module.id !== 'material-request-review');
     }
-    return PRODUCTION_MODULES.filter(module => module.id !== 'material-utilization-tag');
-  }, [isAdmin]);
+
+    return modules;
+  }, [isAdmin, user]);
+
   useEffect(() => {
     if (user) {
       setDisplayUserName(user.NAME || user.USERNAME || 'Warehouse Operator');

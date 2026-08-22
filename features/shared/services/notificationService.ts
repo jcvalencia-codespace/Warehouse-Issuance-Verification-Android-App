@@ -126,9 +126,41 @@ async function getNotifications(user: string): Promise<any[]> {
   }
 }
 
+async function acknowledgeNotification(user: string, rowId: number): Promise<boolean> {
+  const baseUrl = Constants.expoConfig?.extra?.apiUrl || '';
+  if (!baseUrl) {
+    console.warn('API URL not configured for acknowledging notification');
+    return false;
+  }
+
+  const url = `${baseUrl}/notification/acknowledge?user=${encodeURIComponent(user)}&rowId=${encodeURIComponent(rowId)}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const text = await response.text();
+
+    try {
+      const result = JSON.parse(text);
+      return result.success && result.acknowledged;
+    } catch (parseError) {
+      console.error('Failed to parse acknowledge response as JSON:', parseError);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error acknowledging notification:', error);
+    return false;
+  }
+}
+
 export const notificationService = {
   getPushTokenAsync,
   registerPushToken,
   registerPushTokenAsync,
   getNotifications,
+  acknowledgeNotification,
 };
