@@ -12,6 +12,19 @@ function escapeXml(unsafe) {
         .replace(/'/g, '&apos;');
 }
 
+exports.getMaterialUtilization = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+    try {
+        const result = await pool.request().query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE IS_DONE = 0`)
+        res.json({ success: true, data: result.recordset });
+    } catch (error) {
+        console.error('Error fetching material utilization lists: ', error);
+        res.json({ success: true, message: error.message || 'Failed to fetch material utilization lists' });
+    }
+}
+
 exports.getNextUsageRefNo = async (req, res) => {
     const { company } = req.query;
     const dbName = getCompanyDbName(company);
@@ -192,75 +205,109 @@ exports.saveMaterialUtilization = async (req, res) => {
 
         const { usageDate, usageNo, usageRefNo, machineLineName, shift,
             feedType, variant, formulationNo, batchNo, remarks,
-            validatedBy, weighedBy, user, details, subDetails } = req.body;
+            validatedBy, weighedBy, user, transType, baseDetails, details, subDetails, batchDetails } = req.body;
 
         /* =====================================================
            VALIDATION
            ===================================================== */
 
-        if (!details || !Array.isArray(details) || details.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Material utilization details are required.'
-            });
+        if (transType === 1) {
+            if (!baseDetails || !Array.isArray(baseDetails) || baseDetails.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Base details are required.'
+                });
+            }
+        } else if (transType === 2) {
+            if (!details || !Array.isArray(details) || details.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Material utilization details are required.'
+                });
+            }
+        }
+
+        /* =====================================================
+        BUILD BASEDETAILS XML (TRANSTYPE 1: header + base detail)
+        ===================================================== */
+
+        let baseDetailsXml = '<BaseDetails />';
+        if (transType === 1) {
+            baseDetailsXml = `
+                <BaseDetails>
+                    ${baseDetails.map(bd => `
+                        <BaseDetail>
+                            <itemNo>${escapeXml(bd.itemNo)}</itemNo>
+                            <requiredWeight>${Number(bd.requiredWeight) || 0}</requiredWeight>
+                             <isDosingMachine>${Number(bd.isAutoDosing) || 0}</isDosingMachine>
+                        </BaseDetail>
+                    `).join('')}
+                </BaseDetails>
+            `;
         }
 
 
         /* =====================================================
            BUILD XML
            ===================================================== */
-
-        const detailsXml = `
-            <Details>
-                ${details.map(detail => `
-                    <Detail>
-                        <itemNo>${escapeXml(detail.itemNo)}</itemNo>
-                        <requiredWeight>${Number(detail.requiredWeight) || 0}</requiredWeight>
-                        <weightLoaded>${Number(detail.weightLoaded) || 0}</weightLoaded>
-                        <processType>${escapeXml(detail.processType)}</processType>
-                        <randomSampled>${Number(detail.randomSampled) || 0}</randomSampled>
-                        <qaName>${escapeXml(detail.qaName || '')}</qaName>
-                        <remarks>${escapeXml(detail.remarks || '')}</remarks>
-                    </Detail>
-                `).join('')}
-            </Details>
-        `;
+        let detailsXml = '<Details />';
+        //set up batchDetails----->
+        if (batchDetails === 1) {
+            transType = 2;
+            detailsXml = `
+                <Details>
+                    ${details.map(detail => `
+                        <Detail>
+                            <itemNo>${escapeXml(detail.itemNo)}</itemNo>
+                            <batchNo>${Number(detail.batchNo) || 0}</batchNo>
+                            <requiredWeight>${Number(detail.requiredWeight) || 0}</requiredWeight>
+                            <weightLoaded>${Number(detail.weightLoaded) || 0}</weightLoaded>
+                            <processType>${escapeXml(detail.processType)}</processType>
+                            <randomSampled>${Number(detail.randomSampled) || 0}</randomSampled>
+                            <qaName>${escapeXml(detail.qaName || '')}</qaName>
+                            <remarks>${escapeXml(detail.remarks || '')}</remarks>
+                        </Detail>
+                    `).join('')}
+                </Details>
+            `;
+        }
 
         /* =====================================================
         BUILD XML FOR SUB DETAILS IF TAG VALUE IS 1 
         ===================================================== */
 
-        let subDetailXml = '<SubDetails />';
-        let transType = 0;
-        const tagValue = await getTagValue(company);
-        if (tagValue === 1) {
-            transType = 1;
+        /* =====================================================
+        BUILD XML FOR SUB DETAILS IF TAG VALUE IS 1 
+        ===================================================== */
 
-            if (!subDetails || !Array.isArray(subDetails) || subDetails.length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Sub-detail allocation is required for transaction type 1.'
-                });
-            }
+        // let subDetailXml = '<SubDetails />';
+        // const tagValue = await getTagValue(company);
+        // console.log('Tag Value: ' + tagValue);
+        // if (tagValue === 1) {
+        //     if (!subDetails || !Array.isArray(subDetails) || subDetails.length === 0) {
+        //         return res.status(400).json({
+        //             success: false,
+        //             message: 'Sub-detail allocation is required for transaction type 1.'
+        //         });
+        //     }
 
-            subDetailXml = `
-                <SubDetails>
-                    ${subDetails.map(subDetail => `
-                        <SubDetail>
-                            <qm4dRowId>${Number(subDetail.qm4dRowId) || 0}</qm4dRowId>
-                            <fromIssuanceNoId>${Number(subDetail.fromIssuanceNoId) || 0}</fromIssuanceNoId>
-                            <itemNo>${escapeXml(subDetail.itemNo || '')}</itemNo>
-                            <lotNumber>${escapeXml(subDetail.lotNumber || '')}</lotNumber>
-                            <qtyOut>${Number(subDetail.qtyOut) || 0}</qtyOut>
-                            <bagsOut>${Number(subDetail.bagsOut) || 0}</bagsOut>
-                        </SubDetail>
-                    `).join('')}
-                </SubDetails>
-            `;
-        }
+        //     subDetailXml = `
+        //         <SubDetails>
+        //             ${subDetails.map(subDetail => `
+        //                 <SubDetail>
+        //                     <qm4dRowId>${Number(subDetail.qm4dRowId) || 0}</qm4dRowId>
+        //                     <fromIssuanceNoId>${Number(subDetail.fromIssuanceNoId) || 0}</fromIssuanceNoId>
+        //                     <itemNo>${escapeXml(subDetail.itemNo || '')}</itemNo>
+        //                     <lotNumber>${escapeXml(subDetail.lotNumber || '')}</lotNumber>
+        //                     <qtyOut>${Number(subDetail.qtyOut) || 0}</qtyOut>
+        //                     <bagsOut>${Number(subDetail.bagsOut) || 0}</bagsOut>
+        //                 </SubDetail>
+        //             `).join('')}
+        //         </SubDetails>
+        //     `;
+        // }
 
-
-        console.log('SubDetail XML:', subDetailXml);
+        // console.log('SubDetail XML:', subDetailXml);
 
 
         /* =====================================================
@@ -282,9 +329,11 @@ exports.saveMaterialUtilization = async (req, res) => {
         request.input('ValidatedBy', validatedBy || null);
         request.input('WeighedBy', weighedBy || null);
         request.input('CreatedBy', user);
+        request.input('BaseDetails', sql.Xml, baseDetailsXml);
         request.input('Details', sql.Xml, detailsXml);
         request.input('TRANSTYPE', sql.Int, transType);
-        request.input('SubDetails', sql.Xml, subDetailXml);
+        // request.input('ALLOCATED', sql.Int, allocated);
+        // request.input('SubDetails', sql.Xml, subDetailXml);
 
         const result = await request.execute('[2026.spProducationMaterialUtilizationSave]');
 

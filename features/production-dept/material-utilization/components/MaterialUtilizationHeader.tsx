@@ -270,10 +270,11 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
       feedType: '',
       variant: '',
       formulationNo: '',
-      batchNo: '',
+      batchNo: 0,
       remarks: '',
-      validatedBy: '',
-      weighedBy: '',
+      transType: 1,
+      // validatedBy: '',
+      // weighedBy: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -285,7 +286,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
     const [loadingFeedTypes, setLoadingFeedTypes] = useState(true);
     const [loadingVariants, setLoadingVariants] = useState(false);
 
-    const updateField = (field: keyof MaterialUtilizationFormData, value: string) => {
+    const updateField = (field: keyof MaterialUtilizationFormData, value: string | number) => {
       setFormData((prev) => ({ ...prev, [field]: value }));
       if (errors[field]) {
         setErrors((prev) => {
@@ -393,9 +394,9 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
         { field: 'shift', label: 'Shift' },
         { field: 'feedType', label: 'Feed Type' },
         { field: 'variant', label: 'Variant' },
-        { field: 'batchNo', label: 'Batch No.' },
-        { field: 'validatedBy', label: 'Validated By' },
-        { field: 'weighedBy', label: 'Weighed By' },
+        // { field: 'batchNo', label: 'Batch No.' },
+        // { field: 'validatedBy', label: 'Validated By' },
+        // { field: 'weighedBy', label: 'Weighed By' },
       ];
 
       const newErrors: Record<string, string> = {};
@@ -430,10 +431,11 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
           feedType: '',
           variant: '',
           formulationNo: '',
-          batchNo: '',
+          batchNo: 0,
           remarks: '',
-          validatedBy: '',
-          weighedBy: '',
+          transType: 1,
+          // validatedBy: '',
+          // weighedBy: '',
         });
         setErrors({});
       },
@@ -447,7 +449,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
           console.error('Failed to refresh usage ref no:', error);
         }
       },
-      setField: (field: keyof MaterialUtilizationFormData, value: string) => {
+      setField: (field: keyof MaterialUtilizationFormData, value: string | number) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
       },
       getField: (field: keyof MaterialUtilizationFormData) => {
@@ -652,7 +654,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
               ) : null}
             </View>
           </View>
-          <View style={styles.halfWidth}>
+          {/* <View style={styles.halfWidth}>
             <View style={styles.inputGroup}>
               <View style={styles.labelRow}>
                 <Text style={[styles.label, { color: colors.text }]}>Batch No.</Text>
@@ -689,7 +691,7 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
                 </View>
               ) : null}
             </View>
-          </View>
+          </View> */}
         </View>
 
         <View style={styles.inputGroup}>
@@ -724,84 +726,6 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
             />
           </View>
         </View>
-
-        <View style={styles.row}>
-          <View style={styles.halfWidth}>
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.label, { color: colors.text }]}>Validated By</Text>
-                <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
-              </View>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: errors.validatedBy ? colors.error : colors.cardBorder,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="account-check"
-                  size={20}
-                  color={colors.textSecondary}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={formData.validatedBy}
-                  placeholder="Enter validator name"
-                  placeholderTextColor={colors.textTertiary}
-                  onChangeText={(text) => updateField('validatedBy', text)}
-                />
-              </View>
-              {errors.validatedBy ? (
-                <View style={styles.errorContainer}>
-                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.validatedBy}</Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
-          <View style={styles.halfWidth}>
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.label, { color: colors.text }]}>Weighed By</Text>
-                <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
-              </View>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: errors.weighedBy ? colors.error : colors.cardBorder,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="scale"
-                  size={20}
-                  color={colors.textSecondary}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={formData.weighedBy}
-                  placeholder="Enter weigher name"
-                  placeholderTextColor={colors.textTertiary}
-                  onChangeText={(text) => updateField('weighedBy', text)}
-                />
-              </View>
-              {errors.weighedBy ? (
-                <View style={styles.errorContainer}>
-                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.weighedBy}</Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
-      </View>
-
       <DatePickerModal
         visible={showDatePicker}
         mode="start"

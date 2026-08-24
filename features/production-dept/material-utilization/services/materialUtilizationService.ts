@@ -16,10 +16,8 @@ export interface FeedTypeVariantRow {
 export class MaterialUtilizationService {
   private static instance: MaterialUtilizationService;
   private baseUrl: string;
-  private feedTypeCache: { company: string | undefined; data: DropdownOption[] } | null = null;
   private variantCache: Map<string, DropdownOption[]> = new Map();
   private machineLineCache: { company: string | undefined; data: DropdownOption[] } | null = null;
-  private itemCodeCache: { company: string | undefined; data: DropdownOption[] } | null = null;
 
   private constructor() {
     this.baseUrl = Constants.expoConfig?.extra?.apiUrl || '';
@@ -35,6 +33,24 @@ export class MaterialUtilizationService {
       MaterialUtilizationService.instance = new MaterialUtilizationService();
     }
     return MaterialUtilizationService.instance;
+  }
+
+  async getMaterialUtilizationLists(company?: string): Promise<any[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; data: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-material-utilization-lists`,
+        { params: company ? { company } : undefined }
+      );
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      return [];
+    } catch (error) {
+      throw error;
+    }
   }
 
   async getNextusageNo(company?: string): Promise<string[]> {

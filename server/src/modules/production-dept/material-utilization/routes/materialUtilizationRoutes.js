@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const MaterialUtilizationController = require('../controller/materialUtilizationController');
 
+router.get('/get-material-utilization-lists', MaterialUtilizationController.getMaterialUtilization);
 router.get('/get-next-usage-ref-no', MaterialUtilizationController.getNextUsageRefNo);
 router.get('/get-machine-lines', MaterialUtilizationController.getMachineLines);
 router.get('/get-feed-types', MaterialUtilizationController.getFeedTypes);

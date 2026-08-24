@@ -6,10 +6,9 @@ export interface MaterialUtilizationFormData {
   feedType: string;
   variant: string;
   formulationNo: string;
-  batchNo: string;
+  batchNo: number;
   remarks: string;
-  validatedBy: string;
-  weighedBy: string;
+  transType: number;
 }
 
 export interface MaterialUtilizationLineItem {
@@ -22,6 +21,13 @@ export interface MaterialUtilizationLineItem {
   randomSampled: number;
   qaName: string;
   remarks: string;
+}
+export interface MaterialUtilizationBaseItemDetails {
+  id: string;
+  itemNo: string;
+  itemDescription: string;
+  requiredWeight: number;
+  isAutoDosing?: number;
 }
 
 export interface MaterialUtilizationSubDetail {
@@ -37,17 +43,21 @@ export interface MaterialUtilizationSubDetail {
 export interface MaterialUtilizationPayload {
   usageDate: string;
   usageNo: string;
+  usageRefNo?: string | null;
   machineLineName: string;
   shift: string;
   feedType: string;
   variant: string;
   formulationNo: string;
-  batchNo: string;
+  batchNo: number;
   remarks: string;
-  validatedBy: string;
-  weighedBy: string;
-  user:string;
-  details: MaterialUtilizationLineItem[];
+  transType: number;
+  user: string;
+  baseDetails: MaterialUtilizationBaseItemDetails[];
+  details?: MaterialUtilizationLineItem[];
+  batchDetails?: number;
+  validatedBy?: string | null;
+  weighedBy?: string | null;
   subDetails?: MaterialUtilizationSubDetail[];
 }
 
@@ -80,8 +90,8 @@ export interface MaterialUtilizationHeaderRef {
   submit: () => void;
   clear: () => void;
   refreshusageNo: () => Promise<void>;
-  setField: (field: keyof MaterialUtilizationFormData, value: string) => void;
-  getField: (field: keyof MaterialUtilizationFormData) => string;
+  setField: (field: keyof MaterialUtilizationFormData, value: string | number) => void;
+  getField: (field: keyof MaterialUtilizationFormData) => string | number;
 }
 
 export interface MaterialUtilizationDetailsRef {

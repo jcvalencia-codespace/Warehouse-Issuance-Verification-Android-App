@@ -3,8 +3,9 @@ import { SuccessModal } from '@/components/SuccessModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -16,10 +17,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialUtilizationDetails, MaterialUtilizationDetailsRef } from './components/MaterialUtilizationDetails';
+import { MaterialUtilizationDetailsRef } from './components/MaterialUtilizationDetails';
+import { MaterialUtilizationDetailsSimple } from './components/MaterialUtilizationDetailsSimple';
+import { MaterialUtilizationDetailModal } from './components/MaterialUtilizationDetailModal';
 import { MaterialUtilizationHeader, MaterialUtilizationHeaderRef } from './components/MaterialUtilizationHeader';
+import { MaterialUtilizationList } from './components/MaterialUtilizationList';
 import { MaterialUtilizationService } from './services/materialUtilizationService';
-import { MaterialUtilizationFormData, MaterialUtilizationLineItem, MaterialUtilizationPayload } from './types/materialUtilization.types';
+import { MaterialUtilizationBaseItemDetails, MaterialUtilizationFormData, MaterialUtilizationPayload } from './types/materialUtilization.types';
 
 interface MaterialUtilizationScreenProps {
   onBack?: () => void;
@@ -38,10 +42,17 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
   const [pendingHeader, setPendingHeader] = useState<MaterialUtilizationFormData | null>(null);
-  const [items, setItems] = useState<MaterialUtilizationLineItem[]>([]);
+  const [items, setItems] = useState<MaterialUtilizationBaseItemDetails[]>([]);
 
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  const [lists, setLists] = useState<any[]>([]);
+  const [listsLoading, setListsLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [search, setSearch] = useState('');
 
   const handleClear = () => {
     setClearConfirmVisible(true);
@@ -78,10 +89,11 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         formulationNo: pendingHeader.formulationNo,
         batchNo: pendingHeader.batchNo,
         remarks: pendingHeader.remarks,
-        validatedBy: pendingHeader.validatedBy,
-        weighedBy: pendingHeader.weighedBy,
+        transType: pendingHeader.transType,
         user: user?.NAME || '',
-        details: items,
+        baseDetails: items,
+        validatedBy: '',
+        weighedBy: '',
         subDetails: detailsRef.current?.getSubDetails() || [],
       };
 
@@ -95,6 +107,8 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         setSuccessMessage(result.message || 'Material utilization saved successfully.');
         setPendingHeader((prev) => prev ? { ...prev, usageNo: result.usageNo || prev.usageNo } : prev);
         setSuccessVisible(true);
+        setShowForm(false);
+        loadLists();
       } else {
         Alert.alert('Error', result.message || 'Failed to submit material utilization.');
       }
@@ -113,82 +127,117 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
     detailsRef.current?.clear();
   };
 
+  const loadLists = useCallback(async () => {
+    setListsLoading(true);
+    try {
+      const data = await MaterialUtilizationService.getInstance().getMaterialUtilizationLists(user?.COMPANY);
+      setLists(data || []);
+    } catch (error) {
+      console.error('Failed to load material utilization lists:', error);
+      Alert.alert('Error', 'Failed to load material utilization lists.');
+    } finally {
+      setListsLoading(false);
+    }
+  }, [user?.COMPANY]);
+
+  useEffect(() => {
+    loadLists();
+  }, [loadLists]);
+
+  const handleAddNew = () => {
+    setShowForm(true);
+  };
+
+  const handleBackToList = () => {
+    setShowForm(false);
+    setSelectedRecord(null);
+    setDetailModalVisible(false);
+  };
+
+  const handleRecordPress = (record: any) => {
+    setSelectedRecord(record);
+    setDetailModalVisible(true);
+  };
+
   return (
     <SafeAreaView
       edges={['top', 'bottom']}
       style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoid}
-      >
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: 16 },
-          ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+      {showForm ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
         >
-          <MaterialUtilizationHeader
-            ref={headerRef}
-            onValidSubmit={handleValidSubmit}
-            scrollViewRef={scrollViewRef}
-          />
-          <MaterialUtilizationDetails
-            ref={detailsRef}
-            value={items}
-            onItemsChange={setItems}
-          />
-          <View style={{ height: 80 }} />
-        </ScrollView>
+          <View style={styles.headerBar}>
+            <TouchableOpacity onPress={handleBackToList} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerBarTitle, { color: colors.text }]}>New Material Utilization</Text>
+          </View>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: 16 }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <MaterialUtilizationHeader
+              ref={headerRef}
+              onValidSubmit={handleValidSubmit}
+              scrollViewRef={scrollViewRef}
+            />
+            <MaterialUtilizationDetailsSimple
+              ref={detailsRef}
+              value={items}
+              onItemsChange={setItems}
+            />
+            <View style={{ height: 80 }} />
+          </ScrollView>
 
-        <View
-          style={[
-            styles.footer,
-            { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
-          ]}
-        >
-          <TouchableOpacity
+          <View
             style={[
-              styles.cancelButton,
-              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+              styles.footer,
+              { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
             ]}
-            onPress={onBack}
           >
-            <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
-            <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-              Back
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cancelButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+              onPress={handleBackToList}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
+              <Text style={[styles.cancelButtonText, { color: colors.text }]}>Back</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.clearButton,
-              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
-            ]}
-            onPress={handleClear}
-          >
-            <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
-            <Text style={[styles.clearButtonText, { color: colors.text }]}>
-              Clear
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.clearButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+              onPress={handleClear}
+            >
+              <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
+              <Text style={[styles.clearButtonText, { color: colors.text }]}>Clear</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.submitButton, { backgroundColor: colors.primary }]}
-            onPress={() => headerRef.current?.submit()}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
-            <Text style={styles.buttonText}>
-              Submit
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+            <TouchableOpacity
+              style={[styles.submitButton, { backgroundColor: colors.primary }]}
+              onPress={() => headerRef.current?.submit()}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
+              <Text style={styles.buttonText}>Submit</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+       ) : (
+        <MaterialUtilizationList
+          data={lists}
+          loading={listsLoading}
+          search={search}
+          onSearchChange={setSearch}
+          onRecordPress={handleRecordPress}
+          onBack={onBack || (() => {})}
+          onAddNew={handleAddNew}
+        />
+      )}
 
       <ConfirmModal
         visible={confirmVisible}
@@ -220,6 +269,12 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         message={successMessage}
         buttonText="Done"
         onDone={handleDone}
+      />
+
+      <MaterialUtilizationDetailModal
+        visible={detailModalVisible}
+        record={selectedRecord}
+        onClose={() => setDetailModalVisible(false)}
       />
     </SafeAreaView>
   );
@@ -285,6 +340,17 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#ffffff',
     fontSize: 17,
+    fontWeight: '700',
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  headerBarTitle: {
+    fontSize: 20,
     fontWeight: '700',
   },
 });

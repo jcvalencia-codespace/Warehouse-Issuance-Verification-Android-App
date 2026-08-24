@@ -70,7 +70,7 @@ export function ProductionDeptHomeScreen({
       : PRODUCTION_MODULES.filter(module => module.id !== 'material-utilization-tag');
 
     const canReviewRequests =
-      user?.NAME === 'Joenas De Guzman' || user?.NAME === 'Cesar Tolentino';
+      user?.NAME === 'Joenas De Guzman' || user?.NAME === 'Cesar Tolentino' || isAdmin;
 
     if (!canReviewRequests) {
       modules = modules.filter(module => module.id !== 'material-request-review');
