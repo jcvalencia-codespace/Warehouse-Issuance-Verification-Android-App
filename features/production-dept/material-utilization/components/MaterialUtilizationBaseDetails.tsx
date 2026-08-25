@@ -23,12 +23,12 @@ import {
 
 export { MaterialUtilizationDetailsRef };
 
-interface MaterialUtilizationDetailsSimpleProps {
+interface MaterialUtilizationBaseDetailsProps {
   value?: MaterialUtilizationBaseItemDetails[];
   onItemsChange?: (items: MaterialUtilizationBaseItemDetails[]) => void;
 }
 
-export const MaterialUtilizationDetailsSimple = forwardRef<MaterialUtilizationDetailsRef, MaterialUtilizationDetailsSimpleProps>(
+export const MaterialUtilizationBaseDetails = forwardRef<MaterialUtilizationDetailsRef, MaterialUtilizationBaseDetailsProps>(
   ({ value, onItemsChange }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
@@ -448,7 +448,7 @@ export const MaterialUtilizationDetailsSimple = forwardRef<MaterialUtilizationDe
   }
 );
 
-MaterialUtilizationDetailsSimple.displayName = 'MaterialUtilizationDetailsSimple';
+MaterialUtilizationBaseDetails.displayName = 'MaterialUtilizationBaseDetails';
 
 const styles = StyleSheet.create({
   container: {
@@ -679,4 +679,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MaterialUtilizationDetailsSimple;
+export default MaterialUtilizationBaseDetails;

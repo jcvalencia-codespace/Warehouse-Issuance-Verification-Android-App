@@ -5,7 +5,6 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -14,16 +13,15 @@ import {
   Text,
   TouchableOpacity,
   useColorScheme,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialUtilizationDetailsRef } from './components/MaterialUtilizationDetails';
-import { MaterialUtilizationDetailsSimple } from './components/MaterialUtilizationDetailsSimple';
-import { MaterialUtilizationDetailModal } from './components/MaterialUtilizationDetailModal';
+import { MaterialUtilizationBaseDetails } from './components/MaterialUtilizationBaseDetails';
+import { MaterialUtilizationDetails, MaterialUtilizationDetailsRef } from './components/MaterialUtilizationDetails';
 import { MaterialUtilizationHeader, MaterialUtilizationHeaderRef } from './components/MaterialUtilizationHeader';
 import { MaterialUtilizationList } from './components/MaterialUtilizationList';
 import { MaterialUtilizationService } from './services/materialUtilizationService';
-import { MaterialUtilizationBaseItemDetails, MaterialUtilizationFormData, MaterialUtilizationPayload } from './types/materialUtilization.types';
+import { BatchingMaterialUtilization, MaterialUtilizationBaseItemDetails, MaterialUtilizationFormData, MaterialUtilizationLineItem, MaterialUtilizationPayload } from './types/materialUtilization.types';
 
 interface MaterialUtilizationScreenProps {
   onBack?: () => void;
@@ -37,12 +35,17 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
 
   const headerRef = React.useRef<MaterialUtilizationHeaderRef>(null);
   const detailsRef = React.useRef<MaterialUtilizationDetailsRef>(null);
+  const detailViewRef = React.useRef<MaterialUtilizationDetailsRef>(null);
   const scrollViewRef = React.useRef<ScrollView>(null);
 
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
+  const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
   const [pendingHeader, setPendingHeader] = useState<MaterialUtilizationFormData | null>(null);
   const [items, setItems] = useState<MaterialUtilizationBaseItemDetails[]>([]);
+  const [detailViewRecord, setDetailViewRecord] = useState<any | null>(null);
+  const [detailLineItems, setDetailLineItems] = useState<MaterialUtilizationLineItem[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -127,6 +130,43 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
     detailsRef.current?.clear();
   };
 
+  const handleDetailSave = async () => {
+    const isValid = detailViewRef.current?.validate();
+    if (!isValid) {
+      return;
+    }
+
+    try {
+      const subDetails = detailViewRef.current?.getSubDetails() || [];
+      const payload: BatchingMaterialUtilization = {
+        user: user?.NAME || '',
+        details: detailLineItems,
+        subDetails,
+      };
+
+      const result = await MaterialUtilizationService.getInstance().saveBatchingMaterialUtilization(
+        payload,
+        user?.COMPANY
+      );
+
+      if (result.success) {
+        setSuccessMessage(result.message || 'Material utilization saved successfully.');
+        setSuccessVisible(true);
+        setDetailViewRecord(null);
+        setDetailLineItems([]);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to save material utilization.');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to save material utilization.');
+    }
+  };
+
+  const handleConfirmDetailSave = async () => {
+    setSaveConfirmVisible(false);
+    await handleDetailSave();
+  };
+
   const loadLists = useCallback(async () => {
     setListsLoading(true);
     try {
@@ -152,11 +192,41 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
     setShowForm(false);
     setSelectedRecord(null);
     setDetailModalVisible(false);
+    setDetailViewRecord(null);
+    setDetailLineItems([]);
   };
 
-  const handleRecordPress = (record: any) => {
+  const handleRecordPress = async (record: any) => {
     setSelectedRecord(record);
-    setDetailModalVisible(true);
+    setDetailModalVisible(false);
+    setDetailLoading(true);
+    setDetailViewRecord(record);
+    try {
+      const data = await MaterialUtilizationService.getInstance().getMaterialUtilizationDetails(
+        user?.COMPANY,
+        record.USAGENO
+      );
+      const lineItems: MaterialUtilizationLineItem[] = (data.details || []).map((d) => ({
+        id: d.ROWID ? String(d.ROWID) : String(Math.random()),
+        batchNo: Number(record?.BATCHNO) || 0,
+        usageNo: String(data.header?.USAGENO || record.USAGENO),
+        itemNo: d.ITEMNMBR || '',
+        itemDescription: d.ITEMDESC || d.ITEMNMBR || '',
+        requiredWeight: Number(d.KGSREQUIRED) || 0,
+        weightLoaded: 0,
+        processType: 'Prepared and Loaded',
+        weighedBy: data.header?.WEIGHEDBY || '',
+        ValidatedBy: data.header?.VALIDATEDBY || '',
+        randomSampled: 0,
+        qaName: '',
+        remarks: '',
+      }));
+      setDetailLineItems(lineItems);
+    } catch (error) {
+      console.error('Failed to fetch material utilization details:', error);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   return (
@@ -187,7 +257,7 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
               onValidSubmit={handleValidSubmit}
               scrollViewRef={scrollViewRef}
             />
-            <MaterialUtilizationDetailsSimple
+            <MaterialUtilizationBaseDetails
               ref={detailsRef}
               value={items}
               onItemsChange={setItems}
@@ -227,6 +297,53 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+       ) : detailViewRecord ? (
+        <View style={styles.detailViewContainer}>
+          <View style={styles.headerBar}>
+            <TouchableOpacity onPress={handleBackToList} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerBarTitle, { color: colors.text }]}>Material Utilization Details</Text>
+          </View>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <MaterialUtilizationDetails
+                ref={detailViewRef}
+                value={detailLineItems}
+                onItemsChange={setDetailLineItems}
+                initialData={{
+                  usageRefNo: String(detailViewRecord.USAGENO || ''),
+                  batchNo: Number(detailViewRecord.BATCHNO) || 1,
+                  itemnmbr: detailViewRecord?.FEEDTYPE || '',
+                  weighedBy: detailViewRecord?.WEIGHEDBY || '',
+                  validatedBy: detailViewRecord?.VALIDATEDBY || '',
+                }}
+              />
+            </ScrollView>
+
+            <View
+              style={[
+                styles.detailFooter,
+                {
+                  borderTopColor: colors.cardBorder,
+                  backgroundColor: colors.background,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                onPress={() => setSaveConfirmVisible(true)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="content-save-check" size={20} color="#ffffff" />
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
        ) : (
         <MaterialUtilizationList
           data={lists}
@@ -263,6 +380,18 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         onCancel={() => setClearConfirmVisible(false)}
       />
 
+      <ConfirmModal
+        visible={saveConfirmVisible}
+        title="Save Changes"
+        message="Are you sure you want to save the changes to this material utilization record?"
+        iconName="content-save-check"
+        iconColor={colors.primary}
+        cancelText="Cancel"
+        confirmText="Save"
+        onConfirm={handleConfirmDetailSave}
+        onCancel={() => setSaveConfirmVisible(false)}
+      />
+
       <SuccessModal
         visible={successVisible}
         title="Success"
@@ -270,18 +399,15 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         buttonText="Done"
         onDone={handleDone}
       />
-
-      <MaterialUtilizationDetailModal
-        visible={detailModalVisible}
-        record={selectedRecord}
-        onClose={() => setDetailModalVisible(false)}
-      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
+    flex: 1,
+  },
+  detailViewContainer: {
     flex: 1,
   },
   keyboardAvoid: {
@@ -351,6 +477,23 @@ const styles = StyleSheet.create({
   },
   headerBarTitle: {
     fontSize: 20,
+    fontWeight: '700',
+  },
+  detailFooter: {
+    borderTopWidth: 1,
+    padding: 16,
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+    borderRadius: 16,
+    gap: 8,
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 17,
     fontWeight: '700',
   },
 });

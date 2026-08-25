@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 import {
+  BatchingMaterialUtilization,
   DropdownOption,
   MaterialUtilizationPayload,
   MaterialUtilizationPostResponse
@@ -48,6 +49,24 @@ export class MaterialUtilizationService {
         return response.data.data;
       }
       return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getMaterialUtilizationDetails(company?: string, usageNo?: number): Promise<{ header: any; details: any[] }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; header?: any; details?: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-material-utilization-details`,
+        { params: { company, usageNo } }
+      );
+      if (response.data.success) {
+        return { header: response.data.header, details: response.data.details || [] };
+      }
+      return { header: null, details: [] };
     } catch (error) {
       throw error;
     }
@@ -208,10 +227,7 @@ export class MaterialUtilizationService {
     }
   }
 
-  async saveMaterialUtilization(
-    payload: MaterialUtilizationPayload,
-    company?: string
-  ): Promise<MaterialUtilizationPostResponse> {
+  async saveMaterialUtilization(payload: MaterialUtilizationPayload, company?: string): Promise<MaterialUtilizationPostResponse> {
     try {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
@@ -226,6 +242,21 @@ export class MaterialUtilizationService {
       throw error;
     }
   }
-}
 
+  async saveBatchingMaterialUtilization(payload: BatchingMaterialUtilization, company?: string): Promise<MaterialUtilizationPostResponse> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.post<MaterialUtilizationPostResponse>(
+        `${this.baseUrl}/production-dept/material-utilization/save-batching-material-utilization`,
+        payload,
+        { params: company ? { company } : undefined }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+}
 export const materialUtilizationService = MaterialUtilizationService.getInstance();

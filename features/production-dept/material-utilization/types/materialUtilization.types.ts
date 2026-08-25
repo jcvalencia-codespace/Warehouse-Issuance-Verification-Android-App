@@ -13,11 +13,15 @@ export interface MaterialUtilizationFormData {
 
 export interface MaterialUtilizationLineItem {
   id: string;
+  batchNo: number;
+  usageNo: string;
   itemNo: string;
   itemDescription: string;
   requiredWeight: number;
   weightLoaded: number;
   processType: 'Prepared and Loaded' | 'Oil';
+  weighedBy: string;
+  ValidatedBy: string;
   randomSampled: number;
   qaName: string;
   remarks: string;
@@ -58,6 +62,12 @@ export interface MaterialUtilizationPayload {
   batchDetails?: number;
   validatedBy?: string | null;
   weighedBy?: string | null;
+  subDetails?: MaterialUtilizationSubDetail[];
+}
+
+export interface BatchingMaterialUtilization {
+  user: string;
+  details: MaterialUtilizationLineItem[];
   subDetails?: MaterialUtilizationSubDetail[];
 }
 

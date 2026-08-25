@@ -132,6 +132,40 @@ exports.getItemCode = async (req, res) => {
 
 }
 
+exports.getMaterialUtilizationDetails = async (req, res) => {
+    const { company, usageNo } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    try {
+        const headerResult = await pool.request()
+            .input('UsageNo', sql.Int, parseInt(usageNo, 10) || 0)
+            .query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE USAGENO = @UsageNo`);
+
+        const header = headerResult.recordset[0] || null;
+
+        let details = [];
+        try {
+            const detailResult = await pool.request()
+                .input('UsageNo', sql.Int, parseInt(usageNo, 10) || 0)
+                .query(`SELECT ROWID, USAGENO, ITEMNMBR, KGSREQUIRED, IS_DOSING_MACHINE FROM [PRODUCTION.USAGEBASEDETAILS] WHERE USAGENO = @UsageNo ORDER BY ROWID`);
+            details = detailResult.recordset;
+        } catch (detailError) {
+            console.error('Error fetching utilization details:', detailError.message);
+            details = [];
+        }
+
+        if (!header) {
+            return res.status(404).json({ success: false, message: 'Material utilization record not found.' });
+        }
+
+        res.json({ success: true, header, details });
+    } catch (error) {
+        console.error('Error fetching material utilization details:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to fetch material utilization details' });
+    }
+};
+
 exports.getAllocation = async (req, res) => {
     const { company, itemNo, kgsUsed } = req.query;
     const dbName = getCompanyDbName(company);
@@ -205,7 +239,7 @@ exports.saveMaterialUtilization = async (req, res) => {
 
         const { usageDate, usageNo, usageRefNo, machineLineName, shift,
             feedType, variant, formulationNo, batchNo, remarks,
-            validatedBy, weighedBy, user, transType, baseDetails, details, subDetails, batchDetails } = req.body;
+            validatedBy, weighedBy, user, transType, baseDetails, details } = req.body;
 
         /* =====================================================
            VALIDATION
@@ -227,9 +261,9 @@ exports.saveMaterialUtilization = async (req, res) => {
             }
         }
 
-        /* =====================================================
-        BUILD BASEDETAILS XML (TRANSTYPE 1: header + base detail)
-        ===================================================== */
+         /* =====================================================
+         BUILD BASEDETAILS XML (TRANSTYPE 1: header + base detail)
+         ===================================================== */
 
         let baseDetailsXml = '<BaseDetails />';
         if (transType === 1) {
@@ -245,69 +279,6 @@ exports.saveMaterialUtilization = async (req, res) => {
                 </BaseDetails>
             `;
         }
-
-
-        /* =====================================================
-           BUILD XML
-           ===================================================== */
-        let detailsXml = '<Details />';
-        //set up batchDetails----->
-        if (batchDetails === 1) {
-            transType = 2;
-            detailsXml = `
-                <Details>
-                    ${details.map(detail => `
-                        <Detail>
-                            <itemNo>${escapeXml(detail.itemNo)}</itemNo>
-                            <batchNo>${Number(detail.batchNo) || 0}</batchNo>
-                            <requiredWeight>${Number(detail.requiredWeight) || 0}</requiredWeight>
-                            <weightLoaded>${Number(detail.weightLoaded) || 0}</weightLoaded>
-                            <processType>${escapeXml(detail.processType)}</processType>
-                            <randomSampled>${Number(detail.randomSampled) || 0}</randomSampled>
-                            <qaName>${escapeXml(detail.qaName || '')}</qaName>
-                            <remarks>${escapeXml(detail.remarks || '')}</remarks>
-                        </Detail>
-                    `).join('')}
-                </Details>
-            `;
-        }
-
-        /* =====================================================
-        BUILD XML FOR SUB DETAILS IF TAG VALUE IS 1 
-        ===================================================== */
-
-        /* =====================================================
-        BUILD XML FOR SUB DETAILS IF TAG VALUE IS 1 
-        ===================================================== */
-
-        // let subDetailXml = '<SubDetails />';
-        // const tagValue = await getTagValue(company);
-        // console.log('Tag Value: ' + tagValue);
-        // if (tagValue === 1) {
-        //     if (!subDetails || !Array.isArray(subDetails) || subDetails.length === 0) {
-        //         return res.status(400).json({
-        //             success: false,
-        //             message: 'Sub-detail allocation is required for transaction type 1.'
-        //         });
-        //     }
-
-        //     subDetailXml = `
-        //         <SubDetails>
-        //             ${subDetails.map(subDetail => `
-        //                 <SubDetail>
-        //                     <qm4dRowId>${Number(subDetail.qm4dRowId) || 0}</qm4dRowId>
-        //                     <fromIssuanceNoId>${Number(subDetail.fromIssuanceNoId) || 0}</fromIssuanceNoId>
-        //                     <itemNo>${escapeXml(subDetail.itemNo || '')}</itemNo>
-        //                     <lotNumber>${escapeXml(subDetail.lotNumber || '')}</lotNumber>
-        //                     <qtyOut>${Number(subDetail.qtyOut) || 0}</qtyOut>
-        //                     <bagsOut>${Number(subDetail.bagsOut) || 0}</bagsOut>
-        //                 </SubDetail>
-        //             `).join('')}
-        //         </SubDetails>
-        //     `;
-        // }
-
-        // console.log('SubDetail XML:', subDetailXml);
 
 
         /* =====================================================
@@ -330,10 +301,9 @@ exports.saveMaterialUtilization = async (req, res) => {
         request.input('WeighedBy', weighedBy || null);
         request.input('CreatedBy', user);
         request.input('BaseDetails', sql.Xml, baseDetailsXml);
-        request.input('Details', sql.Xml, detailsXml);
-        request.input('TRANSTYPE', sql.Int, transType);
-        // request.input('ALLOCATED', sql.Int, allocated);
+        // request.input('Details', sql.Xml, detailsXml);
         // request.input('SubDetails', sql.Xml, subDetailXml);
+        request.input('TRANSTYPE', sql.Int, transType);
 
         const result = await request.execute('[2026.spProducationMaterialUtilizationSave]');
 
@@ -369,6 +339,98 @@ exports.saveMaterialUtilization = async (req, res) => {
             success: false, message:
                 error.message ||
                 'Failed to save material utilization.'
+        });
+    }
+};
+
+exports.saveBatchingMaterialUtilization = async (req, res) => {
+    const { company } = req.query;
+    const { usageNo, user, transType, details, subDetails } = req.body;
+
+    if (!company) {
+        return res.status(400).json({ success: false, message: 'company is required.' });
+    }
+    if (!user) {
+        return res.status(400).json({ success: false, message: 'user is required.' });
+    }
+
+    try {
+        const dbName = getCompanyDbName(company);
+        const pool = await getPool(dbName);
+
+        let detailsXml = '<Details />';
+        if (transType === 2) {
+            if (!Array.isArray(details) || details.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'details is required for transaction type 2.'
+                });
+            }
+
+            detailsXml = `
+                <Details>
+                    ${details.map(detail => `
+                        <Detail>
+                            <itemNo>${escapeXml(detail.itemNo)}</itemNo>
+                            <batchNo>${Number(detail.batchNo) || 0}</batchNo>
+                            <requiredWeight>${Number(detail.requiredWeight) || 0}</requiredWeight>
+                            <weightLoaded>${Number(detail.weightLoaded) || 0}</weightLoaded>
+                            <processType>${escapeXml(detail.processType)}</processType>
+                            <randomSampled>${Number(detail.randomSampled) || 0}</randomSampled>
+                            <qaName>${escapeXml(detail.qaName || '')}</qaName>
+                            <remarks>${escapeXml(detail.remarks || '')}</remarks>
+                        </Detail>
+                    `).join('')}
+                </Details>
+            `;
+        }
+
+        let allocated = 0;
+        let subDetailXml = '<SubDetails />';
+        const tagValue = await getTagValue(company);
+
+        if (tagValue === 1) {
+            if (!Array.isArray(subDetails) || subDetails.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Sub-detail allocation is required for transaction type 1.'
+                });
+            }
+            allocated = 1;
+
+            subDetailXml = `
+                <SubDetails>
+                    ${subDetails.map(subDetail => `
+                        <SubDetail>
+                            <qm4dRowId>${Number(subDetail.qm4dRowId) || 0}</qm4dRowId>
+                            <fromIssuanceNoId>${Number(subDetail.fromIssuanceNoId) || 0}</fromIssuanceNoId>
+                            <itemNo>${escapeXml(subDetail.itemNo || '')}</itemNo>
+                            <lotNumber>${escapeXml(subDetail.lotNumber || '')}</lotNumber>
+                            <qtyOut>${Number(subDetail.qtyOut) || 0}</qtyOut>
+                            <bagsOut>${Number(subDetail.bagsOut) || 0}</bagsOut>
+                        </SubDetail>
+                    `).join('')}
+                </SubDetails>
+            `;
+        }
+
+        const request = pool.request();
+        request.input('UsageNo', sql.NVarChar, usageNo);
+        request.input('Details', sql.Xml, detailsXml);
+        request.input('ALLOCATED', sql.Int, allocated);
+        request.input('SubDetails', sql.Xml, subDetailXml);
+        request.input('CreatedBy', sql.NVarChar, user);
+
+        // Replace with your actual stored procedure name
+        const result = await request.execute('[2026.spProducationMaterialUtilizationSave]');
+
+        return res.status(200).json({success: true, data: result.recordset});
+
+    } catch (error) {
+        console.error('saveBatchingMaterialUtilization error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to save batching material utilization.'
         });
     }
 };

@@ -9,5 +9,8 @@ router.get('/get-feed-types', MaterialUtilizationController.getFeedTypes);
 router.get('/get-variants-by-feed-type', MaterialUtilizationController.getVariantsByFeedType);
 router.get('/get-item-code', MaterialUtilizationController.getItemCode);
 router.get('/get-allocation', MaterialUtilizationController.getAllocation);
+router.get('/get-material-utilization-details', MaterialUtilizationController.getMaterialUtilizationDetails);
 router.post('/save-material-utilization', MaterialUtilizationController.saveMaterialUtilization);
+router.post('/save-batching-material-utilization', MaterialUtilizationController.saveBatchingMaterialUtilization);
+
 module.exports = router;
