@@ -72,6 +72,24 @@ export class MaterialUtilizationService {
     }
   }
 
+  async getDosingMachineDetails(company?: string, usageNo?: number): Promise<{ header: any; details: any[] }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; header?: any; details?: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-material-utilization-dosing-machine-details`,
+        { params: { company, usageNo } }
+      );
+      if (response.data.success) {
+        return { header: response.data.header, details: response.data.details || [] };
+      }
+      return { header: null, details: [] };
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getNextusageNo(company?: string): Promise<string[]> {
     try {
       if (!this.baseUrl) {
@@ -199,6 +217,58 @@ export class MaterialUtilizationService {
         return response.data.data;
       }
       return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getBatchLists(company?: string, usageNo?: number): Promise<{
+    autoDosingBatchNos: any[];
+    notDosingBatchNos: any[];
+    totalDosingItem?: number;
+    totalNotDosingItem?: number;
+  }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{
+        success: boolean;
+        autoDosingBatchNos: any[];
+        notDosingBatchNos: any[];
+        totalDosingItem?: number;
+        totalNotDosingItem?: number;
+      }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-batch-lists`,
+        { params: company ? { company, usageNo } : { usageNo } }
+      );
+      if (response.data.success) {
+        return {
+          autoDosingBatchNos: response.data.autoDosingBatchNos || [],
+          notDosingBatchNos: response.data.notDosingBatchNos || [],
+          totalDosingItem: response.data.totalDosingItem,
+          totalNotDosingItem: response.data.totalNotDosingItem,
+        };
+      }
+      return { autoDosingBatchNos: [], notDosingBatchNos: [], totalDosingItem: 0, totalNotDosingItem: 0 };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getNextBatchNo(company?: string, usageNo?: number, isDosingMachine?: boolean): Promise<number | null> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; batchNo?: number }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-next-batch-no`,
+        { params: { company, usageNo, isDosingMachine } }
+      );
+      if (response.data.success) {
+        return response.data.batchNo ?? null;
+      }
+      return null;
     } catch (error) {
       throw error;
     }

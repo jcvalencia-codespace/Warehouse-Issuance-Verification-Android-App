@@ -38,10 +38,11 @@ interface MaterialUtilizationDetailsProps {
     weighedBy?: string;
     validatedBy?: string;
   };
+  isDosingMachine?: boolean;
 }
 
 export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsRef, MaterialUtilizationDetailsProps>(
-   ({ value, onItemsChange, initialData }, ref) => {
+  ({ value, onItemsChange, initialData, isDosingMachine = false }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user, isAdmin } = useAuth();
@@ -159,27 +160,37 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       }
     }, [initialData, items]);
 
+    const [rawWeightText, setRawWeightText] = useState<Record<number, string>>({});
+
     const updateItemWeight = (index: number, weight: string) => {
-      const weightValue = Number(weight);
-      setItems((prev) => {
-        const next = [...prev];
-        next[index] = { ...next[index], weightLoaded: isNaN(weightValue) ? 0 : weightValue };
-        onItemsChange?.(next);
-        return next;
-      });
+      // reject invalid characters outright; allow empty, digits, one optional decimal point
+      if (weight !== '' && !/^\d*\.?\d*$/.test(weight)) {
+        return;
+      }
+
+      // always track what the user is literally typing
+      setRawWeightText((prev) => ({ ...prev, [index]: weight }));
+
+      // only commit a numeric value to items when it actually parses to a finished number
+      const parsed = parseFloat(weight);
+      const next = [...items];
+      next[index] = { ...next[index], weightLoaded: isNaN(parsed) ? 0 : parsed };
+      setItems(next);
+      onItemsChange?.(next);
+
       setErrors((prev) => {
         if (!prev[`weight_${index}`]) return prev;
-        const next = { ...prev };
-        delete next[`weight_${index}`];
-        return next;
+        const nextErrors = { ...prev };
+        delete nextErrors[`weight_${index}`];
+        return nextErrors;
       });
     };
 
     const handleWeighedByChange = (text: string) => {
       setWeighedBy(text);
-      setItems((prev) =>
-        prev.map((item) => ({ ...item, weighedBy: text }))
-      );
+      const next = items.map((item) => ({ ...item, weighedBy: text }));
+      setItems(next);
+      onItemsChange?.(next);
       if (errors.weighedBy) {
         setErrors((prev) => {
           const next = { ...prev };
@@ -191,9 +202,9 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
     const handleValidatedByChange = (text: string) => {
       setValidatedBy(text);
-      setItems((prev) =>
-        prev.map((item) => ({ ...item, ValidatedBy: text }))
-      );
+      const next = items.map((item) => ({ ...item, ValidatedBy: text }));
+      setItems(next);
+      onItemsChange?.(next);
       if (errors.validatedBy) {
         setErrors((prev) => {
           const next = { ...prev };
@@ -204,34 +215,28 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     };
 
     const handleProcessTypeChange = (index: number, newProcess: 'Prepared and Loaded' | 'Oil') => {
-      setItems((prev) => {
-        const next = [...prev];
-        next[index] = { ...next[index], processType: newProcess };
-        onItemsChange?.(next);
-        return next;
-      });
+      const next = [...items];
+      next[index] = { ...next[index], processType: newProcess };
+      setItems(next);
+      onItemsChange?.(next);
     };
 
     const handleRandomSampledChange = (value: number) => {
       setRandomSampled(value);
-      setItems((prev) => {
-        const next = prev.map((item) => ({
-          ...item,
-          randomSampled: value,
-          qaName: value === 1 ? item.qaName : '',
-        }));
-        onItemsChange?.(next);
-        return next;
-      });
+      const next = items.map((item) => ({
+        ...item,
+        randomSampled: value,
+        qaName: value === 1 ? item.qaName : '',
+      }));
+      setItems(next);
+      onItemsChange?.(next);
     };
 
     const handleQaNameChange = (text: string) => {
       setQaName(text);
-      setItems((prev) => {
-        const next = prev.map((item) => ({ ...item, qaName: text }));
-        onItemsChange?.(next);
-        return next;
-      });
+      const next = items.map((item) => ({ ...item, qaName: text }));
+      setItems(next);
+      onItemsChange?.(next);
       if (errors.qaName) {
         setErrors((prev) => {
           const next = { ...prev };
@@ -245,6 +250,14 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       setBarcodeScannerVisible(false);
       setQaName(data);
       setRandomSampled(1);
+      const next = items.map((item) => ({ ...item, qaName: data, randomSampled: 1 }));
+      setItems(next);
+      onItemsChange?.(next);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.qaName;
+        return next;
+      });
     };
 
     useImperativeHandle(ref, () => ({
@@ -286,6 +299,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
         setRequiredError(false);
         return Object.keys(newErrors).length === 0;
       },
+      getBatchNo: () => batchNo,
       getSubDetails: () => {
         const allSubDetails: MaterialUtilizationSubDetail[] = [];
         const validKeys = new Set(
@@ -337,7 +351,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
               <Text style={[styles.detailValue, { color: colors.preparing }]}>{item.requiredWeight} kg</Text>
             </View>
             <View style={styles.detailItem}>
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Weight Loaded</Text>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Weight Loaded <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
               {isDetailMode ? (
                 <>
                   <View
@@ -352,7 +366,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                   >
                     <TextInput
                       style={[styles.input, { color: colors.text, fontSize: 16 }]}
-                      value={item.weightLoaded ? String(item.weightLoaded) : ''}
+                      value={rawWeightText[index] ?? (item.weightLoaded ? String(item.weightLoaded) : '')}
                       placeholder="0.00"
                       placeholderTextColor={colors.textTertiary}
                       keyboardType="decimal-pad"
@@ -478,7 +492,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                   <View style={[styles.allocationTable, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
                     <View style={[styles.allocationHeader, { borderBottomColor: colors.cardBorder, backgroundColor: colors.background }]}>
                       <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>LOT NO.</Text>
-                      <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>QTY TRANS</Text>
+                      <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>BALANCE</Text>
                       <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>ALLOCATED</Text>
                       <Text style={[styles.allocationHeaderText, { color: colors.textTertiary }]}>REMAINING</Text>
                     </View>
@@ -492,7 +506,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                         ]}
                       >
                         <Text style={[styles.allocationCell, { color: colors.text }]}>{row.LOTNUMBER || '—'}</Text>
-                        <Text style={[styles.allocationCell, { color: colors.textSecondary }]}>{formatKg(row.QUANTITY_TRANS)}</Text>
+                        <Text style={[styles.allocationCell, { color: colors.textSecondary }]}>{formatKg(row.BALANCE)}</Text>
                         <Text style={[styles.allocationCell, { color: colors.success }]}>{formatKg(row.KGS_ALLOCATED)}</Text>
                         <Text style={[styles.allocationCell, { color: colors.text }]}>{formatKg(row.REMAINING_QTY)}</Text>
                       </View>
@@ -512,6 +526,14 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
     return (
       <View style={styles.container}>
+        <View style={styles.batchNoHeader}>
+          <Text style={[styles.batchNoHeader, { color: colors.primary }]}>
+            Usage No: PMU-<Text style={{ fontWeight: '900' }}>{initialData?.usageRefNo ?? 0}</Text>
+          </Text>
+          <Text style={[styles.batchNoHeader, { color: colors.primary }]}>
+            Batch No: <Text style={{ fontWeight: '900' }}>{batchNo || 0}</Text>
+          </Text>
+        </View>
         {!isDetailMode && (
           <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -568,70 +590,67 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 Material Details
               </Text>
-              <Text style={[styles.batchNoHeader, { color: colors.primary }]}>
-                Batch No: <Text style={{ fontWeight: '700' }}>{initialData?.batchNo ?? 0}</Text>
-              </Text>
             </View>
             <View style={styles.rowContainer}>
               <View style={[styles.weightColumn, { flex: 1 }]}>
                 <View style={styles.labelRow}>
-                  <Text style={[styles.label, { color: colors.text }]}>Weighed By</Text>
+                  <Text style={[styles.label, { color: colors.text }]}>Weighed By <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
                 </View>
-                  <View
-                    style={[
-                      styles.inputContainer,
-                      {
-                        borderColor: errors.weighedBy ? colors.error : colors.cardBorder,
-                        backgroundColor: colors.background,
-                      }
-                    ]}
-                  >
-                    <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, { color: colors.text }]}
-                      value={weighedBy}
-                      placeholder="Enter name"
-                      placeholderTextColor={colors.textTertiary}
-                      onChangeText={handleWeighedByChange}
-                    />
+                <View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      borderColor: errors.weighedBy ? colors.error : colors.cardBorder,
+                      backgroundColor: colors.background,
+                    }
+                  ]}
+                >
+                  <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={weighedBy}
+                    placeholder="Enter name"
+                    placeholderTextColor={colors.textTertiary}
+                    onChangeText={handleWeighedByChange}
+                  />
+                </View>
+                {errors.weighedBy ? (
+                  <View style={styles.errorContainer}>
+                    <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.weighedBy}</Text>
                   </View>
-                  {errors.weighedBy ? (
-                    <View style={styles.errorContainer}>
-                      <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                      <Text style={[styles.errorText, { color: colors.error }]}>{errors.weighedBy}</Text>
-                    </View>
-                  ) : null}
-                </View>
+                ) : null}
+              </View>
 
               <View style={[styles.weightColumn, { flex: 1 }]}>
                 <View style={styles.labelRow}>
-                  <Text style={[styles.label, { color: colors.text }]}>Validated By</Text>
+                  <Text style={[styles.label, { color: colors.text }]}>Validated By <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
                 </View>
-                 <View
-                   style={[
-                     styles.inputContainer,
-                     {
-                       borderColor: errors.validatedBy ? colors.error : colors.cardBorder,
-                       backgroundColor: colors.background,
-                     },
-                   ]}
-                 >
-                   <MaterialCommunityIcons name="shield-account-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                   <TextInput
-                     style={[styles.input, { color: colors.text }]}
-                     value={validatedBy}
-                     placeholder="Enter name"
-                     placeholderTextColor={colors.textTertiary}
-                     onChangeText={handleValidatedByChange}
-                   />
-                 </View>
-                 {errors.validatedBy ? (
-                   <View style={styles.errorContainer}>
-                     <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                     <Text style={[styles.errorText, { color: colors.error }]}>{errors.validatedBy}</Text>
-                   </View>
-                 ) : null}
-               </View>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      borderColor: errors.validatedBy ? colors.error : colors.cardBorder,
+                      backgroundColor: colors.background,
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons name="shield-account-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={validatedBy}
+                    placeholder="Enter name"
+                    placeholderTextColor={colors.textTertiary}
+                    onChangeText={handleValidatedByChange}
+                  />
+                </View>
+                {errors.validatedBy ? (
+                  <View style={styles.errorContainer}>
+                    <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.validatedBy}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
 
             <View style={styles.rowContainer}>
@@ -666,25 +685,25 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
               {randomSampled === 1 && (
                 <View style={[styles.weightColumn, { flex: 2 }]}>
                   <View style={styles.labelRow}>
-                    <Text style={[styles.label, { color: colors.text }]}>QA Name</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>QA Name <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
                   </View>
-                   <View style={styles.qaRow}>
-                     <View
-                       style={[
-                         styles.inputContainer,
-                         { borderColor: errors.qaName ? colors.error : colors.cardBorder, backgroundColor: colors.background, flex: 1 },
-                       ]}
-                     >
-                       <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                       <TextInput
-                         style={[styles.input, { color: colors.text }]}
-                         value={qaName}
-                         placeholder="Scan or enter QA name"
-                         placeholderTextColor={colors.textTertiary}
-                         onChangeText={handleQaNameChange}
-                       />
-                     </View>
-                     <TouchableOpacity
+                  <View style={styles.qaRow}>
+                    <View
+                      style={[
+                        styles.inputContainer,
+                        { borderColor: errors.qaName ? colors.error : colors.cardBorder, backgroundColor: colors.background, flex: 1 },
+                      ]}
+                    >
+                      <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, { color: colors.text }]}
+                        value={qaName}
+                        placeholder="Scan or enter QA name"
+                        placeholderTextColor={colors.textTertiary}
+                        onChangeText={handleQaNameChange}
+                      />
+                    </View>
+                    <TouchableOpacity
                       style={[styles.scanButton, { backgroundColor: colors.primary }]}
                       onPress={() => setBarcodeScannerVisible(true)}
                       activeOpacity={0.8}
@@ -720,8 +739,8 @@ MaterialUtilizationDetails.displayName = 'MaterialUtilizationDetails';
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
-    marginTop: 16,
+    // marginBottom: 16,
+    // marginTop: 16,
   },
   sectionTitle: {
     fontSize: 22,
@@ -739,8 +758,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   batchNoHeader: {
-    fontSize: 20,
+    fontSize: 25,
     fontWeight: '600',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
   },
   tagLoadingContainer: {
     flexDirection: 'row',
@@ -753,7 +775,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   card: {
-    marginTop:20,
+    marginTop: 20,
     borderRadius: 20,
     borderTopWidth: 1,
     padding: 20,

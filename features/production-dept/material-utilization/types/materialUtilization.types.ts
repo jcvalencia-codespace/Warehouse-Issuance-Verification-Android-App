@@ -24,6 +24,7 @@ export interface MaterialUtilizationLineItem {
   ValidatedBy: string;
   randomSampled: number;
   qaName: string;
+  isDosingMachine?: boolean;
   remarks: string;
 }
 export interface MaterialUtilizationBaseItemDetails {
@@ -66,9 +67,12 @@ export interface MaterialUtilizationPayload {
 }
 
 export interface BatchingMaterialUtilization {
+  usageNo: string;
   user: string;
+  transType: number;
   details: MaterialUtilizationLineItem[];
   subDetails?: MaterialUtilizationSubDetail[];
+  isDosingMachine?: boolean;
 }
 
 export interface MaterialUtilizationPostResponse {
@@ -108,4 +112,5 @@ export interface MaterialUtilizationDetailsRef {
   clear: () => void;
   validate: () => boolean;
   getSubDetails: () => MaterialUtilizationSubDetail[];
+  getBatchNo: () => string;
 }

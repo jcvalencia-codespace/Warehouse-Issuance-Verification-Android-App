@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialUtilizationBaseDetails } from './components/MaterialUtilizationBaseDetails';
+import { MaterialUtilizationBatchLists } from './components/MaterialUtilizationBatchLists';
 import { MaterialUtilizationDetails, MaterialUtilizationDetailsRef } from './components/MaterialUtilizationDetails';
 import { MaterialUtilizationHeader, MaterialUtilizationHeaderRef } from './components/MaterialUtilizationHeader';
 import { MaterialUtilizationList } from './components/MaterialUtilizationList';
@@ -45,7 +46,8 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
   const [items, setItems] = useState<MaterialUtilizationBaseItemDetails[]>([]);
   const [detailViewRecord, setDetailViewRecord] = useState<any | null>(null);
   const [detailLineItems, setDetailLineItems] = useState<MaterialUtilizationLineItem[]>([]);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailViewBatchNo, setDetailViewBatchNo] = useState<number | null>(null);
+  const [isDosingMachine, setIsDosingMachine] = useState(false);
 
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -53,8 +55,8 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
   const [lists, setLists] = useState<any[]>([]);
   const [listsLoading, setListsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [showBatchLists, setShowBatchLists] = useState(false);
+  const [selectedUsageNo, setSelectedUsageNo] = useState<number | undefined>(undefined);
   const [search, setSearch] = useState('');
 
   const handleClear = () => {
@@ -138,12 +140,20 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
 
     try {
       const subDetails = detailViewRef.current?.getSubDetails() || [];
+      const updatedBatchNo = detailViewRef.current?.getBatchNo() || '';
+      const updatedLineItems = detailLineItems.map(item => ({
+        ...item,
+        batchNo: Number(updatedBatchNo) || item.batchNo,
+        isDosingMachine,
+      }));
       const payload: BatchingMaterialUtilization = {
+        usageNo: String(detailViewRecord?.USAGENO || detailViewRecord?.usageNo || ''),
         user: user?.NAME || '',
-        details: detailLineItems,
+        details: updatedLineItems,
         subDetails,
+        transType: 2,
+        isDosingMachine,
       };
-
       const result = await MaterialUtilizationService.getInstance().saveBatchingMaterialUtilization(
         payload,
         user?.COMPANY
@@ -190,42 +200,112 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
 
   const handleBackToList = () => {
     setShowForm(false);
-    setSelectedRecord(null);
-    setDetailModalVisible(false);
+    setShowBatchLists(false);
+    setSelectedUsageNo(undefined);
     setDetailViewRecord(null);
     setDetailLineItems([]);
+    setDetailViewBatchNo(null);
+    setIsDosingMachine(false);
   };
 
-  const handleRecordPress = async (record: any) => {
-    setSelectedRecord(record);
-    setDetailModalVisible(false);
-    setDetailLoading(true);
-    setDetailViewRecord(record);
+  const handleBackToBatchLists = () => {
+    setShowForm(false);
+    setShowBatchLists(true);
+    setDetailViewRecord(null);
+    setDetailLineItems([]);
+    setDetailViewBatchNo(null);
+    setIsDosingMachine(false);
+  };
+
+  const handleRecordPress = (record: any) => {
+    setShowBatchLists(true);
+    setSelectedUsageNo(Number(record.USAGENO));
+  };
+
+  const handleCreateNewFromBatchLists = async (isDosingMachine: boolean) => {
     try {
-      const data = await MaterialUtilizationService.getInstance().getMaterialUtilizationDetails(
-        user?.COMPANY,
-        record.USAGENO
-      );
-      const lineItems: MaterialUtilizationLineItem[] = (data.details || []).map((d) => ({
-        id: d.ROWID ? String(d.ROWID) : String(Math.random()),
-        batchNo: Number(record?.BATCHNO) || 0,
-        usageNo: String(data.header?.USAGENO || record.USAGENO),
-        itemNo: d.ITEMNMBR || '',
-        itemDescription: d.ITEMDESC || d.ITEMNMBR || '',
-        requiredWeight: Number(d.KGSREQUIRED) || 0,
-        weightLoaded: 0,
-        processType: 'Prepared and Loaded',
-        weighedBy: data.header?.WEIGHEDBY || '',
-        ValidatedBy: data.header?.VALIDATEDBY || '',
-        randomSampled: 0,
-        qaName: '',
-        remarks: '',
-      }));
-      setDetailLineItems(lineItems);
+      let result;
+      if (isDosingMachine) {
+        result = await MaterialUtilizationService.getInstance().getDosingMachineDetails(user?.COMPANY, selectedUsageNo);
+      } else {
+        result = await MaterialUtilizationService.getInstance().getMaterialUtilizationDetails(user?.COMPANY, selectedUsageNo);
+      }
+
+      if (result.header) {
+        const header = result.header;
+        const latestBatchNo = await MaterialUtilizationService.getInstance().getNextBatchNo(user?.COMPANY, selectedUsageNo, isDosingMachine);
+        setDetailViewBatchNo(latestBatchNo);
+        const nextBatchNo = (latestBatchNo ?? 0) + 1;
+
+        const detailLineItems: MaterialUtilizationLineItem[] = result.details.map((detail, index) => ({
+          id: String(detail.ROWID || index),
+          batchNo: nextBatchNo,
+          usageNo: String(header.USAGENO || ''),
+          itemNo: detail.ITEMNMBR || '',
+          itemDescription: detail.ITEMNMBR || '',
+          requiredWeight: Number(detail.KGSREQUIRED) || 0,
+          weightLoaded: Number(header.WEIGHTLOADED) || 0,
+          processType: 'Prepared and Loaded' as const,
+          weighedBy: header.WEIGHEDBY || '',
+          ValidatedBy: header.VALIDATEDBY || '',
+          randomSampled: Number(header.IS_RANDOM_SAMPLED) || 0,
+          qaName: header.QA_NAME || '',
+          remarks: '',
+        }));
+
+        setShowForm(false);
+        setShowBatchLists(false);
+        setIsDosingMachine(isDosingMachine);
+        setDetailViewRecord(header);
+        setDetailLineItems(detailLineItems);
+      }
     } catch (error) {
-      console.error('Failed to fetch material utilization details:', error);
-    } finally {
-      setDetailLoading(false);
+      console.error('Error fetching material utilization details:', error);
+      Alert.alert('Error', 'Failed to load material utilization details.');
+    }
+  };
+
+  const handleBatchPress = async (batchNo: number, isDosingMachine: boolean) => {
+    try {
+      let result;
+      if (isDosingMachine) {
+        result = await MaterialUtilizationService.getInstance().getDosingMachineDetails(user?.COMPANY, selectedUsageNo);
+      } else {
+        result = await MaterialUtilizationService.getInstance().getMaterialUtilizationDetails(user?.COMPANY, selectedUsageNo);
+      }
+
+      if (result.header) {
+        const header = result.header;
+        const latestBatchNo = await MaterialUtilizationService.getInstance().getNextBatchNo(user?.COMPANY, selectedUsageNo, isDosingMachine);
+        setDetailViewBatchNo(latestBatchNo);
+        const nextBatchNo = (latestBatchNo ?? 0) + 1;
+
+        const detailLineItems: MaterialUtilizationLineItem[] = result.details.map((detail, index) => ({
+          id: String(detail.ROWID || index),
+          batchNo: nextBatchNo,
+          usageNo: String(header.USAGENO || ''),
+          itemNo: detail.ITEMNMBR || '',
+          itemDescription: detail.ITEMNMBR || '',
+          requiredWeight: Number(detail.KGSREQUIRED) || 0,
+          weightLoaded: Number(header.WEIGHTLOADED) || 0,
+          processType: 'Prepared and Loaded' as const,
+          weighedBy: header.WEIGHEDBY || '',
+          ValidatedBy: header.VALIDATEDBY || '',
+          randomSampled: Number(header.IS_RANDOM_SAMPLED) || 0,
+          qaName: header.QA_NAME || '',
+          isDosingMachine,
+          remarks: '',
+        }));
+
+        setShowForm(false);
+        setShowBatchLists(false);
+        setIsDosingMachine(isDosingMachine);
+        setDetailViewRecord(header);
+        setDetailLineItems(detailLineItems);
+      }
+    } catch (error) {
+      console.error('Error fetching material utilization details:', error);
+      Alert.alert('Error', 'Failed to load material utilization details.');
     }
   };
 
@@ -234,115 +314,129 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
       edges={['top', 'bottom']}
       style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
-      {showForm ? (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoid}
-        >
-          <View style={styles.headerBar}>
-            <TouchableOpacity onPress={handleBackToList} activeOpacity={0.7}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={[styles.headerBarTitle, { color: colors.text }]}>New Material Utilization</Text>
-          </View>
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: 16 }]}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <MaterialUtilizationHeader
-              ref={headerRef}
-              onValidSubmit={handleValidSubmit}
-              scrollViewRef={scrollViewRef}
-            />
-            <MaterialUtilizationBaseDetails
-              ref={detailsRef}
-              value={items}
-              onItemsChange={setItems}
-            />
-            <View style={{ height: 80 }} />
-          </ScrollView>
+       {showForm ? (
+         <KeyboardAvoidingView
+           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+           style={styles.keyboardAvoid}
+         >
+           <View style={styles.headerBar}>
+             <TouchableOpacity onPress={handleBackToList} activeOpacity={0.7}>
+               <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+             </TouchableOpacity>
+             <Text style={[styles.headerBarTitle, { color: colors.text }]}>New Material Utilization</Text>
+           </View>
+           <ScrollView
+             ref={scrollViewRef}
+             style={styles.scrollView}
+             contentContainerStyle={[styles.scrollContent, { paddingBottom: 16 }]}
+             showsVerticalScrollIndicator={false}
+             keyboardShouldPersistTaps="handled"
+           >
+             <MaterialUtilizationHeader
+               ref={headerRef}
+               onValidSubmit={handleValidSubmit}
+               scrollViewRef={scrollViewRef}
+             />
+             <MaterialUtilizationBaseDetails
+               ref={detailsRef}
+               value={items}
+               onItemsChange={setItems}
+             />
+             <View style={{ height: 80 }} />
+           </ScrollView>
 
-          <View
-            style={[
-              styles.footer,
-              { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
-            ]}
-          >
-            <TouchableOpacity
-              style={[styles.cancelButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-              onPress={handleBackToList}
-            >
-              <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
-              <Text style={[styles.cancelButtonText, { color: colors.text }]}>Back</Text>
-            </TouchableOpacity>
+           <View
+             style={[
+               styles.footer,
+               { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
+             ]}
+           >
+             <TouchableOpacity
+               style={[styles.cancelButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+               onPress={handleBackToList}
+             >
+               <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
+               <Text style={[styles.cancelButtonText, { color: colors.text }]}>Back</Text>
+             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.clearButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-              onPress={handleClear}
-            >
-              <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
-              <Text style={[styles.clearButtonText, { color: colors.text }]}>Clear</Text>
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={[styles.clearButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+               onPress={handleClear}
+             >
+               <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
+               <Text style={[styles.clearButtonText, { color: colors.text }]}>Clear</Text>
+             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.submitButton, { backgroundColor: colors.primary }]}
-              onPress={() => headerRef.current?.submit()}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
-              <Text style={styles.buttonText}>Submit</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-       ) : detailViewRecord ? (
-        <View style={styles.detailViewContainer}>
-          <View style={styles.headerBar}>
-            <TouchableOpacity onPress={handleBackToList} activeOpacity={0.7}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={[styles.headerBarTitle, { color: colors.text }]}>Material Utilization Details</Text>
-          </View>
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <MaterialUtilizationDetails
-                ref={detailViewRef}
-                value={detailLineItems}
-                onItemsChange={setDetailLineItems}
-                initialData={{
-                  usageRefNo: String(detailViewRecord.USAGENO || ''),
-                  batchNo: Number(detailViewRecord.BATCHNO) || 1,
-                  itemnmbr: detailViewRecord?.FEEDTYPE || '',
-                  weighedBy: detailViewRecord?.WEIGHEDBY || '',
-                  validatedBy: detailViewRecord?.VALIDATEDBY || '',
-                }}
-              />
-            </ScrollView>
-
-            <View
-              style={[
-                styles.detailFooter,
-                {
-                  borderTopColor: colors.cardBorder,
-                  backgroundColor: colors.background,
-                },
-              ]}
-            >
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: colors.primary }]}
-                onPress={() => setSaveConfirmVisible(true)}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="content-save-check" size={20} color="#ffffff" />
-                <Text style={styles.saveButtonText}>Save</Text>
+             <TouchableOpacity
+               style={[styles.submitButton, { backgroundColor: colors.primary }]}
+               onPress={() => headerRef.current?.submit()}
+               activeOpacity={0.8}
+             >
+               <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
+               <Text style={styles.buttonText}>Submit</Text>
+             </TouchableOpacity>
+           </View>
+         </KeyboardAvoidingView>
+        ) : showBatchLists ? (
+           <MaterialUtilizationBatchLists
+             usageNo={selectedUsageNo}
+             onBack={handleBackToList}
+             onAddNew={handleCreateNewFromBatchLists}
+             onAddBaseDetail={handleAddNew}
+             onBatchPress={handleBatchPress}
+           />
+        ) : detailViewRecord ? (
+          <View style={styles.detailViewContainer}>
+            <View style={styles.headerBar}>
+              <TouchableOpacity onPress={handleBackToBatchLists} activeOpacity={0.7}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
               </TouchableOpacity>
+              <Text style={[styles.headerBarTitle, { color: colors.text }]}>Material Utilization Details</Text>
             </View>
+              <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <MaterialUtilizationDetails
+                  ref={detailViewRef}
+                  value={detailLineItems}
+                  onItemsChange={setDetailLineItems}
+                  isDosingMachine={isDosingMachine}
+                  initialData={{
+                     usageRefNo: String(detailViewRecord.USAGENO || ''),
+                     batchNo: detailViewBatchNo ?? (Number(detailViewRecord?.BATCHNO) || 1),
+                     itemnmbr: detailViewRecord?.FEEDTYPE || '',
+                     weighedBy: detailViewRecord?.WEIGHEDBY || '',
+                     validatedBy: detailViewRecord?.VALIDATEDBY || '',
+                   }}
+                />
+              </ScrollView>
+
+              <View
+                style={[
+                  styles.detailFooter,
+                  {
+                    borderTopColor: colors.cardBorder,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    const isValid = detailViewRef.current?.validate();
+                    if (isValid) {
+                      setSaveConfirmVisible(true);
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="content-save-check" size={20} color="#ffffff" />
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
           </View>
        ) : (
         <MaterialUtilizationList

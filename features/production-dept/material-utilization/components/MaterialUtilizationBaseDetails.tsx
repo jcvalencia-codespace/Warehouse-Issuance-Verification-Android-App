@@ -165,6 +165,7 @@ export const MaterialUtilizationBaseDetails = forwardRef<MaterialUtilizationDeta
         setRequiredError(false);
         return true;
       },
+      getBatchNo: () => '',
       getSubDetails: () => {
         return [];
       },
