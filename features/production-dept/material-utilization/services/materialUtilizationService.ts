@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 import {
+  BatchDetail,
   BatchingMaterialUtilization,
   DropdownOption,
   MaterialUtilizationPayload,
@@ -274,6 +275,31 @@ export class MaterialUtilizationService {
     }
   }
 
+  async getBatchDetails(
+    company?: string,
+    usageNo?: number,
+    batchNo?: number,
+    isDosingMachine?: boolean
+  ): Promise<BatchDetail[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; batchDetails?: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-batch-details`,
+        {
+          params: { company, usageNo, batchNo, isDosingMachine },
+        }
+      );
+      if (response.data.success) {
+        return response.data.batchDetails || [];
+      }
+      return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getItemCode(company?: string): Promise<DropdownOption[]> {
     try {
       if (!this.baseUrl) {
@@ -328,5 +354,22 @@ export class MaterialUtilizationService {
       throw error;
     }
   }
+  async updateBatchingMaterialUtilization(payload: BatchingMaterialUtilization, company?: string): Promise<MaterialUtilizationPostResponse> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.post<MaterialUtilizationPostResponse>(
+        `${this.baseUrl}/production-dept/material-utilization/update-batching-material-utilization`,
+        payload,
+        { params: company ? { company } : undefined }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
+
+
 export const materialUtilizationService = MaterialUtilizationService.getInstance();

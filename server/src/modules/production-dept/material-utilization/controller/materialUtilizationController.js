@@ -97,7 +97,7 @@ exports.getItemCode = async (req, res) => {
                             FROM [INVENTORY.QUANTITYMASTER3.HEADER] AS H 
                             INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] AS D ON H.QM_IDNUMBER = D.QM_IDNUMBER
                             INNER JOIN [IV00101] AS I ON D.ITEMNMBR = I.ITEMNMBR
-                            WHERE H.LOCNCODE = 'PAWHRM'
+                            WHERE H.LOCNCODE IN ('PAWHRM', 'PAWHPMX')
                               AND EXISTS (
                                     SELECT *
                                     FROM [INVENTORY.QUANTITYMASTER4.DETAILS] QM4D
@@ -112,7 +112,7 @@ exports.getItemCode = async (req, res) => {
                              FROM [INVENTORY.QUANTITYMASTER3.HEADER] AS H 
                              INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] AS D ON H.QM_IDNUMBER = D.QM_IDNUMBER
                              INNER JOIN [IV00101] AS I ON D.ITEMNMBR = I.ITEMNMBR
-                             WHERE (H.LOCNCODE IN ('PAWHRM'))
+                             WHERE (H.LOCNCODE IN ('PAWHRM', 'PAWHPMX'))
                              ORDER BY D.ITEMNMBR`;
 
         let result = '';
@@ -186,7 +186,7 @@ exports.getMaterialUtilizationDetails = async (req, res) => {
                 .input('UsageNo', sql.Int, parseInt(usageNo, 10) || 0)
                 .query(`SELECT ROWID, USAGENO, ITEMNMBR, KGSREQUIRED, IS_DOSING_MACHINE 
                         FROM [PRODUCTION.USAGEBASEDETAILS] WHERE USAGENO = @UsageNo AND IS_DOSING_MACHINE = 0
-                        ORDER BY ROWID`);
+                        ORDER BY ROWID DESC`);
             details = detailResult.recordset;
         } catch (detailError) {
             console.error('Error fetching utilization details:', detailError.message);
@@ -222,7 +222,7 @@ exports.getMaterialUtilizationDosingMachineDetails = async (req, res) => {
                 .input('UsageNo', sql.Int, parseInt(usageNo, 10) || 0)
                 .query(`SELECT ROWID, USAGENO, ITEMNMBR, KGSREQUIRED, IS_DOSING_MACHINE 
                         FROM [PRODUCTION.USAGEBASEDETAILS] WHERE USAGENO = @UsageNo AND IS_DOSING_MACHINE = 1
-                        ORDER BY ROWID`);
+                        ORDER BY ROWID DESC`);
             details = detailResult.recordset;
         } catch (detailError) {
             console.error('Error fetching utilization dosing machine details:', detailError.message);
@@ -258,6 +258,37 @@ exports.getNextBatchNo = async (req, res) => {
     } catch (error) {
         console.error('Error fetching next batch number:', error);
         res.status(500).json({ success: false, message: error.message || 'Failed to fetch next batch number.' });
+    }
+};
+
+exports.getBatchDetails = async (req, res) => {
+    const { company, usageNo, batchNo, isDosingMachine } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    try {
+        const parsedUsageNo = parseInt(usageNo, 10) || 0;
+        const parsedBatchNo = parseInt(batchNo, 10) || 0;
+        const parsedIsDosingMachine = isDosingMachine === 'true' || isDosingMachine === true ? 1 : 0;
+
+        const result = await pool.request()
+            .input('UsageNo', sql.Int, parsedUsageNo)
+            .input('BatchNo', sql.Int, parsedBatchNo)
+            .input('IsDosingMachine', sql.TinyInt, parsedIsDosingMachine)
+            .query(`SELECT BATCHNO, ITEMNMBR, KGSREQUIRED, KGSUSED,
+                           PROCESS, IS_DOSING_MACHINE, WEIGHEDBY, VALIDATEDBY,
+                           IS_RANDOMSAMPLED, RANDOMSAMPLEDBY, PUDROWID
+                    FROM [PRODUCTION.USAGEDETAILS]
+                    WHERE USAGENO = @UsageNo AND BATCHNO = @BatchNo AND IS_DOSING_MACHINE = @IsDosingMachine
+                    ORDER BY PUDROWID DESC`);
+
+        res.json({
+            success: true,
+            batchDetails: result.recordset,
+        });
+    } catch (error) {
+        console.error('Error fetching batch details:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to fetch batch details.' });
     }
 };
 
@@ -559,6 +590,94 @@ exports.saveBatchingMaterialUtilization = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.originalError?.info?.message || error.message || 'Failed to save batching material utilization.'
+        });
+    }
+};
+
+exports.updateBatchingMaterialUtilization = async (req, res) => {
+    const { company } = req.query;
+    const { usageNo, user, transType, details } = req.body;
+
+    try {
+        const dbName = getCompanyDbName(company);
+        const pool = await getPool(dbName);
+
+        if (transType !== 3) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid transType for update operation. Expected 3.'
+            });
+        }
+
+        if (!Array.isArray(details) || details.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'details is required for transaction type 3.'
+            });
+        }
+
+        // Ensure every detail has a pudRowId, since update matches on it
+        const missingPudRowId = details.some(d => d.pudRowId === undefined || d.pudRowId === null || d.pudRowId === '');
+        if (missingPudRowId) {
+            return res.status(400).json({
+                success: false,
+                message: 'pudRowId is required on every detail for update.'
+            });
+        }
+
+        const detailsXml = `
+            <Details>
+                ${details.map(detail => `
+                    <Detail>
+                        <pudRowId>${Number(detail.pudRowId)}</pudRowId>
+                        <itemNo>${escapeXml(detail.itemNo)}</itemNo>
+                        <isDosingMachine>${Number(detail.isDosingMachine) || 0}</isDosingMachine>
+                        <batchNo>${Number(detail.batchNo) || 0}</batchNo>
+                        <requiredWeight>${Number(detail.requiredWeight) || 0}</requiredWeight>
+                        <weightLoaded>${Number(detail.weightLoaded) || 0}</weightLoaded>
+                        <processType>${escapeXml(detail.processType)}</processType>
+                        <weighedBy>${escapeXml(detail.weighedBy)}</weighedBy>
+                        <ValidatedBy>${escapeXml(detail.ValidatedBy)}</ValidatedBy>
+                        <randomSampled>${Number(detail.randomSampled) || 0}</randomSampled>
+                        <qaName>${escapeXml(detail.qaName || '')}</qaName>
+                        <remarks>${escapeXml(detail.remarks || '')}</remarks>
+                    </Detail>
+                `).join('')}
+            </Details>
+        `;
+
+        const request = pool.request();
+        request.input('TRANSTYPE', sql.Int, transType);
+        request.input('UsageNo', sql.NVarChar, usageNo);
+        request.input('Details', sql.Xml, detailsXml);
+        request.input('ModifiedBy', sql.NVarChar, user);
+
+        const result = await request.execute('[2026.spProducationMaterialUtilizationSave]');
+
+        const row = result.recordset && result.recordset[0];
+
+        if (!row || row.Success === false || row.Success === 0) {
+            console.error('SP reported failure:', row);
+            return res.status(400).json({
+                success: false,
+                message: row?.Message || 'Stored procedure reported failure with no message.',
+                errorNumber: row?.ErrorNumber,
+                errorLine: row?.ErrorLine,
+                errorProcedure: row?.ErrorProcedure
+            });
+        }
+
+        return res.status(200).json({ success: true, data: row });
+    } catch (error) {
+        console.error('updateBatchingMaterialUtilization error:', {
+            message: error.message,
+            number: error.number,
+            originalError: error.originalError?.info || error.originalError,
+            precedingErrors: error.precedingErrors
+        });
+        return res.status(500).json({
+            success: false,
+            message: error.originalError?.info?.message || error.message || 'Failed to update batching material utilization.'
         });
     }
 };

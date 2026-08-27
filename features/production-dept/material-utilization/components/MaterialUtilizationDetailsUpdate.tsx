@@ -1,28 +1,27 @@
-
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner';
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useColorScheme,
-  View
+    ActivityIndicator,
+    FlatList,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View
 } from 'react-native';
 
 import { MaterialUtilizationTagService } from '../../material-utilization-tag/services/materialUtilizationTagService';
 import { MaterialUtilizationService } from '../services/materialUtilizationService';
 import {
-  MaterialUtilizationDetailsRef,
-  MaterialUtilizationLineItem,
-  MaterialUtilizationSubDetail
+    MaterialUtilizationDetailsRef,
+    MaterialUtilizationLineItem,
+    MaterialUtilizationSubDetail
 } from '../types/materialUtilization.types';
 
 export { MaterialUtilizationDetailsRef };
@@ -31,17 +30,19 @@ interface MaterialUtilizationDetailsProps {
   value?: MaterialUtilizationLineItem[];
   onItemsChange?: (items: MaterialUtilizationLineItem[]) => void;
   onSave?: () => void;
-  initialData?: {
+  initialData: {
     usageRefNo?: string;
     batchNo?: number;
     itemnmbr?: string;
     weighedBy?: string;
     validatedBy?: string;
+    randomSampled?: number;
+    qaName?: string;
   };
   isDosingMachine?: boolean;
 }
 
-export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsRef, MaterialUtilizationDetailsProps>(
+export const MaterialUtilizationDetailsUpdate = forwardRef<MaterialUtilizationDetailsRef, MaterialUtilizationDetailsProps>(
   ({ value, onItemsChange, initialData, isDosingMachine = false }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
@@ -54,13 +55,10 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const [validatedBy, setValidatedBy] = useState('');
     const [items, setItems] = useState<MaterialUtilizationLineItem[]>(value ?? []);
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [requiredError, setRequiredError] = useState(false);
     const [barcodeScannerVisible, setBarcodeScannerVisible] = useState(false);
     const [tagEnabled, setTagEnabled] = useState(false);
     const [allocationDataMap, setAllocationDataMap] = useState<Map<string, any[]>>(new Map());
     const [loadingAllocationMap, setLoadingAllocationMap] = useState<Set<string>>(new Set());
-    const [tagLoading, setTagLoading] = useState(true);
-
 
     const formatKg = (value?: string | number) =>
       `${Number(value || 0).toLocaleString('en-US', {
@@ -69,7 +67,6 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       })} kg`;
 
     const loadTagStatus = async () => {
-      setTagLoading(true);
       try {
         const tags = await MaterialUtilizationTagService.getInstance().getTag(user?.COMPANY);
         if (tags && tags.length > 0) {
@@ -77,8 +74,6 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
         }
       } catch (error) {
         console.error('Failed to load tag status:', error);
-      } finally {
-        setTagLoading(false);
       }
     };
 
@@ -129,7 +124,6 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
     useEffect(() => {
       if (items.length > 0 && tagEnabled) {
-        setRequiredError(false);
         items.forEach(item => {
           if (!allocationDataMap.has(`${item.itemNo}:${item.weightLoaded}`)) {
             fetchAllocationForItem(item.itemNo, item.weightLoaded, isAdmin ?? false);
@@ -140,8 +134,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
     useEffect(() => {
       if (initialData) {
-        const baseBatch = Number(initialData.batchNo) || 0;
-        setBatchNo(String(baseBatch + 1));
+        setBatchNo(String(initialData.batchNo ?? 0));
       }
       if (initialData?.weighedBy) {
         setWeighedBy(initialData.weighedBy);
@@ -149,16 +142,13 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       if (initialData?.validatedBy) {
         setValidatedBy(initialData.validatedBy);
       }
-    }, [initialData]);
-
-    const seededRef = useRef(false);
-    useEffect(() => {
-      if (initialData && !seededRef.current && items.length > 0) {
-        setRandomSampled(items[0].randomSampled);
-        setQaName(items[0].qaName || '');
-        seededRef.current = true;
+      if (initialData?.randomSampled !== undefined && initialData?.randomSampled !== null) {
+        setRandomSampled(Number(initialData.randomSampled));
       }
-    }, [initialData, items]);
+      if (initialData?.qaName) {
+        setQaName(initialData.qaName);
+      }
+    }, [initialData]);
 
     const [rawWeightText, setRawWeightText] = useState<Record<number, string>>({});
 
@@ -280,14 +270,12 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
         setBatchNo('');
         setWeighedBy('');
         setValidatedBy('');
-        setRequiredError(false);
         onItemsChange?.([]);
       },
       validate: () => {
         const newErrors: Record<string, string> = {};
 
         if (items.length === 0) {
-          setRequiredError(true);
           return false;
         }
 
@@ -295,11 +283,10 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
           if (!item.weightLoaded || item.weightLoaded <= 0) {
             newErrors[`weight_${index}`] = 'Weight loaded is required';
           }
-          if (item.weightLoaded > (item.requiredWeight * 0.05)) {
+          if (item.weightLoaded > item.requiredWeight * 1.05) {
             newErrors[`weight_${index}`] = 'Exceeds 5% of required';
           }
         });
-
 
         if (!weighedBy.trim()) {
           newErrors.weighedBy = 'Weighed by is required';
@@ -314,7 +301,6 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
         }
 
         setErrors(newErrors);
-        setRequiredError(false);
         return Object.keys(newErrors).length === 0;
       },
       getBatchNo: () => batchNo,
@@ -347,8 +333,6 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       },
     }));
 
-    const isDetailMode = Boolean(initialData);
-
     const renderItem = ({ item, index }: { item: MaterialUtilizationLineItem; index: number }) => {
       return (
         <View
@@ -370,129 +354,85 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
             </View>
             <View style={styles.detailItem}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Weight Loaded <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
-              {isDetailMode ? (
-                <>
-                  <View
-                    style={[
-                      styles.inputContainer,
-                      {
-                        borderColor: errors[`weight_${index}`] ? colors.error : colors.cardBorder,
-                        backgroundColor: colors.background,
-                        height: 50,
-                      },
-                    ]}
-                  >
-                    <TextInput
-                      style={[styles.input, { color: colors.text, fontSize: 25 }]}
-                      value={rawWeightText[index] ?? (item.weightLoaded ? String(item.weightLoaded) : '')}
-                      placeholder="0.00"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="decimal-pad"
-                      onChangeText={(text) => updateItemWeight(index, text)}
-                    />
-                  </View>
-                  {errors[`weight_${index}`] ? (
-                    <View style={styles.errorContainer}>
-                      <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                      <Text style={[styles.errorText, { color: colors.error }]}>{errors[`weight_${index}`]}</Text>
-                    </View>
-                  ) : null}
-                </>
-              ) : (
-                <Text style={[styles.detailValue, { color: colors.text }]}>{item.weightLoaded} kg</Text>
-              )}
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    borderColor: errors[`weight_${index}`] ? colors.error : colors.cardBorder,
+                    backgroundColor: colors.background,
+                    height: 50,
+                  },
+                ]}
+              >
+                <TextInput
+                  style={[styles.input, { color: colors.text, fontSize: 25 }]}
+                  value={rawWeightText[index] ?? (item.weightLoaded ? String(item.weightLoaded) : '')}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="decimal-pad"
+                  onChangeText={(text) => updateItemWeight(index, text)}
+                />
+              </View>
+              {errors[`weight_${index}`] ? (
+                <View style={styles.errorContainer}>
+                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>{errors[`weight_${index}`]}</Text>
+                </View>
+              ) : null}
             </View>
 
           </View>
 
           <View style={styles.detailsRow}>
-            <View style={[styles.detailItem, isDetailMode && styles.detailProcessItem]}>
+            <View style={[styles.detailItem, styles.detailProcessItem]}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Process</Text>
-              {isDetailMode ? (
-                <View style={[styles.detailToggleContainer, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-                  <TouchableOpacity
+              <View style={[styles.detailToggleContainer, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.detailToggleOption,
+                    item.processType === 'Prepared and Loaded' && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => handleProcessTypeChange(index, 'Prepared and Loaded')}
+                >
+                  <MaterialCommunityIcons
+                    name="package-variant"
+                    size={18}
+                    color={item.processType === 'Prepared and Loaded' ? '#fff' : colors.textSecondary}
+                    style={styles.detailToggleIcon}
+                  />
+                  <Text
                     style={[
-                      styles.detailToggleOption,
-                      item.processType === 'Prepared and Loaded' && { backgroundColor: colors.primary },
+                      styles.detailToggleOptionText,
+                      { color: item.processType === 'Prepared and Loaded' ? '#fff' : colors.textSecondary },
                     ]}
-                    onPress={() => handleProcessTypeChange(index, 'Prepared and Loaded')}
                   >
-                    <MaterialCommunityIcons
-                      name="package-variant"
-                      size={18}
-                      color={item.processType === 'Prepared and Loaded' ? '#fff' : colors.textSecondary}
-                      style={styles.detailToggleIcon}
-                    />
-                    <Text
-                      style={[
-                        styles.detailToggleOptionText,
-                        { color: item.processType === 'Prepared and Loaded' ? '#fff' : colors.textSecondary },
-                      ]}
-                    >
-                      Prepared and Loaded
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.detailToggleOption,
-                      item.processType === 'Oil' && { backgroundColor: colors.warning },
-                    ]}
-                    onPress={() => handleProcessTypeChange(index, 'Oil')}
-                  >
-                    <MaterialCommunityIcons
-                      name="oil"
-                      size={18}
-                      color={item.processType === 'Oil' ? '#fff' : colors.textSecondary}
-                      style={styles.detailToggleIcon}
-                    />
-                    <Text
-                      style={[
-                        styles.detailToggleOptionText,
-                        { color: item.processType === 'Oil' ? '#fff' : colors.textSecondary },
-                      ]}
-                    >
-                      Oil
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={[
-                  styles.processBadge,
-                  { backgroundColor: item.processType === 'Oil' ? colors.warning + '20' : colors.primary + '20' }
-                ]}>
-                  <Text style={[
-                    styles.processBadgeText,
-                    { color: item.processType === 'Oil' ? colors.warning : colors.primary }
-                  ]}>
-                    {item.processType}
+                    Prepared and Loaded
                   </Text>
-                </View>
-              )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.detailToggleOption,
+                    item.processType === 'Oil' && { backgroundColor: colors.warning },
+                  ]}
+                  onPress={() => handleProcessTypeChange(index, 'Oil')}
+                >
+                  <MaterialCommunityIcons
+                    name="oil"
+                    size={18}
+                    color={item.processType === 'Oil' ? '#fff' : colors.textSecondary}
+                    style={styles.detailToggleIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.detailToggleOptionText,
+                      { color: item.processType === 'Oil' ? '#fff' : colors.textSecondary },
+                    ]}
+                  >
+                    Oil
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            {!isDetailMode && (
-              <>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Random Sampled</Text>
-                  <View style={[
-                    styles.sampledBadge,
-                    { backgroundColor: item.randomSampled === 1 ? colors.success + '20' : colors.textSecondary + '20' }
-                  ]}>
-                    <Text style={[
-                      styles.sampledBadgeText,
-                      { color: item.randomSampled === 1 ? colors.success : colors.textSecondary }
-                    ]}>
-                      {item.randomSampled === 1 ? 'Yes' : 'No'}
-                    </Text>
-                    {item.randomSampled === 1 && item.qaName ? (
-                      <View style={styles.detailItem}>
-                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>QA Name</Text>
-                        <Text style={[styles.detailValue, { color: colors.text }]}>{item.qaName}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              </>
-            )}
           </View>
 
           {tagEnabled && isAdmin && (() => {
@@ -552,46 +492,9 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
             Batch No: <Text style={{ fontWeight: '900' }}>{batchNo || 0}</Text>
           </Text>
         </View>
-        {!isDetailMode && (
-          <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Material Details
-            </Text>
-            <Text
-              style={[styles.sectionDescription, { color: colors.textSecondary }]}
-            >
-              Record material usage based on the selected formulation.
-            </Text>
-
-            {tagLoading && (
-              <View style={styles.tagLoadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.tagLoadingText, { color: colors.textSecondary }]}>
-                  Loading stock allocation data…
-                </Text>
-              </View>
-            )}
-
-            {requiredError && (
-              <View style={[styles.requiredErrorContainer, { backgroundColor: colors.error + '14' }]}>
-                <MaterialCommunityIcons name="alert-circle" size={16} color={colors.error} />
-                <Text style={[styles.requiredErrorText, { color: colors.error }]}>
-                  Please add at least one material before submitting.
-                </Text>
-              </View>
-            )}
-
-            {/*  */}
-          </View>
-        )}
 
         {items.length > 0 && (
-          <View style={[styles.itemsListContainer, isDetailMode && styles.detailViewContainer]}>
-            {!isDetailMode && (
-              <Text style={[styles.itemsListTitle, { color: colors.text }]}>
-                Added Materials ({items.length})
-              </Text>
-            )}
+          <View style={[styles.itemsListContainer, styles.detailViewContainer]}>
             <FlatList
               data={items}
               renderItem={renderItem}
@@ -602,145 +505,143 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
           </View>
         )}
 
-        {isDetailMode && (
-          <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Material Details
-              </Text>
-            </View>
-            <View style={styles.rowContainer}>
-              <View style={[styles.weightColumn, { flex: 1 }]}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.label, { color: colors.text }]}>Weighed By <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
-                </View>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    {
-                      borderColor: errors.weighedBy ? colors.error : colors.cardBorder,
-                      backgroundColor: colors.background,
-                    }
-                  ]}
-                >
-                  <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={[styles.input, { color: colors.text }]}
-                    value={weighedBy}
-                    placeholder="Enter name"
-                    placeholderTextColor={colors.textTertiary}
-                    onChangeText={handleWeighedByChange}
-                  />
-                </View>
-                {errors.weighedBy ? (
-                  <View style={styles.errorContainer}>
-                    <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.weighedBy}</Text>
-                  </View>
-                ) : null}
+        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Material Details Update
+            </Text>
+          </View>
+          <View style={styles.rowContainer}>
+            <View style={[styles.weightColumn, { flex: 1 }]}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: colors.text }]}>Weighed By <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
               </View>
-
-              <View style={[styles.weightColumn, { flex: 1 }]}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.label, { color: colors.text }]}>Validated By <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
-                </View>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    {
-                      borderColor: errors.validatedBy ? colors.error : colors.cardBorder,
-                      backgroundColor: colors.background,
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons name="shield-account-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={[styles.input, { color: colors.text }]}
-                    value={validatedBy}
-                    placeholder="Enter name"
-                    placeholderTextColor={colors.textTertiary}
-                    onChangeText={handleValidatedByChange}
-                  />
-                </View>
-                {errors.validatedBy ? (
-                  <View style={styles.errorContainer}>
-                    <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.validatedBy}</Text>
-                  </View>
-                ) : null}
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    borderColor: errors.weighedBy ? colors.error : colors.cardBorder,
+                    backgroundColor: colors.background,
+                  }
+                ]}
+              >
+                <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  value={weighedBy}
+                  placeholder="Enter name"
+                  placeholderTextColor={colors.textTertiary}
+                  onChangeText={handleWeighedByChange}
+                />
               </View>
+              {errors.weighedBy ? (
+                <View style={styles.errorContainer}>
+                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.weighedBy}</Text>
+                </View>
+              ) : null}
             </View>
 
-            <View style={styles.rowContainer}>
-              <View style={[styles.weightColumn, { flex: 1 }]}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.label, { color: colors.text }]}>Random Sampled</Text>
-                </View>
-                <View
-                  style={[
-                    styles.switchContainer,
-                    { borderColor: colors.cardBorder, backgroundColor: colors.background },
-                  ]}
-                >
-                  <Switch
-                    value={randomSampled === 1}
-                    onValueChange={(value) => handleRandomSampledChange(value ? 1 : 0)}
-                    trackColor={{ false: colors.textSecondary + '40', true: colors.success }}
-                    thumbColor="#ffffff"
-                    style={styles.switch}
-                  />
-                  <Text
-                    style={[
-                      styles.switchValueText,
-                      { color: randomSampled === 1 ? colors.success : colors.textSecondary },
-                    ]}
-                  >
-                    {randomSampled === 1 ? 'Yes' : 'No'}
-                  </Text>
-                </View>
+            <View style={[styles.weightColumn, { flex: 1 }]}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: colors.text }]}>Validated By <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
               </View>
-
-              {randomSampled === 1 && (
-                <View style={[styles.weightColumn, { flex: 2 }]}>
-                  <View style={styles.labelRow}>
-                    <Text style={[styles.label, { color: colors.text }]}>QA Name <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
-                  </View>
-                  <View style={styles.qaRow}>
-                    <View
-                      style={[
-                        styles.inputContainer,
-                        { borderColor: errors.qaName ? colors.error : colors.cardBorder, backgroundColor: colors.background, flex: 1 },
-                      ]}
-                    >
-                      <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.input, { color: colors.text }]}
-                        value={qaName}
-                        placeholder="Scan or enter QA name"
-                        placeholderTextColor={colors.textTertiary}
-                        onChangeText={handleQaNameChange}
-                      />
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.scanButton, { backgroundColor: colors.primary }]}
-                      onPress={() => setBarcodeScannerVisible(true)}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialCommunityIcons name="barcode-scan" size={20} color="#fff" />
-                      <Text style={styles.scanButtonText}>Scan</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {errors.qaName ? (
-                    <View style={styles.errorContainer}>
-                      <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                      <Text style={[styles.errorText, { color: colors.error }]}>{errors.qaName}</Text>
-                    </View>
-                  ) : null}
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    borderColor: errors.validatedBy ? colors.error : colors.cardBorder,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons name="shield-account-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  value={validatedBy}
+                  placeholder="Enter name"
+                  placeholderTextColor={colors.textTertiary}
+                  onChangeText={handleValidatedByChange}
+                />
+              </View>
+              {errors.validatedBy ? (
+                <View style={styles.errorContainer}>
+                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.validatedBy}</Text>
                 </View>
-              )}
+              ) : null}
             </View>
           </View>
-        )}
+
+          <View style={styles.rowContainer}>
+            <View style={[styles.weightColumn, { flex: 1 }]}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: colors.text }]}>Random Sampled</Text>
+              </View>
+              <View
+                style={[
+                  styles.switchContainer,
+                  { borderColor: colors.cardBorder, backgroundColor: colors.background },
+                ]}
+              >
+                <Switch
+                  value={randomSampled === 1}
+                  onValueChange={(value) => handleRandomSampledChange(value ? 1 : 0)}
+                  trackColor={{ false: colors.textSecondary + '40', true: colors.success }}
+                  thumbColor="#ffffff"
+                  style={styles.switch}
+                />
+                <Text
+                  style={[
+                    styles.switchValueText,
+                    { color: randomSampled === 1 ? colors.success : colors.textSecondary },
+                  ]}
+                >
+                  {randomSampled === 1 ? 'Yes' : 'No'}
+                </Text>
+              </View>
+            </View>
+
+            {randomSampled === 1 && (
+              <View style={[styles.weightColumn, { flex: 2 }]}>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.label, { color: colors.text }]}>QA Name <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
+                </View>
+                <View style={styles.qaRow}>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      { borderColor: errors.qaName ? colors.error : colors.cardBorder, backgroundColor: colors.background, flex: 1 },
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, { color: colors.text }]}
+                      value={qaName}
+                      placeholder="Scan or enter QA name"
+                      placeholderTextColor={colors.textTertiary}
+                      onChangeText={handleQaNameChange}
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.scanButton, { backgroundColor: colors.primary }]}
+                    onPress={() => setBarcodeScannerVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialCommunityIcons name="barcode-scan" size={20} color="#fff" />
+                    <Text style={styles.scanButtonText}>Scan</Text>
+                  </TouchableOpacity>
+                </View>
+                {errors.qaName ? (
+                  <View style={styles.errorContainer}>
+                    <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.qaName}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+          </View>
+        </View>
 
         <BarcodeScanner
           visible={barcodeScannerVisible}
@@ -753,7 +654,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
   }
 );
 
-MaterialUtilizationDetails.displayName = 'MaterialUtilizationDetails';
+MaterialUtilizationDetailsUpdate.displayName = 'MaterialUtilizationDetailsUpdate';
 
 const styles = StyleSheet.create({
   container: {
@@ -764,10 +665,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     marginBottom: 4,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    marginBottom: 20,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -782,16 +679,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-evenly',
   },
-  tagLoadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  tagLoadingText: {
-    fontSize: 13,
-  },
   card: {
     marginTop: 20,
     borderRadius: 20,
@@ -803,42 +690,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 16,
     marginBottom: 16,
-  },
-  materialColumn: {
-    flex: 1,
-  },
-  materialRow: {
-    gap: 12,
-  },
-  materialField: {
-    flex: 1,
-  },
-  chipList: {
-    gap: 8,
-    paddingVertical: 4,
-  },
-  materialChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    minHeight: 36,
-    justifyContent: 'center',
-  },
-  materialChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  materialDescription: {
-    fontSize: 16,
-    fontWeight: '500',
-    flex: 1,
-  },
-  materialDescriptionContainer: {
-    marginTop: 6,
-    paddingHorizontal: 4,
-    height: 56,
-    justifyContent: 'center',
   },
   weightColumn: {
     flex: 1,
@@ -852,10 +703,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  requiredStar: {
-    fontSize: 16,
-    marginLeft: 4,
-  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -867,11 +714,6 @@ const styles = StyleSheet.create({
   inputIcon: {
     marginRight: 12,
   },
-  dropdownText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-  },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -882,73 +724,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  readOnlyText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-  },
   input: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
     paddingVertical: 3,
   },
-  toggleRow: {
+  switchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 16,
-  },
-  toggleItem: {
-    flex: 1,
-  },
-  toggleLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  toggleContainer: {
-    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
     borderRadius: 12,
     borderWidth: 1,
-    overflow: 'hidden',
   },
-  toggleOption: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+  switch: {
+    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
   },
-  toggleOptionText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  switchTrack: {
-    width: 52,
-    height: 32,
-    borderRadius: 16,
-    padding: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  switchThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+  switchValueText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   qaRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 12,
     // marginBottom: 16,
-  },
-  qaInputContainer: {
-    flex: 1,
   },
   scanButton: {
     flexDirection: 'row',
@@ -964,41 +766,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 56,
-    borderRadius: 16,
-    gap: 8,
-    marginTop: 4,
-  },
-  addButtonText: {
-    color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  requiredErrorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  requiredErrorText: {
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
   itemsListContainer: {
     marginTop: 16,
-  },
-  itemsListTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
   },
   itemsListContent: {
     gap: 8,
@@ -1034,22 +803,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     marginBottom: 2,
-  },
-  itemDescription: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  itemActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   detailsRow: {
     flexDirection: 'row',
@@ -1097,48 +850,6 @@ const styles = StyleSheet.create({
   detailToggleOptionText: {
     fontSize: 14,
     fontWeight: '700',
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 13,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  switch: {
-    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
-  },
-  switchValueText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  processBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  processBadgeText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  sampledBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  sampledBadgeText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  formContainer: {
-    gap: 4,
   },
   allocationSection: {
     marginTop: 24,

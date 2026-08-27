@@ -17,12 +17,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialUtilizationBaseDetails } from './components/MaterialUtilizationBaseDetails';
+import { MaterialUtilizationBatchDetails } from './components/MaterialUtilizationBatchDetails';
 import { MaterialUtilizationBatchLists } from './components/MaterialUtilizationBatchLists';
 import { MaterialUtilizationDetails, MaterialUtilizationDetailsRef } from './components/MaterialUtilizationDetails';
+import { MaterialUtilizationDetailsUpdate } from './components/MaterialUtilizationDetailsUpdate';
 import { MaterialUtilizationHeader, MaterialUtilizationHeaderRef } from './components/MaterialUtilizationHeader';
 import { MaterialUtilizationList } from './components/MaterialUtilizationList';
 import { MaterialUtilizationService } from './services/materialUtilizationService';
-import { BatchingMaterialUtilization, MaterialUtilizationBaseItemDetails, MaterialUtilizationFormData, MaterialUtilizationLineItem, MaterialUtilizationPayload } from './types/materialUtilization.types';
+import { BatchDetail, BatchingMaterialUtilization, MaterialUtilizationBaseItemDetails, MaterialUtilizationFormData, MaterialUtilizationLineItem, MaterialUtilizationPayload } from './types/materialUtilization.types';
 
 interface MaterialUtilizationScreenProps {
   onBack?: () => void;
@@ -42,12 +44,18 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
   const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
+  const [updateConfirmVisible, setUpdateConfirmVisible] = useState(false);
   const [pendingHeader, setPendingHeader] = useState<MaterialUtilizationFormData | null>(null);
   const [items, setItems] = useState<MaterialUtilizationBaseItemDetails[]>([]);
   const [detailViewRecord, setDetailViewRecord] = useState<any | null>(null);
   const [detailLineItems, setDetailLineItems] = useState<MaterialUtilizationLineItem[]>([]);
   const [detailViewBatchNo, setDetailViewBatchNo] = useState<number | null>(null);
+  const [detailViewWeighedBy, setDetailViewWeighedBy] = useState('');
+  const [detailViewValidatedBy, setDetailViewValidatedBy] = useState('');
+  const [detailViewRandomSampled, setDetailViewRandomSampled] = useState(0);
+  const [detailViewQaName, setDetailViewQaName] = useState('');
   const [isDosingMachine, setIsDosingMachine] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -56,6 +64,8 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
   const [listsLoading, setListsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showBatchLists, setShowBatchLists] = useState(false);
+  const [showBatchDetails, setShowBatchDetails] = useState(false);
+  const [selectedBatchInfo, setSelectedBatchInfo] = useState<{ batchNo: number; isDosingMachine: boolean } | null>(null);
   const [selectedUsageNo, setSelectedUsageNo] = useState<number | undefined>(undefined);
   const [search, setSearch] = useState('');
 
@@ -177,6 +187,58 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
     await handleDetailSave();
   };
 
+  const handleUpdateDetailSave = async () => {
+    const isValid = detailViewRef.current?.validate();
+    if (!isValid) {
+      return;
+    }
+
+    try {
+      const subDetails = detailViewRef.current?.getSubDetails() || [];
+      const updatedBatchNo = detailViewRef.current?.getBatchNo() || '';
+      const updatedLineItems = detailLineItems.map(item => ({
+        ...item,
+        batchNo: Number(updatedBatchNo) || item.batchNo,
+        isDosingMachine,
+      }));
+      const payload: BatchingMaterialUtilization = {
+        usageNo: String(detailViewRecord?.USAGENO || detailViewRecord?.usageNo || ''),
+        user: user?.NAME || '',
+        details: updatedLineItems,
+        subDetails,
+        transType: 3,
+        isDosingMachine,
+      };
+      const result = await MaterialUtilizationService.getInstance().saveBatchingMaterialUtilization(
+        payload,
+        user?.COMPANY
+      );
+
+      if (result.success) {
+        setSuccessMessage(result.message || 'Batch details updated successfully.');
+        setSuccessVisible(true);
+        setDetailViewRecord(null);
+        setDetailLineItems([]);
+        setDetailViewBatchNo(null);
+        setDetailViewWeighedBy('');
+        setDetailViewValidatedBy('');
+        setDetailViewRandomSampled(0);
+        setDetailViewQaName('');
+        setIsDosingMachine(false);
+        setIsUpdating(false);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to update batch details.');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to update batch details.');
+    }
+  };
+
+  const handleConfirmUpdateDetailSave = async () => {
+    setUpdateConfirmVisible(false);
+    await handleUpdateDetailSave();
+  };
+
   const loadLists = useCallback(async () => {
     setListsLoading(true);
     try {
@@ -201,21 +263,35 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
   const handleBackToList = () => {
     setShowForm(false);
     setShowBatchLists(false);
+    setShowBatchDetails(false);
+    setSelectedBatchInfo(null);
     setSelectedUsageNo(undefined);
     setDetailViewRecord(null);
     setDetailLineItems([]);
     setDetailViewBatchNo(null);
+    setDetailViewWeighedBy('');
+    setDetailViewValidatedBy('');
+    setDetailViewRandomSampled(0);
+    setDetailViewQaName('');
     setIsDosingMachine(false);
-  };
+    setIsUpdating(false);
+  }
 
   const handleBackToBatchLists = () => {
     setShowForm(false);
     setShowBatchLists(true);
+    setShowBatchDetails(false);
+    setSelectedBatchInfo(null);
     setDetailViewRecord(null);
     setDetailLineItems([]);
     setDetailViewBatchNo(null);
+    setDetailViewWeighedBy('');
+    setDetailViewValidatedBy('');
+    setDetailViewRandomSampled(0);
+    setDetailViewQaName('');
     setIsDosingMachine(false);
-  };
+    setIsUpdating(false);
+  }
 
   const handleRecordPress = (record: any) => {
     setShowBatchLists(true);
@@ -235,6 +311,12 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         const header = result.header;
         const latestBatchNo = await MaterialUtilizationService.getInstance().getNextBatchNo(user?.COMPANY, selectedUsageNo, isDosingMachine);
         setDetailViewBatchNo(latestBatchNo);
+
+        setDetailViewWeighedBy(header.WEIGHEDBY || '');
+        setDetailViewValidatedBy(header.VALIDATEDBY || '');
+        setDetailViewRandomSampled(Number(header.IS_RANDOM_SAMPLED) || 0);
+        setDetailViewQaName(header?.QA_NAME || '');
+
         const nextBatchNo = (latestBatchNo ?? 0) + 1;
 
         const detailLineItems: MaterialUtilizationLineItem[] = result.details.map((detail, index) => ({
@@ -256,6 +338,7 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         setShowForm(false);
         setShowBatchLists(false);
         setIsDosingMachine(isDosingMachine);
+        setIsUpdating(false);
         setDetailViewRecord(header);
         setDetailLineItems(detailLineItems);
       }
@@ -265,7 +348,18 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
     }
   };
 
-  const handleBatchPress = async (batchNo: number, isDosingMachine: boolean) => {
+  const handleBatchPress = (batchNo: number, isDosingMachine: boolean) => {
+    setSelectedBatchInfo({ batchNo, isDosingMachine });
+    setShowForm(false);
+    setShowBatchLists(false);
+    setShowBatchDetails(true);
+  };
+
+  const handleEditBatchDetails = async (batchDetails: BatchDetail[]) => {
+    const batchInfo = selectedBatchInfo;
+    if (!batchInfo) return;
+
+    const { isDosingMachine } = batchInfo;
     try {
       let result;
       if (isDosingMachine) {
@@ -278,28 +372,50 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         const header = result.header;
         const latestBatchNo = await MaterialUtilizationService.getInstance().getNextBatchNo(user?.COMPANY, selectedUsageNo, isDosingMachine);
         setDetailViewBatchNo(latestBatchNo);
+
+        let weighedBy = '';
+        let validatedBy = '';
+        let randomSampled = 0;
+        let qaName = '';
+
+        for (const detail of batchDetails) {
+          weighedBy = detail.WEIGHEDBY || weighedBy;
+          validatedBy = detail.VALIDATEDBY || validatedBy;
+          if (detail.RANDOM_SAMPLED !== undefined && detail.RANDOM_SAMPLED !== null) {
+            randomSampled = Number(detail.RANDOM_SAMPLED);
+          }
+          qaName = detail.QA_NAME || qaName;
+        }
+
+        setDetailViewWeighedBy(weighedBy || header.WEIGHEDBY || '');
+        setDetailViewValidatedBy(validatedBy || header.VALIDATEDBY || '');
+        setDetailViewRandomSampled(randomSampled || Number(header.IS_RANDOM_SAMPLED) || 0);
+        setDetailViewQaName(qaName || header?.QA_NAME || '');
+
         const nextBatchNo = (latestBatchNo ?? 0) + 1;
 
-        const detailLineItems: MaterialUtilizationLineItem[] = result.details.map((detail, index) => ({
-          id: String(detail.ROWID || index),
+        const detailLineItems: MaterialUtilizationLineItem[] = batchDetails.map((detail, index) => ({
+          id: String(detail.ITEMNMBR || index),
           batchNo: nextBatchNo,
           usageNo: String(header.USAGENO || ''),
           itemNo: detail.ITEMNMBR || '',
-          itemDescription: detail.ITEMNMBR || '',
+          itemDescription: detail.ITEMDESC || detail.ITEMNMBR || '',
           requiredWeight: Number(detail.KGSREQUIRED) || 0,
-          weightLoaded: Number(header.WEIGHTLOADED) || 0,
-          processType: 'Prepared and Loaded' as const,
-          weighedBy: header.WEIGHEDBY || '',
-          ValidatedBy: header.VALIDATEDBY || '',
-          randomSampled: Number(header.IS_RANDOM_SAMPLED) || 0,
-          qaName: header.QA_NAME || '',
+          weightLoaded: Number(detail.KGSUSED) || 0,
+          processType: detail.PROCESS || 'Prepared and Loaded',
+          weighedBy: detail.WEIGHEDBY || header.WEIGHEDBY || '',
+          ValidatedBy: detail.VALIDATEDBY || header.VALIDATEDBY || '',
+          randomSampled: Number(detail.RANDOM_SAMPLED) || 0,
+          qaName: detail.QA_NAME || header?.QA_NAME || '',
           isDosingMachine,
           remarks: '',
         }));
 
         setShowForm(false);
         setShowBatchLists(false);
+        setShowBatchDetails(false);
         setIsDosingMachine(isDosingMachine);
+        setIsUpdating(true);
         setDetailViewRecord(header);
         setDetailLineItems(detailLineItems);
       }
@@ -307,6 +423,12 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
       console.error('Error fetching material utilization details:', error);
       Alert.alert('Error', 'Failed to load material utilization details.');
     }
+  };
+
+  const handleBackFromBatchDetails = () => {
+    setShowBatchDetails(false);
+    setSelectedBatchInfo(null);
+    setShowBatchLists(true);
   };
 
   return (
@@ -377,41 +499,69 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
              </TouchableOpacity>
            </View>
          </KeyboardAvoidingView>
-        ) : showBatchLists ? (
-           <MaterialUtilizationBatchLists
-             usageNo={selectedUsageNo}
-             onBack={handleBackToList}
-             onAddNew={handleCreateNewFromBatchLists}
-             onAddBaseDetail={handleAddNew}
-             onBatchPress={handleBatchPress}
-           />
-        ) : detailViewRecord ? (
-          <View style={styles.detailViewContainer}>
-            <View style={styles.headerBar}>
-              <TouchableOpacity onPress={handleBackToBatchLists} activeOpacity={0.7}>
-                <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
-              </TouchableOpacity>
-              <Text style={[styles.headerBarTitle, { color: colors.text }]}>Material Utilization Details</Text>
-            </View>
+         ) : showBatchLists ? (
+            <MaterialUtilizationBatchLists
+              usageNo={selectedUsageNo}
+              onBack={handleBackToList}
+              onAddNew={handleCreateNewFromBatchLists}
+              onAddBaseDetail={handleAddNew}
+              onBatchPress={handleBatchPress}
+            />
+         ) : showBatchDetails ? (
+            <MaterialUtilizationBatchDetails
+              usageNo={selectedUsageNo}
+              batchNo={selectedBatchInfo?.batchNo}
+              isDosingMachine={selectedBatchInfo?.isDosingMachine ?? false}
+              onBack={handleBackFromBatchDetails}
+              onEdit={handleEditBatchDetails}
+            />
+          ) : detailViewRecord ? (
+           <View style={styles.detailViewContainer}>
+             <View style={styles.headerBar}>
+               <TouchableOpacity onPress={handleBackToBatchLists} activeOpacity={0.7}>
+                 <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+               </TouchableOpacity>
+               <Text style={[styles.headerBarTitle, { color: colors.text }]}>
+                 {isUpdating ? 'Material Utilization Details Update' : 'Material Utilization Details'}
+               </Text>
+             </View>
               <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
-                <MaterialUtilizationDetails
-                  ref={detailViewRef}
-                  value={detailLineItems}
-                  onItemsChange={setDetailLineItems}
-                  isDosingMachine={isDosingMachine}
-                  initialData={{
-                     usageRefNo: String(detailViewRecord.USAGENO || ''),
-                     batchNo: detailViewBatchNo ?? (Number(detailViewRecord?.BATCHNO) || 1),
-                     itemnmbr: detailViewRecord?.FEEDTYPE || '',
-                     weighedBy: detailViewRecord?.WEIGHEDBY || '',
-                     validatedBy: detailViewRecord?.VALIDATEDBY || '',
-                   }}
-                />
+                {isUpdating ? (
+                  <MaterialUtilizationDetailsUpdate
+                    ref={detailViewRef}
+                    value={detailLineItems}
+                    onItemsChange={setDetailLineItems}
+                    isDosingMachine={isDosingMachine}
+                    initialData={{
+                       usageRefNo: String(detailViewRecord.USAGENO || ''),
+                       batchNo: detailViewBatchNo ?? (Number(detailViewRecord?.BATCHNO) || 1),
+                       itemnmbr: detailViewRecord?.FEEDTYPE || '',
+                       weighedBy: detailViewWeighedBy,
+                       validatedBy: detailViewValidatedBy,
+                       randomSampled: detailViewRandomSampled,
+                       qaName: detailViewQaName,
+                     }}
+                  />
+                ) : (
+                  <MaterialUtilizationDetails
+                    ref={detailViewRef}
+                    value={detailLineItems}
+                    onItemsChange={setDetailLineItems}
+                    isDosingMachine={isDosingMachine}
+                    initialData={{
+                      usageRefNo: String(detailViewRecord.USAGENO || ''),
+                      batchNo: detailViewBatchNo ?? (Number(detailViewRecord?.BATCHNO) || 1),
+                      itemnmbr: detailViewRecord?.FEEDTYPE || '',
+                      weighedBy: detailViewWeighedBy,
+                      validatedBy: detailViewValidatedBy,
+                    }}
+                  />
+                )}
               </ScrollView>
 
               <View
@@ -428,16 +578,22 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
                   onPress={() => {
                     const isValid = detailViewRef.current?.validate();
                     if (isValid) {
-                      setSaveConfirmVisible(true);
+                      if (isUpdating) {
+                        setUpdateConfirmVisible(true);
+                      } else {
+                        setSaveConfirmVisible(true);
+                      }
                     }
                   }}
                   activeOpacity={0.8}
                 >
                   <MaterialCommunityIcons name="content-save-check" size={20} color="#ffffff" />
-                  <Text style={styles.saveButtonText}>Save</Text>
+                  <Text style={styles.saveButtonText}>
+                    {isUpdating ? 'Update' : 'Save'}
+                  </Text>
                 </TouchableOpacity>
               </View>
-          </View>
+           </View>
        ) : (
         <MaterialUtilizationList
           data={lists}
@@ -484,6 +640,18 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         confirmText="Save"
         onConfirm={handleConfirmDetailSave}
         onCancel={() => setSaveConfirmVisible(false)}
+      />
+
+      <ConfirmModal
+        visible={updateConfirmVisible}
+        title="Update Batch Details"
+        message="Are you sure you want to update this batch details record?"
+        iconName="content-save-check"
+        iconColor={colors.primary}
+        cancelText="Cancel"
+        confirmText="Update"
+        onConfirm={handleConfirmUpdateDetailSave}
+        onCancel={() => setUpdateConfirmVisible(false)}
       />
 
       <SuccessModal

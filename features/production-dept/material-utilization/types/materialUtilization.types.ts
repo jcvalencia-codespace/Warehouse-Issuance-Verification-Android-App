@@ -45,6 +45,22 @@ export interface MaterialUtilizationSubDetail {
   bagsOut: number;
 }
 
+export interface BatchDetail {
+  BATCHNO: number;
+  ITEMNMBR: string;
+  ITEMDESC?: string;
+  KGSREQUIRED: number;
+  KGSUSED?: number;
+  PROCESS?: 'Prepared and Loaded' | 'Oil';
+  IS_DOSING_MACHINE?: number;
+  WEIGHEDBY?: string;
+  VALIDATEDBY?: string;
+  RANDOM_SAMPLED?: number;
+  QA_NAME?: string;
+  LOTNUMBER?: string;
+  REMAINING_QTY?: number;
+}
+
 export interface MaterialUtilizationPayload {
   usageDate: string;
   usageNo: string;

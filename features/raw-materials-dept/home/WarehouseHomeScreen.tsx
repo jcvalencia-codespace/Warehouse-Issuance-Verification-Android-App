@@ -2,11 +2,9 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
 import { ModuleCardData, ModuleGrid } from '@/features/raw-materials-dept/home/components/ModuleCard';
-import { SummaryStatItem } from '@/features/raw-materials-dept/home/components/SummaryStats';
 import { WarehouseHeader } from '@/features/raw-materials-dept/home/components/WarehouseHeader';
-import { warehouseMetricsService } from '@/features/raw-materials-dept/home/services/warehouseMetricsService';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -80,85 +78,6 @@ export function WarehouseHomeScreen({
     }
     return WAREHOUSE_MODULES.filter(module => module.id !== 'forklift-operator');
   }, [isAdmin]);
-
-  // Statistics data with real values from API
-  // Initialize with default values that will be updated after mount
-  const getInitialStats = (colors: typeof Colors.light): SummaryStatItem[] => [
-    {
-      icon: 'clock-check',
-      label: 'Pending Confirmations',
-      value: 0,
-      trend: 'neutral',
-      color: colors.warning,
-    },
-    {
-      icon: 'check-circle',
-      label: 'Completed Today',
-      value: 0,
-      trend: 'neutral',
-      color: colors.success,
-    },
-    {
-      icon: 'archive',
-      label: 'Total Transactions',
-      value: '0',
-      trend: 'neutral',
-      color: colors.primary,
-    },
-  ];
-
-  const [stats, setStats] = useState<SummaryStatItem[]>(() => getInitialStats(colors));
-  const [lastFetched, setLastFetched] = useState<Date | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Fetch metrics on component mount
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setError(null);
-        const metrics = await warehouseMetricsService.getMetrics();
-
-        if (metrics) {
-          setLastFetched(new Date());
-          setStats([
-            {
-              icon: 'clock-check',
-              label: 'Pending Confirmations',
-              value: metrics.pendingCount,
-              trend: metrics.pendingCount > 10 ? 'up' : 'neutral',
-              color: colors.warning,
-            },
-            {
-              icon: 'check-circle',
-              label: 'Completed Today',
-              value: metrics.completedToday,
-              trend: metrics.completedToday > 20 ? 'up' : 'neutral',
-              color: colors.success,
-            },
-            {
-              icon: 'archive',
-              label: 'Total Transactions',
-              value: metrics.totalTransactions.toLocaleString(),
-              trend: 'neutral',
-              color: colors.primary,
-            },
-          ]);
-        } else {
-          setError('Failed to fetch metrics');
-        }
-      } catch (err) {
-        console.error('Error fetching metrics:', err);
-        setError('Connection error');
-      }
-    };
-
-    fetchMetrics();
-
-    // Refresh metrics every 3 seconds for realtime updates
-    const interval = setInterval(fetchMetrics, 10000);
-
-    return () => clearInterval(interval);
-  }, [colors]);
 
    // Get module color based on theme
    const getModuleColor = (colorKey: string): string => {
