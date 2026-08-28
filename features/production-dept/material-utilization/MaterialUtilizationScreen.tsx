@@ -209,7 +209,7 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         transType: 3,
         isDosingMachine,
       };
-      const result = await MaterialUtilizationService.getInstance().saveBatchingMaterialUtilization(
+      const result = await MaterialUtilizationService.getInstance().updateBatchingMaterialUtilization(
         payload,
         user?.COMPANY
       );
@@ -395,7 +395,8 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
         const nextBatchNo = (latestBatchNo ?? 0) + 1;
 
         const detailLineItems: MaterialUtilizationLineItem[] = batchDetails.map((detail, index) => ({
-          id: String(detail.ITEMNMBR || index),
+          id: String(detail.PUDROWID || detail.ITEMNMBR || index),
+          pudRowId: Number(detail.PUDROWID) || 0,
           batchNo: nextBatchNo,
           usageNo: String(header.USAGENO || ''),
           itemNo: detail.ITEMNMBR || '',
@@ -436,172 +437,173 @@ export default function MaterialUtilizationScreen({ onBack, onSubmit }: Material
       edges={['top', 'bottom']}
       style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
-       {showForm ? (
-         <KeyboardAvoidingView
-           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-           style={styles.keyboardAvoid}
-         >
-           <View style={styles.headerBar}>
-             <TouchableOpacity onPress={handleBackToList} activeOpacity={0.7}>
-               <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
-             </TouchableOpacity>
-             <Text style={[styles.headerBarTitle, { color: colors.text }]}>New Material Utilization</Text>
-           </View>
-           <ScrollView
-             ref={scrollViewRef}
-             style={styles.scrollView}
-             contentContainerStyle={[styles.scrollContent, { paddingBottom: 16 }]}
-             showsVerticalScrollIndicator={false}
-             keyboardShouldPersistTaps="handled"
-           >
-             <MaterialUtilizationHeader
-               ref={headerRef}
-               onValidSubmit={handleValidSubmit}
-               scrollViewRef={scrollViewRef}
-             />
-             <MaterialUtilizationBaseDetails
-               ref={detailsRef}
-               value={items}
-               onItemsChange={setItems}
-             />
-             <View style={{ height: 80 }} />
-           </ScrollView>
-
-           <View
-             style={[
-               styles.footer,
-               { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
-             ]}
-           >
-             <TouchableOpacity
-               style={[styles.cancelButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-               onPress={handleBackToList}
-             >
-               <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
-               <Text style={[styles.cancelButtonText, { color: colors.text }]}>Back</Text>
-             </TouchableOpacity>
-
-             <TouchableOpacity
-               style={[styles.clearButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-               onPress={handleClear}
-             >
-               <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
-               <Text style={[styles.clearButtonText, { color: colors.text }]}>Clear</Text>
-             </TouchableOpacity>
-
-             <TouchableOpacity
-               style={[styles.submitButton, { backgroundColor: colors.primary }]}
-               onPress={() => headerRef.current?.submit()}
-               activeOpacity={0.8}
-             >
-               <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
-               <Text style={styles.buttonText}>Submit</Text>
-             </TouchableOpacity>
-           </View>
-         </KeyboardAvoidingView>
-         ) : showBatchLists ? (
-            <MaterialUtilizationBatchLists
-              usageNo={selectedUsageNo}
-              onBack={handleBackToList}
-              onAddNew={handleCreateNewFromBatchLists}
-              onAddBaseDetail={handleAddNew}
-              onBatchPress={handleBatchPress}
+      {showForm ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+        >
+          <View style={styles.headerBar}>
+            <TouchableOpacity onPress={handleBackToList} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerBarTitle, { color: colors.text }]}>New Material Utilization</Text>
+          </View>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: 16 }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <MaterialUtilizationHeader
+              ref={headerRef}
+              onValidSubmit={handleValidSubmit}
+              scrollViewRef={scrollViewRef}
             />
-         ) : showBatchDetails ? (
-            <MaterialUtilizationBatchDetails
-              usageNo={selectedUsageNo}
-              batchNo={selectedBatchInfo?.batchNo}
-              isDosingMachine={selectedBatchInfo?.isDosingMachine ?? false}
-              onBack={handleBackFromBatchDetails}
-              onEdit={handleEditBatchDetails}
+            <MaterialUtilizationBaseDetails
+              ref={detailsRef}
+              value={items}
+              onItemsChange={setItems}
             />
-          ) : detailViewRecord ? (
-           <View style={styles.detailViewContainer}>
-             <View style={styles.headerBar}>
-               <TouchableOpacity onPress={handleBackToBatchLists} activeOpacity={0.7}>
-                 <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
-               </TouchableOpacity>
-               <Text style={[styles.headerBarTitle, { color: colors.text }]}>
-                 {isUpdating ? 'Material Utilization Details Update' : 'Material Utilization Details'}
-               </Text>
-             </View>
-              <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                {isUpdating ? (
-                  <MaterialUtilizationDetailsUpdate
-                    ref={detailViewRef}
-                    value={detailLineItems}
-                    onItemsChange={setDetailLineItems}
-                    isDosingMachine={isDosingMachine}
-                    initialData={{
-                       usageRefNo: String(detailViewRecord.USAGENO || ''),
-                       batchNo: detailViewBatchNo ?? (Number(detailViewRecord?.BATCHNO) || 1),
-                       itemnmbr: detailViewRecord?.FEEDTYPE || '',
-                       weighedBy: detailViewWeighedBy,
-                       validatedBy: detailViewValidatedBy,
-                       randomSampled: detailViewRandomSampled,
-                       qaName: detailViewQaName,
-                     }}
-                  />
-                ) : (
-                  <MaterialUtilizationDetails
-                    ref={detailViewRef}
-                    value={detailLineItems}
-                    onItemsChange={setDetailLineItems}
-                    isDosingMachine={isDosingMachine}
-                    initialData={{
-                      usageRefNo: String(detailViewRecord.USAGENO || ''),
-                      batchNo: detailViewBatchNo ?? (Number(detailViewRecord?.BATCHNO) || 1),
-                      itemnmbr: detailViewRecord?.FEEDTYPE || '',
-                      weighedBy: detailViewWeighedBy,
-                      validatedBy: detailViewValidatedBy,
-                    }}
-                  />
-                )}
-              </ScrollView>
+            <View style={{ height: 80 }} />
+          </ScrollView>
 
-              <View
-                style={[
-                  styles.detailFooter,
-                  {
-                    borderTopColor: colors.cardBorder,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  style={[styles.saveButton, { backgroundColor: colors.primary }]}
-                  onPress={() => {
-                    const isValid = detailViewRef.current?.validate();
-                    if (isValid) {
-                      if (isUpdating) {
-                        setUpdateConfirmVisible(true);
-                      } else {
-                        setSaveConfirmVisible(true);
-                      }
-                    }
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <MaterialCommunityIcons name="content-save-check" size={20} color="#ffffff" />
-                  <Text style={styles.saveButtonText}>
-                    {isUpdating ? 'Update' : 'Save'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-           </View>
-       ) : (
+          <View
+            style={[
+              styles.footer,
+              { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.cancelButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+              onPress={handleBackToList}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
+              <Text style={[styles.cancelButtonText, { color: colors.text }]}>Back</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.clearButton, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+              onPress={handleClear}
+            >
+              <MaterialCommunityIcons name="refresh" size={20} color={colors.text} />
+              <Text style={[styles.clearButtonText, { color: colors.text }]}>Clear</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.submitButton, { backgroundColor: colors.primary }]}
+              onPress={() => headerRef.current?.submit()}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="send-check" size={20} color="#ffffff" />
+              <Text style={styles.buttonText}>Submit</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      ) : showBatchLists ? (
+        <MaterialUtilizationBatchLists
+          usageNo={selectedUsageNo}
+          onBack={handleBackToList}
+          onAddNew={handleCreateNewFromBatchLists}
+          onAddBaseDetail={handleAddNew}
+          onBatchPress={handleBatchPress}
+        />
+      ) : showBatchDetails ? (
+        <MaterialUtilizationBatchDetails
+          usageNo={selectedUsageNo}
+          batchNo={selectedBatchInfo?.batchNo}
+          isDosingMachine={selectedBatchInfo?.isDosingMachine ?? false}
+          onBack={handleBackFromBatchDetails}
+          onEdit={handleEditBatchDetails}
+        />
+      ) : detailViewRecord ? (
+        <View style={styles.detailViewContainer}>
+          <View style={styles.headerBar}>
+            <TouchableOpacity onPress={handleBackToBatchLists} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerBarTitle, { color: colors.text }]}>
+              {isUpdating ? 'Material Utilization Details Update' : 'Material Utilization Details'}
+            </Text>
+          </View>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {isUpdating ? (
+              <MaterialUtilizationDetailsUpdate
+                ref={detailViewRef}
+                value={detailLineItems}
+                onItemsChange={setDetailLineItems}
+                isDosingMachine={isDosingMachine}
+                initialData={{
+                  pudRowId: Number(detailViewRecord.PUDROWID),
+                  usageRefNo: String(detailViewRecord.USAGENO || ''),
+                  batchNo: detailViewBatchNo ?? (Number(detailViewRecord?.BATCHNO) || 1),
+                  itemnmbr: detailViewRecord?.FEEDTYPE || '',
+                  weighedBy: detailViewWeighedBy,
+                  validatedBy: detailViewValidatedBy,
+                  randomSampled: detailViewRandomSampled,
+                  qaName: detailViewQaName,
+                }}
+              />
+            ) : (
+              <MaterialUtilizationDetails
+                ref={detailViewRef}
+                value={detailLineItems}
+                onItemsChange={setDetailLineItems}
+                isDosingMachine={isDosingMachine}
+                initialData={{
+                  usageRefNo: String(detailViewRecord.USAGENO || ''),
+                  batchNo: detailViewBatchNo ?? (Number(detailViewRecord?.BATCHNO) || 1),
+                  itemnmbr: detailViewRecord?.FEEDTYPE || '',
+                  weighedBy: detailViewWeighedBy,
+                  validatedBy: detailViewValidatedBy,
+                }}
+              />
+            )}
+          </ScrollView>
+
+          <View
+            style={[
+              styles.detailFooter,
+              {
+                borderTopColor: colors.cardBorder,
+                backgroundColor: colors.background,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                const isValid = detailViewRef.current?.validate();
+                if (isValid) {
+                  if (isUpdating) {
+                    setUpdateConfirmVisible(true);
+                  } else {
+                    setSaveConfirmVisible(true);
+                  }
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="content-save-check" size={20} color="#ffffff" />
+              <Text style={styles.saveButtonText}>
+                {isUpdating ? 'Update' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
         <MaterialUtilizationList
           data={lists}
           loading={listsLoading}
           search={search}
           onSearchChange={setSearch}
           onRecordPress={handleRecordPress}
-          onBack={onBack || (() => {})}
+          onBack={onBack || (() => { })}
           onAddNew={handleAddNew}
         />
       )}

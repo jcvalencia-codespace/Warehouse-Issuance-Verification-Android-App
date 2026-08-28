@@ -13,6 +13,7 @@ export interface MaterialUtilizationFormData {
 
 export interface MaterialUtilizationLineItem {
   id: string;
+  pudRowId?: number;
   batchNo: number;
   usageNo: string;
   itemNo: string;
@@ -51,6 +52,7 @@ export interface BatchDetail {
   ITEMDESC?: string;
   KGSREQUIRED: number;
   KGSUSED?: number;
+  PUDROWID?: number;
   PROCESS?: 'Prepared and Loaded' | 'Oil';
   IS_DOSING_MACHINE?: number;
   WEIGHEDBY?: string;
@@ -83,6 +85,7 @@ export interface MaterialUtilizationPayload {
 }
 
 export interface BatchingMaterialUtilization {
+  pudRowId?: number;
   usageNo: string;
   user: string;
   transType: number;

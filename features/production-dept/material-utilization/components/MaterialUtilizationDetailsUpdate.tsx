@@ -5,23 +5,23 @@ import { BarcodeScanner } from '@/features/raw-materials-dept/issuance-verificat
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View
 } from 'react-native';
 
 import { MaterialUtilizationTagService } from '../../material-utilization-tag/services/materialUtilizationTagService';
 import { MaterialUtilizationService } from '../services/materialUtilizationService';
 import {
-    MaterialUtilizationDetailsRef,
-    MaterialUtilizationLineItem,
-    MaterialUtilizationSubDetail
+  MaterialUtilizationDetailsRef,
+  MaterialUtilizationLineItem,
+  MaterialUtilizationSubDetail
 } from '../types/materialUtilization.types';
 
 export { MaterialUtilizationDetailsRef };
@@ -31,6 +31,7 @@ interface MaterialUtilizationDetailsProps {
   onItemsChange?: (items: MaterialUtilizationLineItem[]) => void;
   onSave?: () => void;
   initialData: {
+    pudRowId: number;
     usageRefNo?: string;
     batchNo?: number;
     itemnmbr?: string;
@@ -62,8 +63,8 @@ export const MaterialUtilizationDetailsUpdate = forwardRef<MaterialUtilizationDe
 
     const formatKg = (value?: string | number) =>
       `${Number(value || 0).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        minimumFractionDigits: 5,
+        maximumFractionDigits: 5,
       })} kg`;
 
     const loadTagStatus = async () => {
@@ -148,7 +149,7 @@ export const MaterialUtilizationDetailsUpdate = forwardRef<MaterialUtilizationDe
       if (initialData?.qaName) {
         setQaName(initialData.qaName);
       }
-    }, [initialData]);
+    }, []);
 
     const [rawWeightText, setRawWeightText] = useState<Record<number, string>>({});
 

@@ -322,31 +322,19 @@ exports.getAllocation = async (req, res) => {
                     CASE WHEN BALANCE <= 0 THEN 0
                         WHEN RUNNING_QTY - BALANCE >= @kgsUsed THEN 0
                         WHEN RUNNING_QTY >= @kgsUsed THEN @kgsUsed - (RUNNING_QTY - BALANCE)
-                        ELSE BALANCE END AS RAW_KGS_ALLOCATED
+                        ELSE BALANCE END AS KGS_ALLOCATED
                 FROM Stock
-            ),
-            Allocation AS
-            (
-                SELECT *,
-                    CASE
-                        -- if the leftover after a partial allocation is a tiny dust amount, just take the whole balance
-                        WHEN RAW_KGS_ALLOCATED > 0
-                            AND (BALANCE - RAW_KGS_ALLOCATED) BETWEEN 0.00001 AND 0.99999
-                        THEN BALANCE
-                        ELSE RAW_KGS_ALLOCATED
-                    END AS KGS_ALLOCATED
-                FROM RawAllocation
             )
             SELECT QM4DROWID, ITEMNMBR, FROMISSUANCENOID, LOTNUMBER,
                 BALANCE, RUNNING_QTY, KGS_ALLOCATED, BAG_TRANS, BAGS_OUT,
                 BALANCE - KGS_ALLOCATED AS REMAINING_QTY
-            FROM Allocation
+            FROM RawAllocation
             WHERE KGS_ALLOCATED > 0
             ORDER BY DATERECEIVED, QM4DROWID`;
 
         const result = await pool.request()
             .input('itemNo', sql.VarChar(50), itemNo)
-            .input('kgsUsed', sql.Int, parseInt(kgsUsed, 10) || 0)
+            .input('kgsUsed', sql.Decimal(18, 5), parseFloat(kgsUsed) || 0)
             .query(allocationQuery);
 
         res.json({ success: true, data: result.recordset });
@@ -596,7 +584,7 @@ exports.saveBatchingMaterialUtilization = async (req, res) => {
 
 exports.updateBatchingMaterialUtilization = async (req, res) => {
     const { company } = req.query;
-    const { usageNo, user, transType, details } = req.body;
+    const { usageNo, user, transType, details, subDetails } = req.body; // subDetails added
 
     try {
         const dbName = getCompanyDbName(company);
@@ -646,11 +634,55 @@ exports.updateBatchingMaterialUtilization = async (req, res) => {
             </Details>
         `;
 
+        console.log('data to insert:', JSON.stringify(details.map(d => ({
+            pudRowId: d.pudRowId,
+            itemNo: d.itemNo,
+            isDosingMachine: d.isDosingMachine,
+            batchNo: d.batchNo,
+            requiredWeight: d.requiredWeight,
+            weightLoaded: d.weightLoaded,
+            processType: d.processType,
+            randomSampled: d.randomSampled,
+            qaName: d.qaName,
+            remarks: d.remarks
+        })), null, 2));
+
+        let allocated = 0;
+        let subDetailXml = '<SubDetails />';
+        const tagValue = await getTagValue(company);
+        if (tagValue === 1) {
+            if (!Array.isArray(subDetails) || subDetails.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Sub-detail allocation is required for transaction type 1.'
+                });
+            }
+            
+            allocated = 1;
+
+            subDetailXml = `
+                <SubDetails>
+                    ${subDetails.map(subDetail => `
+                        <SubDetail>
+                            <qm4dRowId>${Number(subDetail.qm4dRowId)}</qm4dRowId>
+                            <fromIssuanceNoId>${Number(subDetail.fromIssuanceNoId) || 0}</fromIssuanceNoId>
+                            <itemNo>${escapeXml(subDetail.itemNo || '')}</itemNo>
+                            <lotNumber>${escapeXml(subDetail.lotNumber || '')}</lotNumber>
+                            <qtyOut>${Number(subDetail.qtyOut) || 0}</qtyOut>
+                            <bagsOut>${Number(subDetail.bagsOut) || 0}</bagsOut>
+                        </SubDetail>
+                    `).join('')}
+                </SubDetails>
+            `;
+        }
+
         const request = pool.request();
         request.input('TRANSTYPE', sql.Int, transType);
         request.input('UsageNo', sql.NVarChar, usageNo);
         request.input('Details', sql.Xml, detailsXml);
-        request.input('ModifiedBy', sql.NVarChar, user);
+        request.input('SubDetails', sql.Xml, subDetailXml); // was missing - required by @ALLOCATED = 1 branch in the SP
+        request.input('CreatedBy', sql.NVarChar, user);
+        request.input('ALLOCATED', sql.Int, allocated); // explicit type added
 
         const result = await request.execute('[2026.spProducationMaterialUtilizationSave]');
 

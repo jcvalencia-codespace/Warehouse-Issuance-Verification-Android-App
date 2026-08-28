@@ -64,8 +64,8 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
     const formatKg = (value?: string | number) =>
       `${Number(value || 0).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        minimumFractionDigits: 5,
+        maximumFractionDigits: 5,
       })} kg`;
 
     const loadTagStatus = async () => {
@@ -164,21 +164,20 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
     const updateItemWeight = (index: number, weight: string) => {
       // reject invalid characters outright; allow empty, digits, one optional decimal point
-      if (weight !== '' && !/^\d*\.?\d*$/.test(weight)) {
+      const normalized = weight.replace(',', '.');
+
+      if (normalized !== '' && !/^\d*\.?\d*$/.test(normalized)) {
         return;
       }
 
-      // always track what the user is literally typing
-      setRawWeightText((prev) => ({ ...prev, [index]: weight }));
+      setRawWeightText((prev) => ({ ...prev, [index]: normalized }));
 
-      // only commit a numeric value to items when it actually parses to a finished number
-      const parsed = parseFloat(weight);
+      const parsed = parseFloat(normalized); // ✅ use normalized here
       const next = [...items];
       next[index] = { ...next[index], weightLoaded: isNaN(parsed) ? 0 : parsed };
       setItems(next);
       onItemsChange?.(next);
 
-      // validate against required weight (5% tolerance)
       const requiredKgs = next[index]?.requiredWeight ?? 0;
       if (parsed && !isNaN(parsed) && requiredKgs > 0) {
         const tolerance = requiredKgs * 0.05;
@@ -191,7 +190,6 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
         }
       }
 
-      // clear error if within tolerance
       setErrors((prev) => {
         if (!prev[`weight_${index}`]) return prev;
         const nextErrors = { ...prev };
@@ -295,7 +293,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
           if (!item.weightLoaded || item.weightLoaded <= 0) {
             newErrors[`weight_${index}`] = 'Weight loaded is required';
           }
-          if (item.weightLoaded > (item.requiredWeight * 0.05)) {
+          if (item.weightLoaded > item.requiredWeight * 1.05) {
             newErrors[`weight_${index}`] = 'Exceeds 5% of required';
           }
         });

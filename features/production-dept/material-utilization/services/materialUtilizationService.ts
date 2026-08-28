@@ -359,7 +359,7 @@ export class MaterialUtilizationService {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
       }
-      const response = await axios.post<MaterialUtilizationPostResponse>(
+      const response = await axios.put<MaterialUtilizationPostResponse>(
         `${this.baseUrl}/production-dept/material-utilization/update-batching-material-utilization`,
         payload,
         { params: company ? { company } : undefined }
