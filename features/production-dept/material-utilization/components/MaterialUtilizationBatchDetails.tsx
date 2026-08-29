@@ -69,8 +69,8 @@ export const MaterialUtilizationBatchDetails: React.FC<MaterialUtilizationBatchD
 
     const formatKg = (value?: string | number) =>
         `${Number(value || 0).toLocaleString('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: 5,
+            maximumFractionDigits: 5,
         })}`;
 
     const totalRequired = details.reduce((sum, d) => sum + Number(d.KGSREQUIRED || 0), 0);

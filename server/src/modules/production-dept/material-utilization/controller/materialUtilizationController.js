@@ -634,7 +634,7 @@ exports.updateBatchingMaterialUtilization = async (req, res) => {
             </Details>
         `;
 
-        console.log('data to insert:', JSON.stringify(details.map(d => ({
+        console.log('data to update:', JSON.stringify(details.map(d => ({
             pudRowId: d.pudRowId,
             itemNo: d.itemNo,
             isDosingMachine: d.isDosingMachine,
