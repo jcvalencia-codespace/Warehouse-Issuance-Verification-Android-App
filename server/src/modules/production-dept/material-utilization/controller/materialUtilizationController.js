@@ -344,6 +344,52 @@ exports.getAllocation = async (req, res) => {
     }
 };
 
+exports.getRmTotalKgs = async (req, res) => {
+    const { company, usageNo } = req.query;
+
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const rmTotalKgsQuery = `SELECT
+            SUM(CASE WHEN USD.IS_DOSING_MACHINE = 0 THEN USD.KGSREQUIRED ELSE 0 END) AS notDosing,
+            SUM(CASE WHEN USD.IS_DOSING_MACHINE = 1 THEN USD.KGSREQUIRED ELSE 0 END) AS dosing
+        FROM [PRODUCTION.USAGEBASEDETAILS] USD
+        WHERE USD.USAGENO = @usageNo
+            AND EXISTS (
+                SELECT 1 FROM [INVENTORY.QUANTITYMASTER4.DETAILS] QM4D
+                WHERE QM4D.ITEMNMBR = USD.ITEMNMBR
+            )`;
+
+    const result = await pool.request()
+        .input('usageNo', usageNo)
+        .query(rmTotalKgsQuery);
+
+    const { notDosing, dosing } = result.recordset[0];
+    res.json({ success: true, data: { notDosing, dosing } });
+}
+
+exports.getIssuanceNo = async (req, res) => {
+    const { company } = req.query;
+
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    try {
+        const result = await pool.request()
+            .query(`SELECT TRANSREFNO FROM [INVENTORY.QUANTITYMASTER4.HEADER]`);
+
+        const data = result.recordset.map(r => ({
+            label: r.TRANSREFNO ? String(r.TRANSREFNO) : '',
+            value: r.TRANSREFNO ? String(r.TRANSREFNO) : '',
+        }));
+
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error('Error fetching issuance no:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch issuance no' });
+    }
+}
+
 exports.saveMaterialUtilization = async (req, res) => {
     try {
         const { company } = req.query;
@@ -657,7 +703,7 @@ exports.updateBatchingMaterialUtilization = async (req, res) => {
                     message: 'Sub-detail allocation is required for transaction type 1.'
                 });
             }
-            
+
             allocated = 1;
 
             subDetailXml = `
@@ -713,3 +759,38 @@ exports.updateBatchingMaterialUtilization = async (req, res) => {
         });
     }
 };
+
+exports.setComplete = async (req, res) => {
+    const { company } = req.query;
+    const { usageNo, issuanceNo, encodedBy, controlRoomOperator, reviewedBy } = req.body;
+
+    if (!usageNo) {
+        return res.status(400).json({ success: false, message: 'usageNo is required' });
+    }
+
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const setCompleteActionQuery = `UPDATE [PRODUCTION.USAGEHEADER]
+        SET ISSUANCENO = @issuanceNo, ENCODEDBY = @encodedBy, CONTROLROOMOPERATOR = @controlRoomOperator, REVIEWEDBY = @reviewedBy, IS_DONE = 1
+        WHERE USAGENO = @usageNo`;
+
+    try {
+        const result = await pool.request()
+            .input('usageNo', sql.Int, parseInt(usageNo, 10) || 0)
+            .input('issuanceNo', sql.NVarChar, issuanceNo || null)
+            .input('encodedBy', sql.NVarChar, encodedBy || null)
+            .input('controlRoomOperator', sql.NVarChar, controlRoomOperator || null)
+            .input('reviewedBy', sql.NVarChar, reviewedBy || null)
+            .query(setCompleteActionQuery);
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({ success: false, message: 'No matching usage record found' });
+        }
+
+        res.json({ success: true, rowsAffected: result.rowsAffected[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to update usage header' });
+    }
+}

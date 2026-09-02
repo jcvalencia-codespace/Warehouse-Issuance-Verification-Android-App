@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-const LOCAL_IP = 'http://192.168.10.85:3000';
+const LOCAL_IP = "http://192.168.1.106:3000";
 
 export function useNetworkStatus() {
   const [isLocalConnected, setIsLocalConnected] = useState<boolean>(false);
-  const [networkType, setNetworkType] = useState<string>('Checking');
+  const [networkType, setNetworkType] = useState<string>("Checking");
 
   useEffect(() => {
     let mounted = true;
@@ -14,21 +14,24 @@ export function useNetworkStatus() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-        const localResponse = await fetch(LOCAL_IP, { 
-          method: 'GET',
-          signal: controller.signal 
+        const localResponse = await fetch(LOCAL_IP, {
+          method: "GET",
+          signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        
+
         if (mounted) {
-          const localOk = localResponse.ok || localResponse.status === 401 || localResponse.status === 403;
+          const localOk =
+            localResponse.ok ||
+            localResponse.status === 401 ||
+            localResponse.status === 403;
           setIsLocalConnected(localOk);
-          setNetworkType(localOk ? 'Connected' : 'Disconnected');
+          setNetworkType(localOk ? "Connected" : "Disconnected");
         }
       } catch (e) {
         if (mounted) {
           setIsLocalConnected(false);
-          setNetworkType('Disconnected');
+          setNetworkType("Disconnected");
         }
       }
     };
@@ -42,5 +45,10 @@ export function useNetworkStatus() {
     };
   }, []);
 
-  return { isConnected: isLocalConnected, isLocalConnected, isInternetConnected: false, networkType };
+  return {
+    isConnected: isLocalConnected,
+    isLocalConnected,
+    isInternetConnected: false,
+    networkType,
+  };
 }

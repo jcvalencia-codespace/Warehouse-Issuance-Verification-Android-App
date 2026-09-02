@@ -112,6 +112,16 @@ export interface DropdownOption {
   description?: string;
 }
 
+export interface RmTotalKgs {
+  notDosing: number | null;
+  dosing: number | null;
+}
+
+export interface IssuanceNoOption {
+  label: string;
+  value: string;
+}
+
 export interface FeedTypeVariantRow {
   ITEMNMBR: string;
   ITEMDESC: string;

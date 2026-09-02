@@ -4,8 +4,10 @@ import {
   BatchDetail,
   BatchingMaterialUtilization,
   DropdownOption,
+  IssuanceNoOption,
   MaterialUtilizationPayload,
-  MaterialUtilizationPostResponse
+  MaterialUtilizationPostResponse,
+  RmTotalKgs
 } from '../types/materialUtilization.types';
 
 export interface FeedTypeVariantRow {
@@ -295,6 +297,76 @@ export class MaterialUtilizationService {
         return response.data.batchDetails || [];
       }
       return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getRmTotalKgs(
+    company?: string,
+    usageNo?: number,
+  ): Promise<RmTotalKgs | null> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{
+        success: boolean;
+        data?: { notDosing?: number; dosing?: number };
+      }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-rm-total-kgs`,
+        { params: { company, usageNo } }
+      );
+      if (response.data.success && response.data.data) {
+        return {
+          notDosing: response.data.data.notDosing ?? null,
+          dosing: response.data.data.dosing ?? null,
+        };
+      }
+      return null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getIssuanceNo(company?: string): Promise<IssuanceNoOption[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; data?: IssuanceNoOption[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-issuance-no`,
+        { params: company ? { company } : undefined }
+      );
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async setComplete(
+    payload: {
+      usageNo: number;
+      issuanceNo: string;
+      encodedBy: string;
+      controlRoomOperator: string;
+      reviewedBy: string;
+    },
+    company?: string,
+  ): Promise<{ success: boolean; message?: string; rowsAffected?: number }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.post<{ success: boolean; message?: string; rowsAffected?: number }>(
+        `${this.baseUrl}/production-dept/material-utilization/set-complete`,
+        payload,
+        { params: company ? { company } : undefined }
+      );
+      return response.data;
     } catch (error) {
       throw error;
     }
