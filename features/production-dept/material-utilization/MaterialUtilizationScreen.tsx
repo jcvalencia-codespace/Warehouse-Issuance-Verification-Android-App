@@ -34,11 +34,11 @@ import { MaterialUtilizationService } from "./services/materialUtilizationServic
 import {
   BatchDetail,
   BatchingMaterialUtilization,
-   MaterialUtilizationBaseItemDetails,
+  IssuanceNoOption,
+  MaterialUtilizationBaseItemDetails,
   MaterialUtilizationFormData,
   MaterialUtilizationLineItem,
   MaterialUtilizationPayload,
-  IssuanceNoOption,
   RmTotalKgs,
 } from "./types/materialUtilization.types";
 
@@ -93,6 +93,11 @@ export default function MaterialUtilizationScreen({
   const [rmTotalKgs, setRmTotalKgs] = useState<RmTotalKgs | null>(null);
   const [issuanceNoOptions, setIssuanceNoOptions] = useState<IssuanceNoOption[]>([]);
   const [issuanceNoLoading, setIssuanceNoLoading] = useState(false);
+  const [doneIssuanceNo, setDoneIssuanceNo] = useState<number | undefined>(undefined);
+  const [doneControlRoomOperator, setDoneControlRoomOperator] = useState<string | null>(null);
+  const [doneReviewedBy, setDoneReviewedBy] = useState<string | null>(null);
+  const [doneRemarks, setDoneRemarks] = useState("");
+  const [allowedReviewers, setAllowedReviewers] = useState<string[]>([]);
   const [showBatchDetails, setShowBatchDetails] = useState(false);
   const [selectedBatchInfo, setSelectedBatchInfo] = useState<{
     batchNo: number;
@@ -371,6 +376,21 @@ export default function MaterialUtilizationScreen({
 
   const handleMarkAsDone = async () => {
     try {
+      const result = await MaterialUtilizationService.getInstance().getMaterialUtilizationDetails(
+        user?.COMPANY,
+        selectedUsageNo,
+      );
+      const header = result.header;
+      setDoneControlRoomOperator(header?.CONTROLROOMOPERATOR || null);
+      setDoneReviewedBy(header?.REVIEWEDBY || null);
+      setDoneRemarks(header?.REMARKS || "");
+    } catch (error) {
+      console.error("Failed to load header:", error);
+      setDoneControlRoomOperator(null);
+      setDoneReviewedBy(null);
+      setDoneRemarks("");
+    }
+    try {
       const data = await MaterialUtilizationService.getInstance().getRmTotalKgs(
         user?.COMPANY,
         selectedUsageNo,
@@ -392,11 +412,25 @@ export default function MaterialUtilizationScreen({
     } finally {
       setIssuanceNoLoading(false);
     }
+    try {
+      const reviewers = await MaterialUtilizationService.getInstance().getAllowedReviewers(
+        user?.COMPANY,
+      );
+      setAllowedReviewers(Array.isArray(reviewers) ? reviewers : []);
+    } catch (error) {
+      console.error("Failed to load allowed reviewers:", error);
+      setAllowedReviewers([]);
+    }
     setDoneModalVisible(true);
   };
 
   const handleDoneModalClose = () => {
     setDoneModalVisible(false);
+    setDoneIssuanceNo(undefined);
+    setDoneControlRoomOperator(null);
+    setDoneReviewedBy(null);
+    setDoneRemarks("");
+    setAllowedReviewers([]);
   };
 
   const handleDoneSuccess = () => {
@@ -412,9 +446,14 @@ export default function MaterialUtilizationScreen({
     setDetailViewWeighedBy("");
     setDetailViewValidatedBy("");
     setDetailViewRandomSampled(0);
-    setDetailViewQaName("");
-    setIsDosingMachine(false);
+     setDetailViewQaName("");
+     setIsDosingMachine(false);
     setIsUpdating(false);
+    setDoneIssuanceNo(undefined);
+    setDoneControlRoomOperator(null);
+    setDoneReviewedBy(null);
+    setDoneRemarks("");
+    setAllowedReviewers([]);
     loadLists();
   };
 
@@ -422,6 +461,7 @@ export default function MaterialUtilizationScreen({
     issuanceNo: string;
     controlRoomOperator: string;
     reviewedByProductionSupervisor: string;
+    remarks: string;
   }) => {
     try {
       const result = await MaterialUtilizationService.getInstance().setComplete(
@@ -431,6 +471,7 @@ export default function MaterialUtilizationScreen({
           encodedBy: user?.NAME || "",
           controlRoomOperator: data.controlRoomOperator,
           reviewedBy: data.reviewedByProductionSupervisor,
+          remarks: data.remarks,
         },
         user?.COMPANY,
       );
@@ -925,13 +966,18 @@ export default function MaterialUtilizationScreen({
         onDone={handleDoneSuccess}
       />
 
-       <MaterialUtilizationDoneModal
+        <MaterialUtilizationDoneModal
           visible={doneModalVisible}
           rmTotalKgs={rmTotalKgs ?? undefined}
-          issuanceNo={selectedUsageNo}
+          usageNo={String(selectedUsageNo ?? "")}
+          issuanceNo={doneIssuanceNo ?? undefined}
           issuanceNoOptions={issuanceNoOptions}
           issuanceNoLoading={issuanceNoLoading}
           encodedBy={user?.NAME || ""}
+          controlRoomOperator={doneControlRoomOperator}
+          reviewedByProductionSupervisor={doneReviewedBy}
+          remarks={doneRemarks}
+          allowedReviewers={allowedReviewers}
           onDone={handleDoneModalDone}
           onClose={handleDoneModalClose}
         />

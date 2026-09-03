@@ -189,14 +189,17 @@ export const MaterialUtilizationBatchLists: React.FC<
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Batch Lists
         </Text>
-        <TouchableOpacity
-          onPress={onMarkAsDone}
-          activeOpacity={0.7}
-          style={[styles.headerDoneButton, { backgroundColor: colors.primary }]}
-        >
-          <MaterialCommunityIcons name="check" size={16} color="#fff" />
-          <Text style={styles.headerDoneButtonText}>Mark as Done</Text>
-        </TouchableOpacity>
+        {totalDosingItem > 0 ||
+        totalNotDosingItem > 0 ? (
+          <TouchableOpacity
+            onPress={onMarkAsDone}
+            activeOpacity={0.7}
+            style={[styles.headerDoneButton, { backgroundColor: colors.primary }]}
+          >
+            <MaterialCommunityIcons name="check" size={16} color="#fff" />
+            <Text style={styles.headerDoneButtonText}>Mark as Done</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {loading ? (

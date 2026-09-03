@@ -2,11 +2,15 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { Colors } from "@/constants/theme";
 import { BarcodeScanner } from "@/features/raw-materials-dept/issuance-verification/components/BarcodeScanner";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,6 +19,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialUtilizationService } from "../services/materialUtilizationService";
 import { IssuanceNoOption, RmTotalKgs } from "../types/materialUtilization.types";
 
 interface MaterialUtilizationDoneModalProps {
@@ -23,14 +28,18 @@ interface MaterialUtilizationDoneModalProps {
   issuanceNo?: string | number;
   issuanceNoOptions?: IssuanceNoOption[];
   issuanceNoLoading?: boolean;
+  usageNo?: string;
   onIssuanceNoChange?: (value: string) => void;
   encodedBy?: string;
-  controlRoomOperator?: string;
-  reviewedByProductionSupervisor?: string;
+  controlRoomOperator?: string | null;
+  reviewedByProductionSupervisor?: string | null;
+  remarks?: string;
+  allowedReviewers?: string[];
   onDone: (data: {
     issuanceNo: string;
     controlRoomOperator: string;
     reviewedByProductionSupervisor: string;
+    remarks: string;
   }) => void;
   onClose?: () => void;
 }
@@ -42,21 +51,54 @@ export function MaterialUtilizationDoneModal({
   issuanceNoOptions,
   issuanceNoLoading,
   onIssuanceNoChange,
+  usageNo: usageNoProp,
   encodedBy: encodedByProp,
   controlRoomOperator: controlRoomOperatorProp,
   reviewedByProductionSupervisor: reviewedByProductionSupervisorProp,
+  remarks: remarksProp,
+  allowedReviewers,
   onDone,
   onClose,
 }: MaterialUtilizationDoneModalProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? "light"];
 
-  const [controlRoomOperatorValue, setControlRoomOperatorValue] = useState(
-    controlRoomOperatorProp ?? "",
-  );
-  const [reviewedByValue, setReviewedByValue] = useState(
-    reviewedByProductionSupervisorProp ?? "",
-  );
+  const [controlRoomOperatorValue, setControlRoomOperatorValue] = useState("");
+  const [reviewedByValue, setReviewedByValue] = useState("");
+  const [remarksValue, setRemarksValue] = useState(remarksProp ?? "");
+
+  const [reviewedByError, setReviewedByError] = useState("");
+  const [issuanceNoError, setIssuanceNoError] = useState("");
+  const [controlRoomOperatorError, setControlRoomOperatorError] = useState("");
+
+  useEffect(() => {
+    setRemarksValue(remarksProp ?? "");
+  }, [remarksProp]);
+
+  useEffect(() => {
+    setSelectedIssuanceNo(issuanceNoProp ? String(issuanceNoProp) : "");
+    setIssuanceNoError("");
+  }, [issuanceNoProp]);
+
+  useEffect(() => {
+    setControlRoomOperatorValue(controlRoomOperatorProp ?? "");
+    setControlRoomOperatorError("");
+  }, [controlRoomOperatorProp]);
+
+  useEffect(() => {
+    setReviewedByValue(reviewedByProductionSupervisorProp ?? "");
+    setReviewedByError("");
+  }, [reviewedByProductionSupervisorProp]);
+
+  useEffect(() => {
+    if (!visible) {
+      setSelectedIssuanceNo("");
+      setIssuanceSearch("");
+      setIssuanceNoError("");
+      setControlRoomOperatorError("");
+      setReviewedByError("");
+    }
+  }, [visible]);
 
   const [barcodeScannerVisible, setBarcodeScannerVisible] = useState(false);
   const [scannerTarget, setScannerTarget] = useState<
@@ -96,24 +138,84 @@ export function MaterialUtilizationDoneModal({
   };
 
   const handleBarcodeScanned = (data: string) => {
+    setBarcodeScannerVisible(false);
     if (scannerTarget === "controlRoomOperator") {
       setControlRoomOperatorValue(data);
+      setControlRoomOperatorError("");
     } else if (scannerTarget === "reviewedBy") {
       setReviewedByValue(data);
+      setReviewedByError("");
     }
-    setBarcodeScannerVisible(false);
+  };
+
+  const validateReviewedByScan = async (value: string): Promise<boolean | string> => {
+    if (allowedReviewers && allowedReviewers.length > 0) {
+      return allowedReviewers.includes(value)
+        ? true
+        : `"${value}" is not an authorized reviewer.`;
+    }
+    try {
+      const reviewers = await MaterialUtilizationService.getInstance().getAllowedReviewers();
+      if (reviewers.length === 0) {
+        return "Authorized reviewers could not be loaded. Please try again.";
+      }
+      return reviewers.includes(value) ? true : `"${value}" is not an authorized reviewer.`;
+    } catch {
+      return "Authorized reviewers could not be loaded. Please try again.";
+    }
   };
 
   const handleDonePress = () => {
+    let valid = true;
+    if (!selectedIssuanceNo) {
+      setIssuanceNoError("Issuance No is required.");
+      valid = false;
+    } else {
+      setIssuanceNoError("");
+    }
+    if (!controlRoomOperatorValue) {
+      setControlRoomOperatorError("Control Room Operator is required.");
+      valid = false;
+    } else {
+      setControlRoomOperatorError("");
+    }
+    if (!reviewedByValue) {
+      setReviewedByError("Reviewed By is required.");
+      valid = false;
+    } else {
+      setReviewedByError("");
+    }
+    if (!valid) {
+      Alert.alert(
+        "Required Fields",
+        "Please fill in Issuance No, Control Room Operator, and Reviewed By.",
+      );
+      return;
+    }
     setConfirmVisible(true);
   };
 
   const handleConfirmDone = () => {
+    if (
+      allowedReviewers &&
+      allowedReviewers.length > 0 &&
+      reviewedByValue &&
+      !allowedReviewers.includes(reviewedByValue)
+    ) {
+      setReviewedByError(`"${reviewedByValue}" is not an authorized reviewer.`);
+      setConfirmVisible(false);
+      Alert.alert(
+        "Invalid Reviewer",
+        `"${reviewedByValue}" is not an authorized reviewer. Please scan or enter an allowed reviewer.`,
+      );
+      return;
+    }
     setConfirmVisible(false);
     onDone({
       issuanceNo: selectedIssuanceNo,
       controlRoomOperator: controlRoomOperatorValue,
       reviewedByProductionSupervisor: reviewedByValue,
+      remarks: remarksValue,
     });
   };
 
@@ -132,8 +234,8 @@ export function MaterialUtilizationDoneModal({
   const filteredIssuanceOptions = issuanceSearch.trim() === ""
     ? issuanceOptions
     : issuanceOptions.filter((o) =>
-        o.label.toLowerCase().includes(issuanceSearch.trim().toLowerCase()),
-      );
+      o.label.toLowerCase().includes(issuanceSearch.trim().toLowerCase()),
+    );
   const selectedIssuance = issuanceOptions.find(
     (o) => o.value === selectedIssuanceNo,
   );
@@ -143,6 +245,7 @@ export function MaterialUtilizationDoneModal({
     onIssuanceNoChange?.(value);
     setIssuanceDropdownOpen(false);
     setIssuanceSearch("");
+    setIssuanceNoError("");
   };
 
   const renderEditableField = (
@@ -150,6 +253,7 @@ export function MaterialUtilizationDoneModal({
     value: string,
     onChangeText: (text: string) => void,
     target: "controlRoomOperator" | "reviewedBy",
+    readOnly: boolean = false,
   ) => (
     <View style={styles.inputFieldBlock}>
       <Text style={[styles.inputFieldLabel, { color: colors.text }]}>
@@ -173,9 +277,10 @@ export function MaterialUtilizationDoneModal({
         <TextInput
           style={[styles.input, { color: colors.text }]}
           value={value}
-          placeholder="Scan or enter name"
+          placeholder={readOnly ? "Scan name" : "Scan or enter name"}
           placeholderTextColor={colors.textTertiary}
           onChangeText={onChangeText}
+          readOnly={readOnly}
         />
         <TouchableOpacity
           style={[styles.scanButton, { backgroundColor: colors.primary }]}
@@ -204,7 +309,15 @@ export function MaterialUtilizationDoneModal({
           onPress={onClose}
         />
 
-        <View style={styles.center}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <View
             style={[
               styles.card,
@@ -240,8 +353,8 @@ export function MaterialUtilizationDoneModal({
                 },
               ]}
             >
-             {renderStaticField("RM TOTAL KGS", formatRmTotalKgs(rmTotalKgs))}
-              {renderStaticField("Usage No", String(issuanceNoProp ?? "—"))}
+              {renderStaticField("RM TOTAL KGS", formatRmTotalKgs(rmTotalKgs))}
+              {renderStaticField("Usage No", usageNoProp || "-")}
               {renderStaticField("Encoded By", encodedByProp || "—")}
             </View>
 
@@ -285,18 +398,74 @@ export function MaterialUtilizationDoneModal({
                   />
                 </TouchableOpacity>
               </View>
+              {issuanceNoError ? (
+                <Text style={[styles.fieldErrorText, { color: colors.error }]}>
+                  {issuanceNoError}
+                </Text>
+              ) : null}
               {renderEditableField(
                 "Control Room Operator",
                 controlRoomOperatorValue,
-                setControlRoomOperatorValue,
+                (text) => {
+                  setControlRoomOperatorValue(text);
+                  setControlRoomOperatorError("");
+                },
                 "controlRoomOperator",
               )}
+              {controlRoomOperatorError ? (
+                <Text style={[styles.fieldErrorText, { color: colors.error }]}>
+                  {controlRoomOperatorError}
+                </Text>
+              ) : null}
               {renderEditableField(
                 "Reviewed By Production Supervisor",
                 reviewedByValue,
                 setReviewedByValue,
                 "reviewedBy",
+                true,
               )}
+              {reviewedByError ? (
+                <Text style={[styles.fieldErrorText, { color: colors.error }]}>
+                  {reviewedByError}
+                </Text>
+              ) : null}
+              <View style={styles.inputFieldBlock}>
+                <Text style={[styles.inputFieldLabel, { color: colors.text }]}>
+                  Remarks
+                </Text>
+                <View
+                  style={[
+                    styles.inputRow,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.cardBorder,
+                      height: 100,
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      alignItems: "stretch",
+                      paddingVertical: 8,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      width: "100%",
+                      fontSize: 16,
+                      fontWeight: "500",
+                      color: colors.text,
+                      textAlignVertical: "top",
+                      padding: 0,
+                      paddingTop: 4,
+                    }}
+                    value={remarksValue}
+                    placeholder="Enter remarks (optional)"
+                    placeholderTextColor={colors.textTertiary}
+                    onChangeText={setRemarksValue}
+                    multiline
+                  />
+                </View>
+              </View>
             </View>
 
             <View style={styles.actionButtons}>
@@ -326,7 +495,8 @@ export function MaterialUtilizationDoneModal({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       <ConfirmModal
@@ -433,6 +603,9 @@ export function MaterialUtilizationDoneModal({
         onClose={() => setBarcodeScannerVisible(false)}
         onScan={handleBarcodeScanned}
         title="Scan Operator Barcode"
+        validateScannedValue={
+          scannerTarget === "reviewedBy" ? validateReviewedByScan : undefined
+        }
       />
     </Modal>
   );
@@ -452,6 +625,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 24,
   },
   card: {
     width: "100%",
@@ -586,6 +765,11 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
   },
+  fieldErrorText: {
+    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: "500",
+  },
   dropdownOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -632,7 +816,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(0,0,0,0.04)",
   },
   dropdownOptionText: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "500",
   },
   dropdownEmpty: {

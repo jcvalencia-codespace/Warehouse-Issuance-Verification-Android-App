@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const LOCAL_IP = "http://192.168.1.106:3000";
+const LOCAL_IP = "http://192.168.10.85:3000";
 
 export function useNetworkStatus() {
   const [isLocalConnected, setIsLocalConnected] = useState<boolean>(false);

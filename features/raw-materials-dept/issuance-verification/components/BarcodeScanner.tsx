@@ -61,6 +61,7 @@ interface BarcodeScannerProps {
   onScan: (data: string) => void;
   title?: string;
   validateForkliftOperator?: boolean;
+  validateScannedValue?: (value: string) => Promise<boolean | string>;
 }
 
 export function BarcodeScanner({
@@ -69,6 +70,7 @@ export function BarcodeScanner({
   onScan,
   title = 'Scan Barcode',
   validateForkliftOperator = false,
+  validateScannedValue,
 }: BarcodeScannerProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
@@ -98,6 +100,23 @@ export function BarcodeScanner({
           'The scanned barcode does not match any active forklift operator. Please scan again.',
           [{ text: 'OK', onPress: () => setScanned(false) }]
         );
+        return;
+      }
+    }
+
+    if (validateScannedValue) {
+      setIsValidating(true);
+      const validationResult = await validateScannedValue(data);
+      setIsValidating(false);
+
+      if (validationResult !== true) {
+        const message =
+          typeof validationResult === 'string'
+            ? validationResult
+            : `The scanned value "${data}" is not valid.`;
+        Alert.alert('Invalid Entry', message, [
+          { text: 'OK', onPress: () => setScanned(false) },
+        ]);
         return;
       }
     }

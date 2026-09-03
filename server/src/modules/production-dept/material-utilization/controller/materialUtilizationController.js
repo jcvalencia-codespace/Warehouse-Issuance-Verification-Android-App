@@ -376,7 +376,8 @@ exports.getIssuanceNo = async (req, res) => {
 
     try {
         const result = await pool.request()
-            .query(`SELECT TRANSREFNO FROM [INVENTORY.QUANTITYMASTER4.HEADER]`);
+            .query(`SELECT QM4D.TRANSREFNO FROM [INVENTORY.QUANTITYMASTER4.HEADER] QM4D
+                    LEFT JOIN [PRODUCTION.USAGEHEADER] UH ON QM4D.TRANSREFNO = UH.ISSUANCENO`);
 
         const data = result.recordset.map(r => ({
             label: r.TRANSREFNO ? String(r.TRANSREFNO) : '',
@@ -387,6 +388,22 @@ exports.getIssuanceNo = async (req, res) => {
     } catch (err) {
         console.error('Error fetching issuance no:', err);
         res.status(500).json({ success: false, message: 'Failed to fetch issuance no' });
+    }
+}
+
+exports.getAllowedReviewer = async (req, res) => {
+    try {
+        const company  = 'GDB';
+        const dbName = getCompanyDbName(company);
+        const pool = await getPool(dbName);
+
+        const result = await pool.request()
+        .query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE ROWID IN ('99', '245', '352')`);
+
+        res.json({success: true, allowedReviewer: result.recordset});
+    } catch (err) {
+        console.error('Error fetching allowed reviewers:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch allowed reviewers' });
     }
 }
 
@@ -555,6 +572,8 @@ exports.saveBatchingMaterialUtilization = async (req, res) => {
                 weightLoaded: d.weightLoaded,
                 processType: d.processType,
                 randomSampled: d.randomSampled,
+                validatedBy: d.ValidatedBy,
+                weighedBy: d.weighedBy,
                 qaName: d.qaName,
                 remarks: d.remarks
             })), null, 2));
@@ -762,7 +781,7 @@ exports.updateBatchingMaterialUtilization = async (req, res) => {
 
 exports.setComplete = async (req, res) => {
     const { company } = req.query;
-    const { usageNo, issuanceNo, encodedBy, controlRoomOperator, reviewedBy } = req.body;
+    const { usageNo, issuanceNo, encodedBy, controlRoomOperator, reviewedBy, remarks } = req.body;
 
     if (!usageNo) {
         return res.status(400).json({ success: false, message: 'usageNo is required' });
@@ -772,7 +791,8 @@ exports.setComplete = async (req, res) => {
     const pool = await getPool(dbName);
 
     const setCompleteActionQuery = `UPDATE [PRODUCTION.USAGEHEADER]
-        SET ISSUANCENO = @issuanceNo, ENCODEDBY = @encodedBy, CONTROLROOMOPERATOR = @controlRoomOperator, REVIEWEDBY = @reviewedBy, IS_DONE = 1
+        SET ISSUANCENO = @issuanceNo, ENCODEDBY = @encodedBy, CONTROLROOMOPERATOR = @controlRoomOperator, 
+        REVIEWEDBY = @reviewedBy, REMARKS = @remarks, IS_DONE = 1, MODIFIEDBY = @encodedBy, DATEMODIFIED = GETDATE()
         WHERE USAGENO = @usageNo`;
 
     try {
@@ -782,6 +802,8 @@ exports.setComplete = async (req, res) => {
             .input('encodedBy', sql.NVarChar, encodedBy || null)
             .input('controlRoomOperator', sql.NVarChar, controlRoomOperator || null)
             .input('reviewedBy', sql.NVarChar, reviewedBy || null)
+            .input('remarks', sql.NVarChar, remarks || null)
+            .input('modifiedBy', sql.NVarChar, encodedBy || null)
             .query(setCompleteActionQuery);
 
         if (result.rowsAffected[0] === 0) {
