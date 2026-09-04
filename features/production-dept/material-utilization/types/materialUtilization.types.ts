@@ -129,6 +129,18 @@ export interface FeedTypeVariantRow {
   KGSPERBAG: number;
 }
 
+export interface MaterialUtilizationDonePivotRow {
+  PUDROWID: number;
+  BATCHNO: number;
+  ITEMNMBR: string;
+  ITEMDESC: string;
+  KGSUSED: number;
+  KGSREQUIRED?: number;
+  IS_DOSING_MACHINE: number;
+  WEIGHEDBY?: string;
+  VALIDATEDBY?: string;
+}
+
 export interface MaterialUtilizationHeaderRef {
   submit: () => void;
   clear: () => void;

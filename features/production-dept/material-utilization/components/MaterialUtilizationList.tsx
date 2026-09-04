@@ -20,6 +20,7 @@ interface MaterialUtilizationListProps {
   onRecordPress: (record: any) => void;
   onBack: () => void;
   onAddNew: () => void;
+  onShowDone?: () => void;
 }
 
 export const MaterialUtilizationList: React.FC<MaterialUtilizationListProps> = ({
@@ -30,6 +31,7 @@ export const MaterialUtilizationList: React.FC<MaterialUtilizationListProps> = (
   onRecordPress,
   onBack,
   onAddNew,
+  onShowDone,
 }) => {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
@@ -94,13 +96,31 @@ export const MaterialUtilizationList: React.FC<MaterialUtilizationListProps> = (
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.text }]}>Material Utilization</Text>
-        <TouchableOpacity
-          style={[styles.addFab, { backgroundColor: colors.primary }]}
-          onPress={onAddNew}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="plus" size={24} color="#ffffff" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {onShowDone && (
+            <TouchableOpacity
+              style={[
+                styles.doneFab,
+                { backgroundColor: colors.success + "14", borderColor: colors.success },
+              ]}
+              onPress={onShowDone}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="clipboard-check-outline"
+                size={22}
+                color={colors.success}
+              />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.addFab, { backgroundColor: colors.primary }]}
+            onPress={onAddNew}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="plus" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={[styles.searchContainer, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
@@ -168,9 +188,17 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     elevation: 4,
+  },
+  doneFab: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
   },
   searchContainer: {
     flexDirection: 'row',

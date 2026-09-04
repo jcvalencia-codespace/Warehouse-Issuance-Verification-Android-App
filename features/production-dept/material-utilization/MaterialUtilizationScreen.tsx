@@ -24,7 +24,12 @@ import {
   MaterialUtilizationDetailsRef,
 } from "./components/MaterialUtilizationDetails";
 import { MaterialUtilizationDetailsUpdate } from "./components/MaterialUtilizationDetailsUpdate";
+import { MaterialUtilizationDoneDetails } from "./components/MaterialUtilizationDoneDetails";
+import { MaterialUtilizationDoneLists } from "./components/MaterialUtilizationDoneLists";
 import { MaterialUtilizationDoneModal } from "./components/MaterialUtilizationDoneModal";
+import {
+  MaterialUtilizationDonePivotRow,
+} from "./types/materialUtilization.types";
 import {
   MaterialUtilizationHeader,
   MaterialUtilizationHeaderRef,
@@ -45,11 +50,13 @@ import {
 interface MaterialUtilizationScreenProps {
   onBack?: () => void;
   onSubmit?: (data: any) => void;
+  onShowDoneLists?: () => void;
 }
 
 export default function MaterialUtilizationScreen({
   onBack,
   onSubmit,
+  onShowDoneLists,
 }: MaterialUtilizationScreenProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? "light"];
@@ -107,6 +114,15 @@ export default function MaterialUtilizationScreen({
     undefined,
   );
   const [search, setSearch] = useState("");
+  const [showDoneLists, setShowDoneLists] = useState(false);
+  const [showDoneDetails, setShowDoneDetails] = useState(false);
+  const [doneDetailsLoading, setDoneDetailsLoading] = useState(false);
+  const [doneDetailsHeader, setDoneDetailsHeader] = useState<any | null>(null);
+  const [doneDetailsRows, setDoneDetailsRows] = useState<
+    MaterialUtilizationDonePivotRow[]
+  >([]);
+  const [doneDetailsRmTotalKgs, setDoneDetailsRmTotalKgs] =
+    useState<RmTotalKgs | null>(null);
 
   const handleClear = () => {
     setClearConfirmVisible(true);
@@ -665,6 +681,61 @@ export default function MaterialUtilizationScreen({
     setShowBatchLists(true);
   };
 
+  const handleShowDoneLists = () => {
+    if (onShowDoneLists) {
+      onShowDoneLists();
+    } else {
+      setShowDoneLists(true);
+    }
+  };
+
+  const handleBackToMainFromDoneLists = () => {
+    setShowDoneLists(false);
+    setShowDoneDetails(false);
+    setDoneDetailsHeader(null);
+    setDoneDetailsRows([]);
+    setDoneDetailsRmTotalKgs(null);
+  };
+
+  const handleDoneRecordPress = async (record: any) => {
+    const usageNo = Number(record.USAGENO);
+    setSelectedUsageNo(usageNo);
+    setShowDoneDetails(true);
+    setShowDoneLists(false);
+    setDoneDetailsLoading(true);
+    setDoneDetailsHeader(null);
+    setDoneDetailsRows([]);
+    setDoneDetailsRmTotalKgs(null);
+    try {
+      const [pivot, rmTotalKgs] = await Promise.all([
+        MaterialUtilizationService.getInstance().getMaterialUtilizationDonePivotDetails(
+          user?.COMPANY,
+          usageNo,
+        ),
+        MaterialUtilizationService.getInstance().getRmTotalKgs(
+          user?.COMPANY,
+          usageNo,
+        ),
+      ]);
+      setDoneDetailsHeader(pivot.header || null);
+      setDoneDetailsRows(pivot.rows || []);
+      setDoneDetailsRmTotalKgs(rmTotalKgs || null);
+    } catch (error) {
+      console.error("Failed to load done pivot details:", error);
+      Alert.alert("Error", "Failed to load done material utilization details.");
+    } finally {
+      setDoneDetailsLoading(false);
+    }
+  };
+
+  const handleBackFromDoneDetails = () => {
+    setShowDoneDetails(false);
+    setDoneDetailsHeader(null);
+    setDoneDetailsRows([]);
+    setDoneDetailsRmTotalKgs(null);
+    setShowDoneLists(true);
+  };
+
   return (
     <SafeAreaView
       edges={["top", "bottom"]}
@@ -890,6 +961,19 @@ export default function MaterialUtilizationScreen({
             </TouchableOpacity>
           </View>
         </View>
+      ) : showDoneDetails ? (
+        <MaterialUtilizationDoneDetails
+          loading={doneDetailsLoading}
+          header={doneDetailsHeader}
+          rows={doneDetailsRows}
+          rmTotalKgs={doneDetailsRmTotalKgs}
+          onBack={handleBackFromDoneDetails}
+        />
+      ) : showDoneLists ? (
+        <MaterialUtilizationDoneLists
+          onBack={handleBackToMainFromDoneLists}
+          onRecordPress={handleDoneRecordPress}
+        />
       ) : (
         <MaterialUtilizationList
           data={lists}
@@ -899,6 +983,7 @@ export default function MaterialUtilizationScreen({
           onRecordPress={handleRecordPress}
           onBack={onBack || (() => {})}
           onAddNew={handleAddNew}
+          onShowDone={handleShowDoneLists}
         />
       )}
 

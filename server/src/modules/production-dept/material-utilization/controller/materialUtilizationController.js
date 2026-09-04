@@ -25,6 +25,19 @@ exports.getMaterialUtilization = async (req, res) => {
     }
 }
 
+exports.getMaterialUtilizationDone = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+    try {
+        const result = await pool.request().query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE IS_DONE = 1`)
+        res.json({ success: true, data: result.recordset });
+    } catch (error) {
+        console.error('Error fetching material utilization lists: ', error);
+        res.json({ success: true, message: error.message || 'Failed to fetch material utilization lists' });
+    }
+}
+
 exports.getNextUsageRefNo = async (req, res) => {
     const { company } = req.query;
     const dbName = getCompanyDbName(company);
@@ -376,8 +389,13 @@ exports.getIssuanceNo = async (req, res) => {
 
     try {
         const result = await pool.request()
-            .query(`SELECT QM4D.TRANSREFNO FROM [INVENTORY.QUANTITYMASTER4.HEADER] QM4D
-                    LEFT JOIN [PRODUCTION.USAGEHEADER] UH ON QM4D.TRANSREFNO = UH.ISSUANCENO`);
+            .query(`SELECT QM4D.TRANSREFNO
+                    FROM [INVENTORY.QUANTITYMASTER4.HEADER] QM4D
+                    WHERE QM4D.TRANSREFNO NOT IN (
+                        SELECT UH.ISSUANCENO 
+                        FROM [PRODUCTION.USAGEHEADER] UH 
+                        WHERE UH.ISSUANCENO IS NOT NULL
+                    )`);
 
         const data = result.recordset.map(r => ({
             label: r.TRANSREFNO ? String(r.TRANSREFNO) : '',
@@ -393,14 +411,14 @@ exports.getIssuanceNo = async (req, res) => {
 
 exports.getAllowedReviewer = async (req, res) => {
     try {
-        const company  = 'GDB';
+        const company = 'GDB';
         const dbName = getCompanyDbName(company);
         const pool = await getPool(dbName);
 
         const result = await pool.request()
-        .query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE ROWID IN ('99', '245', '352')`);
+            .query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE ROWID IN ('99', '245', '352')`);
 
-        res.json({success: true, allowedReviewer: result.recordset});
+        res.json({ success: true, allowedReviewer: result.recordset });
     } catch (err) {
         console.error('Error fetching allowed reviewers:', err);
         res.status(500).json({ success: false, message: 'Failed to fetch allowed reviewers' });
@@ -776,6 +794,40 @@ exports.updateBatchingMaterialUtilization = async (req, res) => {
             success: false,
             message: error.originalError?.info?.message || error.message || 'Failed to update batching material utilization.'
         });
+    }
+};
+
+exports.getMaterialUtilizationDonePivotDetails = async (req, res) => {
+    const { company, usageNo } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+    try {
+        const parsedUsageNo = parseInt(usageNo, 10) || 0;
+
+        const result = await pool.request()
+            .input('UsageNo', sql.Int, parsedUsageNo)
+            .query(`SELECT UD.PUDROWID, UD.BATCHNO, UD.ITEMNMBR, ISNULL(I.ITEMDESC, UD.ITEMNMBR) AS ITEMDESC,
+                           UD.KGSUSED, UD.KGSREQUIRED, UD.IS_DOSING_MACHINE,
+                           UD.WEIGHEDBY, UD.VALIDATEDBY
+                    FROM [PRODUCTION.USAGEDETAILS] UD
+                    LEFT JOIN [IV00101] I ON UD.ITEMNMBR = I.ITEMNMBR
+                    WHERE UD.USAGENO = @UsageNo
+                    ORDER BY UD.BATCHNO, UD.ITEMNMBR, UD.PUDROWID DESC`);
+
+        const headerResult = await pool.request()
+            .input('UsageNo', sql.Int, parsedUsageNo)
+            .query(`SELECT USAGENO, FORMULANAME, FORMULATIONNO, VARIANTCODE, SHIFT, MACHINELINENO, USAGEDATE,
+                           ISSUANCENO, ENCODEDBY, CONTROLROOMOPERATOR, REVIEWEDBY, REMARKS
+                    FROM [PRODUCTION.USAGEHEADER] WHERE USAGENO = @UsageNo`);
+
+        res.json({
+            success: true,
+            header: headerResult.recordset[0] || null,
+            rows: result.recordset || [],
+        });
+    } catch (error) {
+        console.error('Error fetching done material utilization pivot details:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to fetch done material utilization pivot details' });
     }
 };
 
