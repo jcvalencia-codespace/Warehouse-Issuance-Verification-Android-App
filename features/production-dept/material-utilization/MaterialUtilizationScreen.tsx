@@ -27,9 +27,7 @@ import { MaterialUtilizationDetailsUpdate } from "./components/MaterialUtilizati
 import { MaterialUtilizationDoneDetails } from "./components/MaterialUtilizationDoneDetails";
 import { MaterialUtilizationDoneLists } from "./components/MaterialUtilizationDoneLists";
 import { MaterialUtilizationDoneModal } from "./components/MaterialUtilizationDoneModal";
-import {
-  MaterialUtilizationDonePivotRow,
-} from "./types/materialUtilization.types";
+import { MaterialUtilizationForPosting } from "./components/MaterialUtilizationForPosting";
 import {
   MaterialUtilizationHeader,
   MaterialUtilizationHeaderRef,
@@ -41,6 +39,7 @@ import {
   BatchingMaterialUtilization,
   IssuanceNoOption,
   MaterialUtilizationBaseItemDetails,
+  MaterialUtilizationDonePivotRow,
   MaterialUtilizationFormData,
   MaterialUtilizationLineItem,
   MaterialUtilizationPayload,
@@ -87,6 +86,11 @@ export default function MaterialUtilizationScreen({
   const [detailViewQaName, setDetailViewQaName] = useState("");
   const [isDosingMachine, setIsDosingMachine] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [pendingPostStatus, setPendingPostStatus] = useState<number | null>(null);
+  const [showPostingLists, setShowPostingLists] = useState(false);
+  const [postingLists, setPostingLists] = useState<any[]>([]);
+  const [postingListsLoading, setPostingListsLoading] = useState(false);
+  const [postingSearch, setPostingSearch] = useState("");
 
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -141,7 +145,7 @@ export default function MaterialUtilizationScreen({
     if (!isDetailsValid) {
       return;
     }
-    setPendingHeader(headerData);
+    setPendingHeader({ ...headerData, postStatus: pendingPostStatus ?? 0 });
     setConfirmVisible(true);
   };
 
@@ -156,6 +160,7 @@ export default function MaterialUtilizationScreen({
         shift: pendingHeader.shift,
         feedType: pendingHeader.feedType,
         variant: pendingHeader.variant,
+        postStatus: pendingHeader.postStatus,
         formulationNo: pendingHeader.formulationNo,
         batchNo: pendingHeader.batchNo,
         remarks: pendingHeader.remarks,
@@ -175,6 +180,7 @@ export default function MaterialUtilizationScreen({
 
       if (result.success) {
         setConfirmVisible(false);
+        setPendingPostStatus(null);
         setSuccessMessage(
           result.message || "Material utilization saved successfully.",
         );
@@ -689,6 +695,105 @@ export default function MaterialUtilizationScreen({
     }
   };
 
+  const handleShowPostingLists = async () => {
+    setShowForm(false);
+    setShowPostingLists(true);
+    setPostingListsLoading(true);
+    setPostingSearch("");
+    try {
+      const data = await MaterialUtilizationService.getInstance().getMaterialUtilizationForPosting(
+        user?.COMPANY,
+      );
+      setPostingLists(data || []);
+    } catch (error) {
+      console.error("Failed to load posting lists:", error);
+      Alert.alert("Error", "Failed to load material utilization for posting.");
+      setPostingLists([]);
+    } finally {
+      setPostingListsLoading(false);
+    }
+  };
+
+  const handlePostingRecordPress = (record: any) => {
+    setShowPostingLists(false);
+    setSelectedUsageNo(Number(record.USAGENO));
+    setShowForm(true);
+    setShowBatchLists(false);
+    setShowBatchDetails(false);
+    setDetailViewRecord(null);
+    setDetailLineItems([]);
+    setDetailViewBatchNo(null);
+    setDetailViewWeighedBy("");
+    setDetailViewValidatedBy("");
+    setDetailViewRandomSampled(0);
+    setDetailViewQaName("");
+    setIsDosingMachine(false);
+    setIsUpdating(false);
+    setItems([]);
+  };
+
+  useEffect(() => {
+    if (!selectedUsageNo) {
+      setItems([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchDetails = async () => {
+      setItems([]);
+      try {
+        const result = await MaterialUtilizationService.getInstance().getMaterialUtilizationDetailsForPosting(
+          user?.COMPANY,
+          selectedUsageNo,
+        );
+        if (cancelled) return;
+
+        if (result.header) {
+
+          const header = result.header;
+          const setIf = (field: keyof MaterialUtilizationFormData, value: string | undefined) => {
+            if (value !== undefined && value !== null && value !== '') {
+              headerRef.current?.setField(field, value);
+            }
+          };
+
+          setIf('usageDate', header?.USAGEDATE);
+          setIf('usageNo', header?.USAGENO ? String(header.USAGENO) : undefined);
+          setIf('machineLineName', header?.MACHINELINENO);
+          setIf('shift', header?.SHIFT);
+          setIf('feedType', header?.FEEDTYPE ?? header?.FORMULANAME);
+          setIf('variant', header?.VARIANTCODE);
+          setIf('formulationNo', header?.FORMULATIONNO);
+          setIf('remarks', header?.REMARKS);
+        }
+
+        if (result.details && result.details.length > 0) {
+          const baseItems: MaterialUtilizationBaseItemDetails[] = result.details.map((detail: any, index: number) => ({
+            id: String(detail.ROWID || index),
+            itemNo: detail.ITEMNMBR || '',
+            itemDescription: (detail.ITEMDESC ? detail.ITEMDESC.trimEnd() : detail.ITEMNMBR) || '',
+            requiredWeight: Number(detail.KGSREQUIRED) || 0,
+            isAutoDosing: Number(detail.IS_DOSING_MACHINE) || 0,
+          }));
+          setItems(baseItems);
+        } else {
+          setItems([]);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Failed to load material utilization details:', error);
+        setItems([]);
+      }
+    };
+
+    fetchDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedUsageNo, user?.COMPANY]);
+
   const handleBackToMainFromDoneLists = () => {
     setShowDoneLists(false);
     setShowDoneDetails(false);
@@ -757,6 +862,17 @@ export default function MaterialUtilizationScreen({
             <Text style={[styles.headerBarTitle, { color: colors.text }]}>
               New Material Utilization
             </Text>
+            <TouchableOpacity
+              onPress={handleShowPostingLists}
+              activeOpacity={0.7}
+              style={styles.headerSearchButton}
+            >
+              <MaterialCommunityIcons
+                name="magnify"
+                size={22}
+                color={colors.text}
+              />
+            </TouchableOpacity>
           </View>
           <ScrollView
             ref={scrollViewRef}
@@ -831,16 +947,35 @@ export default function MaterialUtilizationScreen({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.submitButton, { backgroundColor: colors.primary }]}
-              onPress={() => headerRef.current?.submit()}
+              style={[styles.actionButton, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                setPendingPostStatus(0);
+                headerRef.current?.submit();
+              }}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="content-save"
+                size={18}
+                color="#ffffff"
+              />
+              <Text style={styles.actionButtonText}>Save</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: colors.served }]}
+              onPress={() => {
+                setPendingPostStatus(1);
+                headerRef.current?.submit();
+              }}
               activeOpacity={0.8}
             >
               <MaterialCommunityIcons
                 name="send-check"
-                size={20}
+                size={18}
                 color="#ffffff"
               />
-              <Text style={styles.buttonText}>Submit</Text>
+              <Text style={styles.actionButtonText}>Save and Post</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -969,6 +1104,16 @@ export default function MaterialUtilizationScreen({
           rmTotalKgs={doneDetailsRmTotalKgs}
           onBack={handleBackFromDoneDetails}
         />
+      ) : showPostingLists ? (
+        <MaterialUtilizationForPosting
+          data={postingLists}
+          loading={postingListsLoading}
+          search={postingSearch}
+          onSearchChange={setPostingSearch}
+          onRecordPress={handlePostingRecordPress}
+          onBack={() => setShowPostingLists(false)}
+          onAddNew={handleAddNew}
+        />
       ) : showDoneLists ? (
         <MaterialUtilizationDoneLists
           onBack={handleBackToMainFromDoneLists}
@@ -989,14 +1134,19 @@ export default function MaterialUtilizationScreen({
 
       <ConfirmModal
         visible={confirmVisible}
-        title="Submit Material Utilization"
-        message="Are you sure you want to submit this material utilization record?"
-        iconName="send-check"
+        title={pendingPostStatus === 1 ? "Save and Post Material Utilization" : "Save Material Utilization"}
+        message={pendingPostStatus === 1 
+          ? "Are you sure you want to save and post this material utilization record?" 
+          : "Are you sure you want to save this material utilization record?"}
+        iconName={pendingPostStatus === 1 ? "send-check" : "content-save"}
         iconColor={colors.primary}
         cancelText="Cancel"
-        confirmText="Submit"
+        confirmText={pendingPostStatus === 1 ? "Save and Post" : "Save"}
         onConfirm={handleConfirmSubmit}
-        onCancel={() => setConfirmVisible(false)}
+        onCancel={() => {
+          setConfirmVisible(false);
+          setPendingPostStatus(null);
+        }}
       />
 
       <ConfirmModal
@@ -1090,7 +1240,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    gap: 12,
+    gap: 8,
     borderTopWidth: 1,
   },
   cancelButton: {
@@ -1146,6 +1296,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
   },
+  headerSearchButton: {
+    padding: 8,
+    marginLeft: 'auto',
+  },
   detailFooter: {
     borderTopWidth: 1,
     padding: 16,
@@ -1161,6 +1315,20 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "#ffffff",
     fontSize: 17,
+    fontWeight: "700",
+  },
+  actionButton: {
+    flex: 1,
+    height: 56,
+    borderRadius: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 4,
+  },
+  actionButtonText: {
+    color: "#ffffff",
+    fontSize: 13,
     fontWeight: "700",
   },
 });

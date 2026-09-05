@@ -57,6 +57,24 @@ export class MaterialUtilizationService {
     }
   }
 
+  async getMaterialUtilizationForPosting(company?: string): Promise<any[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; data: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-material-utilization-for-posting`,
+        { params: company ? { company } : undefined }
+      );
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getMaterialUtilizationDoneLists(company?: string): Promise<any[]> {
     try {
       if (!this.baseUrl) {
@@ -106,6 +124,24 @@ export class MaterialUtilizationService {
       }
       const response = await axios.get<{ success: boolean; header?: any; details?: any[] }>(
         `${this.baseUrl}/production-dept/material-utilization/get-material-utilization-details`,
+        { params: { company, usageNo } }
+      );
+      if (response.data.success) {
+        return { header: response.data.header, details: response.data.details || [] };
+      }
+      return { header: null, details: [] };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getMaterialUtilizationDetailsForPosting(company?: string, usageNo?: number): Promise<{ header: any; details: any[] }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; header?: any; details?: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-material-utilization-details-for-posting`,
         { params: { company, usageNo } }
       );
       if (response.data.success) {

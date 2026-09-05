@@ -269,12 +269,11 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
       shift: '',
       feedType: '',
       variant: '',
+      postStatus: 0,
       formulationNo: '',
       batchNo: 0,
       remarks: '',
       transType: 1,
-      // validatedBy: '',
-      // weighedBy: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -394,9 +393,6 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
         { field: 'shift', label: 'Shift' },
         { field: 'feedType', label: 'Feed Type' },
         { field: 'variant', label: 'Variant' },
-        // { field: 'batchNo', label: 'Batch No.' },
-        // { field: 'validatedBy', label: 'Validated By' },
-        // { field: 'weighedBy', label: 'Weighed By' },
       ];
 
       const newErrors: Record<string, string> = {};
@@ -430,12 +426,11 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
           shift: '',
           feedType: '',
           variant: '',
+          postStatus: 0,
           formulationNo: '',
           batchNo: 0,
           remarks: '',
           transType: 1,
-          // validatedBy: '',
-          // weighedBy: '',
         });
         setErrors({});
       },
@@ -654,44 +649,6 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
               ) : null}
             </View>
           </View>
-          {/* <View style={styles.halfWidth}>
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.label, { color: colors.text }]}>Batch No.</Text>
-                <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
-              </View>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: errors.batchNo ? colors.error : colors.cardBorder,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="numeric"
-                  size={20}
-                  color={colors.textSecondary}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={formData.batchNo}
-                  placeholder="Enter batch no."
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="numeric"
-                  onChangeText={(text) => updateField('batchNo', text)}
-                />
-              </View>
-              {errors.batchNo ? (
-                <View style={styles.errorContainer}>
-                  <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                  <Text style={[styles.errorText, { color: colors.error }]}>{errors.batchNo}</Text>
-                </View>
-              ) : null}
-            </View>
-          </View> */}
         </View>
 
         <View style={styles.inputGroup}>

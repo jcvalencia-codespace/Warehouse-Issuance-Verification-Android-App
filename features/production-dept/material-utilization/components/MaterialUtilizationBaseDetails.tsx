@@ -171,8 +171,8 @@ export const MaterialUtilizationBaseDetails = forwardRef<MaterialUtilizationDeta
       },
     }));
 
-    const renderItem = ({ item, index }: { item: MaterialUtilizationBaseItemDetails; index: number }) => {
-      return (
+  const renderItem = ({ item, index }: { item: MaterialUtilizationBaseItemDetails; index: number }) => {
+    return (
         <View
           style={[
             styles.itemCard,

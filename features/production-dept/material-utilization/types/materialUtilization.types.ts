@@ -5,6 +5,7 @@ export interface MaterialUtilizationFormData {
   shift: string;
   feedType: string;
   variant: string;
+  postStatus: number;
   formulationNo: string;
   batchNo: number;
   remarks: string;
@@ -71,6 +72,7 @@ export interface MaterialUtilizationPayload {
   shift: string;
   feedType: string;
   variant: string;
+  postStatus: number;
   formulationNo: string;
   batchNo: number;
   remarks: string;

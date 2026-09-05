@@ -17,7 +17,7 @@ exports.getMaterialUtilization = async (req, res) => {
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
     try {
-        const result = await pool.request().query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE IS_DONE = 0`)
+        const result = await pool.request().query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE IS_DONE = 0 AND POSTSTATUS = 1`)
         res.json({ success: true, data: result.recordset });
     } catch (error) {
         console.error('Error fetching material utilization lists: ', error);
@@ -35,6 +35,20 @@ exports.getMaterialUtilizationDone = async (req, res) => {
     } catch (error) {
         console.error('Error fetching material utilization lists: ', error);
         res.json({ success: true, message: error.message || 'Failed to fetch material utilization lists' });
+    }
+}
+
+exports.getMaterialUtilizationForPosting = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    try {
+        const result = await pool.request().query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE POSTSTATUS = 0`);
+        res.json({ success: true, data: result.recordset });
+    } catch (error) {
+        console.error('Error fetching material utilization for posting: ', error);
+        res.json({ success: true, message: error.message || 'Failed to fetch material utilization for posting lists' })
     }
 }
 
@@ -181,6 +195,44 @@ exports.getBatchLists = async (req, res) => {
     }
 };
 
+exports.getMaterialUtilizationDetailsForPosting = async (req, res) => {
+    const { company, usageNo } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    try {
+        const headerResult = await pool.request()
+            .input('UsageNo', sql.Int, parseInt(usageNo, 10) || 0)
+            .query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE USAGENO = @UsageNo`);
+
+        const header = headerResult.recordset[0] || null;
+
+        let details = [];
+        try {
+            const detailResult = await pool.request()
+                .input('UsageNo', sql.Int, parseInt(usageNo, 10) || 0)
+                .query(`SELECT D.ROWID, D.USAGENO, D.ITEMNMBR, ISNULL(I.ITEMDESC, D.ITEMNMBR) AS ITEMDESC, D.KGSREQUIRED, D.IS_DOSING_MACHINE 
+                        FROM [PRODUCTION.USAGEBASEDETAILS] D
+                        LEFT JOIN [IV00101] I ON D.ITEMNMBR = I.ITEMNMBR
+                        WHERE D.USAGENO = @UsageNo
+                        ORDER BY D.ROWID DESC`);
+            details = detailResult.recordset;
+        } catch (detailError) {
+            console.error('Error fetching utilization details:', detailError.message);
+            details = [];
+        }
+
+        if (!header) {
+            return res.status(404).json({ success: false, message: 'Material utilization record not found.' });
+        }
+
+        res.json({ success: true, header, details });
+    } catch (error) {
+        console.error('Error fetching material utilization details:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to fetch material utilization details' });
+    }
+};
+
 exports.getMaterialUtilizationDetails = async (req, res) => {
     const { company, usageNo } = req.query;
     const dbName = getCompanyDbName(company);
@@ -197,9 +249,11 @@ exports.getMaterialUtilizationDetails = async (req, res) => {
         try {
             const detailResult = await pool.request()
                 .input('UsageNo', sql.Int, parseInt(usageNo, 10) || 0)
-                .query(`SELECT ROWID, USAGENO, ITEMNMBR, KGSREQUIRED, IS_DOSING_MACHINE 
-                        FROM [PRODUCTION.USAGEBASEDETAILS] WHERE USAGENO = @UsageNo AND IS_DOSING_MACHINE = 0
-                        ORDER BY ROWID DESC`);
+                .query(`SELECT D.ROWID, D.USAGENO, D.ITEMNMBR, ISNULL(I.ITEMDESC, D.ITEMNMBR) AS ITEMDESC, D.KGSREQUIRED, D.IS_DOSING_MACHINE 
+                        FROM [PRODUCTION.USAGEBASEDETAILS] D
+                        LEFT JOIN [IV00101] I ON D.ITEMNMBR = I.ITEMNMBR
+                        WHERE D.USAGENO = @UsageNo AND D.IS_DOSING_MACHINE = 0
+                        ORDER BY D.ROWID DESC`);
             details = detailResult.recordset;
         } catch (detailError) {
             console.error('Error fetching utilization details:', detailError.message);
@@ -233,9 +287,11 @@ exports.getMaterialUtilizationDosingMachineDetails = async (req, res) => {
         try {
             const detailResult = await pool.request()
                 .input('UsageNo', sql.Int, parseInt(usageNo, 10) || 0)
-                .query(`SELECT ROWID, USAGENO, ITEMNMBR, KGSREQUIRED, IS_DOSING_MACHINE 
-                        FROM [PRODUCTION.USAGEBASEDETAILS] WHERE USAGENO = @UsageNo AND IS_DOSING_MACHINE = 1
-                        ORDER BY ROWID DESC`);
+                .query(`SELECT D.ROWID, D.USAGENO, D.ITEMNMBR, ISNULL(I.ITEMDESC, D.ITEMNMBR) AS ITEMDESC, D.KGSREQUIRED, D.IS_DOSING_MACHINE 
+                        FROM [PRODUCTION.USAGEBASEDETAILS] D
+                        LEFT JOIN [IV00101] I ON D.ITEMNMBR = I.ITEMNMBR
+                        WHERE D.USAGENO = @UsageNo AND D.IS_DOSING_MACHINE = 0
+                        ORDER BY D.ROWID DESC`);
             details = detailResult.recordset;
         } catch (detailError) {
             console.error('Error fetching utilization dosing machine details:', detailError.message);
@@ -433,7 +489,7 @@ exports.saveMaterialUtilization = async (req, res) => {
         const pool = await getPool(dbName);
 
         const { usageDate, usageNo, usageRefNo, machineLineName, shift,
-            feedType, variant, formulationNo, batchNo, remarks,
+            feedType, variant, postStatus, formulationNo, batchNo, remarks,
             validatedBy, weighedBy, user, transType, baseDetails, details } = req.body;
 
         /* =====================================================
@@ -488,6 +544,7 @@ exports.saveMaterialUtilization = async (req, res) => {
         request.input('MachineLineName', machineLineName);
         request.input('Shift', shift);
         request.input('FeedType', feedType);
+        request.input('PostStatus', postStatus);
         request.input('Variant', variant);
         request.input('FormulationNo', formulationNo);
         request.input('BatchNo', batchNo);
