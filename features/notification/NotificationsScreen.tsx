@@ -137,12 +137,7 @@ export function NotificationsScreen() {
             pathname: '/raw-materials-dept/material-issuance-confirmation',
             params: { source: 'production', filter: 'served' },
           });
-        } else if (
-          item.FORM === 'ERP MOBILE' &&
-          (item.CATEGORY === 'New Material Issuance Request' ||
-            item.CATEGORY.startsWith('Material Issuance Request Rejected') ||
-            item.CATEGORY === '')
-        ) {
+        } else if (item.FORM === 'ERP MOBILE') {
           setAcknowledgeItem(item);
           setAcknowledge(true);
         }

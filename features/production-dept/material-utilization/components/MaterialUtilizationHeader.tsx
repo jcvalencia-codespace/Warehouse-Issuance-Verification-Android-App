@@ -447,6 +447,9 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
       setField: (field: keyof MaterialUtilizationFormData, value: string | number) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
       },
+      setPostStatus: (value: number) => {
+        setFormData((prev) => ({ ...prev, postStatus: value }));
+      },
       getField: (field: keyof MaterialUtilizationFormData) => {
         return formData[field];
       },

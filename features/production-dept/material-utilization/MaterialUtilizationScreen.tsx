@@ -87,6 +87,7 @@ export default function MaterialUtilizationScreen({
   const [isDosingMachine, setIsDosingMachine] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [pendingPostStatus, setPendingPostStatus] = useState<number | null>(null);
+  const [isPosting, setIsPosting] = useState(false);
   const [showPostingLists, setShowPostingLists] = useState(false);
   const [postingLists, setPostingLists] = useState<any[]>([]);
   const [postingListsLoading, setPostingListsLoading] = useState(false);
@@ -160,11 +161,12 @@ export default function MaterialUtilizationScreen({
         shift: pendingHeader.shift,
         feedType: pendingHeader.feedType,
         variant: pendingHeader.variant,
-        postStatus: pendingHeader.postStatus,
+        postStatus: pendingPostStatus ?? 0,
+        notifyQa: pendingPostStatus === 1 ? 1 : 0,
         formulationNo: pendingHeader.formulationNo,
         batchNo: pendingHeader.batchNo,
         remarks: pendingHeader.remarks,
-        transType: pendingHeader.transType,
+        transType: isPosting ? 2 : pendingHeader.transType,
         user: user?.NAME || "",
         baseDetails: items,
         validatedBy: "",
@@ -210,6 +212,8 @@ export default function MaterialUtilizationScreen({
     setSuccessVisible(false);
     setSuccessMessage("");
     setPendingHeader(null);
+    setPendingPostStatus(null);
+    setIsPosting(false);
     setItems([]);
     headerRef.current?.clear();
     await headerRef.current?.refreshusageNo();
@@ -237,7 +241,7 @@ export default function MaterialUtilizationScreen({
         user: user?.NAME || "",
         details: updatedLineItems,
         subDetails,
-        transType: 2,
+        transType: 3,
         isDosingMachine,
       };
       const result =
@@ -295,7 +299,7 @@ export default function MaterialUtilizationScreen({
         user: user?.NAME || "",
         details: updatedLineItems,
         subDetails,
-        transType: 3,
+        transType: 4,
         isDosingMachine,
       };
       const result =
@@ -361,12 +365,14 @@ export default function MaterialUtilizationScreen({
 
   const handleAddNew = () => {
     setShowForm(true);
+    setIsPosting(false);
   };
 
   const handleBackToList = () => {
     setShowForm(false);
     setShowBatchLists(false);
     setShowBatchDetails(false);
+    setIsPosting(false);
     setSelectedBatchInfo(null);
     setSelectedUsageNo(undefined);
     setDetailViewRecord(null);
@@ -698,6 +704,7 @@ export default function MaterialUtilizationScreen({
   const handleShowPostingLists = async () => {
     setShowForm(false);
     setShowPostingLists(true);
+    setIsPosting(false);
     setPostingListsLoading(true);
     setPostingSearch("");
     try {
@@ -720,6 +727,7 @@ export default function MaterialUtilizationScreen({
     setShowForm(true);
     setShowBatchLists(false);
     setShowBatchDetails(false);
+    setIsPosting(true);
     setDetailViewRecord(null);
     setDetailLineItems([]);
     setDetailViewBatchNo(null);
@@ -950,6 +958,7 @@ export default function MaterialUtilizationScreen({
               style={[styles.actionButton, { backgroundColor: colors.primary }]}
               onPress={() => {
                 setPendingPostStatus(0);
+                headerRef.current?.setPostStatus(0);
                 headerRef.current?.submit();
               }}
               activeOpacity={0.8}
@@ -959,13 +968,14 @@ export default function MaterialUtilizationScreen({
                 size={18}
                 color="#ffffff"
               />
-              <Text style={styles.actionButtonText}>Save</Text>
+              <Text style={styles.actionButtonText}>{isPosting ? "Update" : "Save"}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: colors.served }]}
               onPress={() => {
                 setPendingPostStatus(1);
+                headerRef.current?.setPostStatus(1);
                 headerRef.current?.submit();
               }}
               activeOpacity={0.8}
@@ -975,7 +985,7 @@ export default function MaterialUtilizationScreen({
                 size={18}
                 color="#ffffff"
               />
-              <Text style={styles.actionButtonText}>Save and Post</Text>
+              <Text style={styles.actionButtonText}>{isPosting ? "Update and Post" : "Save and Post"}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1134,14 +1144,22 @@ export default function MaterialUtilizationScreen({
 
       <ConfirmModal
         visible={confirmVisible}
-        title={pendingPostStatus === 1 ? "Save and Post Material Utilization" : "Save Material Utilization"}
-        message={pendingPostStatus === 1 
-          ? "Are you sure you want to save and post this material utilization record?" 
-          : "Are you sure you want to save this material utilization record?"}
+        title={isPosting 
+          ? (pendingPostStatus === 1 ? "Update and Post Material Utilization" : "Update Material Utilization")
+          : (pendingPostStatus === 1 ? "Save and Post Material Utilization" : "Save Material Utilization")}
+        message={isPosting
+          ? (pendingPostStatus === 1 
+            ? "Are you sure you want to update and post this material utilization record?" 
+            : "Are you sure you want to update this material utilization record?")
+          : (pendingPostStatus === 1 
+            ? "Are you sure you want to save and post this material utilization record?" 
+            : "Are you sure you want to save this material utilization record?")}
         iconName={pendingPostStatus === 1 ? "send-check" : "content-save"}
         iconColor={colors.primary}
         cancelText="Cancel"
-        confirmText={pendingPostStatus === 1 ? "Save and Post" : "Save"}
+        confirmText={isPosting
+          ? (pendingPostStatus === 1 ? "Update and Post" : "Update")
+          : (pendingPostStatus === 1 ? "Save and Post" : "Save")}
         onConfirm={handleConfirmSubmit}
         onCancel={() => {
           setConfirmVisible(false);

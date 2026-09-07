@@ -73,6 +73,7 @@ export interface MaterialUtilizationPayload {
   feedType: string;
   variant: string;
   postStatus: number;
+  notifyQa: number;
   formulationNo: string;
   batchNo: number;
   remarks: string;
@@ -148,6 +149,7 @@ export interface MaterialUtilizationHeaderRef {
   clear: () => void;
   refreshusageNo: () => Promise<void>;
   setField: (field: keyof MaterialUtilizationFormData, value: string | number) => void;
+  setPostStatus: (value: number) => void;
   getField: (field: keyof MaterialUtilizationFormData) => string | number;
 }
 

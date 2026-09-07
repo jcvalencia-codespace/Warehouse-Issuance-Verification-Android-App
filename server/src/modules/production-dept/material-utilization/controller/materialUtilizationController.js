@@ -17,7 +17,7 @@ exports.getMaterialUtilization = async (req, res) => {
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
     try {
-        const result = await pool.request().query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE IS_DONE = 0 AND POSTSTATUS = 1`)
+        const result = await pool.request().query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE IS_DONE = 0 AND POSTSTATUS = 1 AND IS_APPROVED = 1`)
         res.json({ success: true, data: result.recordset });
     } catch (error) {
         console.error('Error fetching material utilization lists: ', error);
@@ -490,7 +490,7 @@ exports.saveMaterialUtilization = async (req, res) => {
 
         const { usageDate, usageNo, usageRefNo, machineLineName, shift,
             feedType, variant, postStatus, formulationNo, batchNo, remarks,
-            validatedBy, weighedBy, user, transType, baseDetails, details } = req.body;
+            validatedBy, weighedBy, user, transType, baseDetails, notifyQa } = req.body;
 
         /* =====================================================
            VALIDATION
@@ -504,7 +504,7 @@ exports.saveMaterialUtilization = async (req, res) => {
                 });
             }
         } else if (transType === 2) {
-            if (!details || !Array.isArray(details) || details.length === 0) {
+            if (!baseDetails || !Array.isArray(baseDetails) || baseDetails.length === 0) {
                 return res.status(400).json({
                     success: false,
                     message: 'Material utilization details are required.'
@@ -525,6 +525,18 @@ exports.saveMaterialUtilization = async (req, res) => {
                             <itemNo>${escapeXml(bd.itemNo)}</itemNo>
                             <requiredWeight>${Number(bd.requiredWeight) || 0}</requiredWeight>
                              <isDosingMachine>${Number(bd.isAutoDosing) || 0}</isDosingMachine>
+                        </BaseDetail>
+                    `).join('')}
+                </BaseDetails>
+            `;
+        } else if (transType === 2) {
+            baseDetailsXml = `
+                <BaseDetails>
+                    ${baseDetails.map(d => `
+                        <BaseDetail>
+                            <itemNo>${escapeXml(d.itemNo)}</itemNo>
+                            <requiredWeight>${Number(d.requiredWeight) || 0}</requiredWeight>
+                            <isDosingMachine>${Number(d.isAutoDosing) || 0}</isDosingMachine>
                         </BaseDetail>
                     `).join('')}
                 </BaseDetails>
@@ -553,9 +565,8 @@ exports.saveMaterialUtilization = async (req, res) => {
         request.input('WeighedBy', weighedBy || null);
         request.input('CreatedBy', user);
         request.input('BaseDetails', sql.Xml, baseDetailsXml);
-        // request.input('Details', sql.Xml, detailsXml);
-        // request.input('SubDetails', sql.Xml, subDetailXml);
         request.input('TRANSTYPE', sql.Int, transType);
+        request.input('NotifyQA', sql.Int, notifyQa);
 
         const result = await request.execute('[2026.spProducationMaterialUtilizationSave]');
 
