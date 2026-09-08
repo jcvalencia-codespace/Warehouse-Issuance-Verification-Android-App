@@ -366,6 +366,7 @@ export default function MaterialUtilizationScreen({
   const handleAddNew = () => {
     setShowForm(true);
     setIsPosting(false);
+    // setItems([]);
   };
 
   const handleBackToList = () => {

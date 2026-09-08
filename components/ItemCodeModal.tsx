@@ -16,7 +16,7 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DropdownOption } from '../features/production-dept/material-issuance/services/materialIssuanceService';
 
 interface ItemCodeModalProps {
@@ -63,75 +63,79 @@ export function ItemCodeModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, paddingBottom: insets.bottom }]} edges={['bottom']}>
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Select Item Code</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={handleClose} activeOpacity={0.7}>
-              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+        <View style={[styles.outerContainer, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+          <View style={[styles.innerContainer, { paddingBottom: insets.bottom }]}>
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>Select Item Code</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={handleClose} activeOpacity={0.7}>
+                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
-          <View
-            style={[
-              styles.searchContainer,
-              { borderColor: colors.cardBorder, backgroundColor: colors.background },
-            ]}
-          >
-            <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} style={styles.searchIcon} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              value={search}
-              placeholder="Search item code or description"
-              placeholderTextColor={colors.textTertiary}
-              onChangeText={setSearch}
-              autoFocus
-            />
+            <View
+              style={[
+                styles.searchContainer,
+                { borderColor: colors.cardBorder, backgroundColor: colors.background },
+              ]}
+            >
+              <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                value={search}
+                placeholder="Search item code or description"
+                placeholderTextColor={colors.textTertiary}
+                onChangeText={setSearch}
+                autoFocus
+              />
+            </View>
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
                 <MaterialCommunityIcons name="close-circle" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
-          </View>
 
-          <View style={[styles.tableHeader, { borderBottomColor: colors.cardBorder }]}>
-            <Text style={[styles.tableHeaderCode, { color: colors.textTertiary }]}>CODE</Text>
-            <Text style={[styles.tableHeaderDescription, { color: colors.textTertiary }]}>DESCRIPTION</Text>
-          </View>
+            <View style={[styles.tableHeader, { borderBottomColor: colors.cardBorder }]}>
+              <Text style={[styles.tableHeaderCode, { color: colors.textTertiary }]}>CODE</Text>
+              <Text style={[styles.tableHeaderDescription, { color: colors.textTertiary }]}>DESCRIPTION</Text>
+            </View>
 
-          <FlatList
-            data={filteredOptions}
-            keyExtractor={(item) => item.value}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No item codes found</Text>
-              </View>
-            }
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.option,
-                  { borderBottomColor: colors.cardBorder },
-                  selectedValue === item.value && { backgroundColor: colors.primary + '14' },
-                ]}
-                onPress={() => handleSelect(item.value)}
-              >
-                <View style={styles.optionColumns}>
-                  <Text style={[styles.optionCode, { color: colors.text }]} numberOfLines={1}>
-                    {item.value}
-                  </Text>
-                  <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
-                    {item.description || ''}
-                  </Text>
-                </View>
-                {selectedValue === item.value && (
-                  <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+            <View style={styles.listWrapper}>
+              <FlatList
+                data={filteredOptions}
+                keyExtractor={(item) => item.value}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.listContent}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No item codes found</Text>
+                  </View>
+                }
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.option,
+                      { borderBottomColor: colors.cardBorder },
+                      selectedValue === item.value && { backgroundColor: colors.primary + '14' },
+                    ]}
+                    onPress={() => handleSelect(item.value)}
+                  >
+                    <View style={styles.optionColumns}>
+                      <Text style={[styles.optionCode, { color: colors.text }]} numberOfLines={1}>
+                        {item.value}
+                      </Text>
+                      <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
+                        {item.description || ''}
+                      </Text>
+                    </View>
+                    {selectedValue === item.value && (
+                      <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
-            )}
-          />
-        </SafeAreaView>
+              />
+            </View>
+          </View>
+        </View>
       </View>
     </Modal>
   );
@@ -146,13 +150,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
-  container: {
-    maxHeight: '80%',
-    flexShrink: 1,
+  outerContainer: {
+    height: '80%',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderBottomWidth: 0,
+    overflow: 'hidden',
+  },
+  innerContainer: {
+    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 24,
@@ -193,6 +200,9 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 4,
+  },
+  listWrapper: {
+    flex: 1,
   },
   tableHeader: {
     flexDirection: 'row',

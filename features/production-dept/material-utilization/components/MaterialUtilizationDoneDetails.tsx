@@ -33,82 +33,121 @@ export const MaterialUtilizationDoneDetails: React.FC<
     nonDosingRows,
     dosingRows,
     batchColumns,
-    batchMeta,
     nonDosingBatchMeta,
     dosingBatchMeta,
     totals,
+    nonDosingTotal,
+    dosingTotal,
+    nonDosingTotalRequired,
+    dosingTotalRequired,
   } = useMemo(() => {
-      const itemMap = new Map<
-        string,
-        {
-          itemNo: string;
-          itemDescription: string;
-          isDosingMachine: number;
-          batches: Map<number, number>;
-        }
-      >();
-      const batchSet = new Set<number>();
-      const batchMeta = new Map<
-        number,
-        { weighedBy: string; validatedBy: string }
-      >();
-      const nonDosingBatchMeta = new Map<
-        number,
-        { weighedBy: string; validatedBy: string }
-      >();
-      const dosingBatchMeta = new Map<
-        number,
-        { weighedBy: string; validatedBy: string }
-      >();
-      let grandTotal = 0;
-
-      for (const r of rows) {
-        const key = r.ITEMNMBR;
-        if (!itemMap.has(key)) {
-          itemMap.set(key, {
-            itemNo: r.ITEMNMBR,
-            itemDescription: (r.ITEMDESC || r.ITEMNMBR || "").trim(),
-            isDosingMachine: Number(r.IS_DOSING_MACHINE) || 0,
-            batches: new Map<number, number>(),
-          });
-        }
-        const item = itemMap.get(key)!;
-        const kgs = Number(r.KGSUSED) || 0;
-        const existing = item.batches.get(r.BATCHNO) || 0;
-        item.batches.set(r.BATCHNO, existing + kgs);
-        batchSet.add(r.BATCHNO);
-        grandTotal += kgs;
-
-        const weighedBy = (r.WEIGHEDBY || "").toString().trim();
-        const validatedBy = (r.VALIDATEDBY || "").toString().trim();
-
-        if (!batchMeta.has(r.BATCHNO)) {
-          batchMeta.set(r.BATCHNO, { weighedBy, validatedBy });
-        }
-        const isDosing = Number(r.IS_DOSING_MACHINE) === 1;
-        const sectionMap = isDosing ? dosingBatchMeta : nonDosingBatchMeta;
-        if (!sectionMap.has(r.BATCHNO)) {
-          sectionMap.set(r.BATCHNO, { weighedBy, validatedBy });
-        }
+    const itemMap = new Map<
+      string,
+      {
+        itemNo: string;
+        itemDescription: string;
+        isDosingMachine: number;
+        batches: Map<number, number>;
+        totalRequired: number;
       }
+    >();
+    const batchSet = new Set<number>();
+    const batchMeta = new Map<
+      number,
+      { weighedBy: string; validatedBy: string }
+    >();
+    const nonDosingBatchMeta = new Map<
+      number,
+      { weighedBy: string; validatedBy: string }
+    >();
+    const dosingBatchMeta = new Map<
+      number,
+      { weighedBy: string; validatedBy: string }
+    >();
+    let grandTotal = 0;
 
-      const allItems = Array.from(itemMap.values()).sort((a, b) =>
-        a.itemNo.localeCompare(b.itemNo),
-      );
+    for (const r of rows) {
+      const key = r.ITEMNMBR;
+      if (!itemMap.has(key)) {
+        itemMap.set(key, {
+          itemNo: r.ITEMNMBR,
+          itemDescription: (r.ITEMDESC || r.ITEMNMBR || "").trim(),
+          isDosingMachine: Number(r.IS_DOSING_MACHINE) || 0,
+          batches: new Map<number, number>(),
+          totalRequired: 0,
+        });
+      }
+      const item = itemMap.get(key)!;
+      const kgs = Number(r.KGSUSED) || 0;
+      const existing = item.batches.get(r.BATCHNO) || 0;
+      item.batches.set(r.BATCHNO, existing + kgs);
+      batchSet.add(r.BATCHNO);
+      grandTotal += kgs;
 
-      const nonDosingRows = allItems.filter((i) => i.isDosingMachine !== 1);
-      const dosingRows = allItems.filter((i) => i.isDosingMachine === 1);
+      const kgsRequired = Number(r.KGSREQUIRED) || 0;
+      item.totalRequired = kgsRequired;
 
-      return {
-        nonDosingRows,
-        dosingRows,
-        batchColumns: Array.from(batchSet).sort((a, b) => a - b),
-        batchMeta,
-        nonDosingBatchMeta,
-        dosingBatchMeta,
-        totals: { grandTotal },
-      };
-    }, [rows]);
+      const weighedBy = (r.WEIGHEDBY || "").toString().trim();
+      const validatedBy = (r.VALIDATEDBY || "").toString().trim();
+
+      if (!batchMeta.has(r.BATCHNO)) {
+        batchMeta.set(r.BATCHNO, { weighedBy, validatedBy });
+      }
+      const isDosing = Number(r.IS_DOSING_MACHINE) === 1;
+      const sectionMap = isDosing ? dosingBatchMeta : nonDosingBatchMeta;
+      if (!sectionMap.has(r.BATCHNO)) {
+        sectionMap.set(r.BATCHNO, { weighedBy, validatedBy });
+      }
+    }
+
+    const allItems = Array.from(itemMap.values()).sort((a, b) =>
+      a.itemNo.localeCompare(b.itemNo),
+    );
+
+    const nonDosingRows = allItems.filter((i) => i.isDosingMachine !== 1);
+    const dosingRows = allItems.filter((i) => i.isDosingMachine === 1);
+
+    const nonDosingTotal = nonDosingRows.reduce(
+      (sum, item) =>
+        sum +
+        Array.from(item.batches.values()).reduce((s, v) => s + v, 0),
+      0,
+    );
+
+    const dosingTotal = dosingRows.reduce(
+      (sum, item) =>
+        sum +
+        Array.from(item.batches.values()).reduce((s, v) => s + v, 0),
+      0,
+    );
+
+    const nonDosingTotalRequired = nonDosingRows.reduce(
+      (sum, item) => sum + item.totalRequired,
+      0,
+    );
+
+    const dosingTotalRequired = dosingRows.reduce(
+      (sum, item) => sum + item.totalRequired,
+      0,
+    );
+
+    const grandTotalRequired =
+      nonDosingTotalRequired + dosingTotalRequired;
+
+    return {
+      nonDosingRows,
+      dosingRows,
+      batchColumns: Array.from(batchSet).sort((a, b) => a - b),
+      batchMeta,
+      nonDosingBatchMeta,
+      dosingBatchMeta,
+      totals: { grandTotal, grandTotalRequired },
+      nonDosingTotal,
+      dosingTotal,
+      nonDosingTotalRequired,
+      dosingTotalRequired,
+    };
+  }, [rows]);
 
   const computeRowTotal = (item: { batches: Map<number, number> }) => {
     let total = 0;
@@ -186,28 +225,6 @@ export const MaterialUtilizationDoneDetails: React.FC<
     </>
   );
 
-  const nonDosingTotal = useMemo(
-    () =>
-      nonDosingRows.reduce(
-        (sum, item) =>
-          sum +
-          Array.from(item.batches.values()).reduce((s, v) => s + v, 0),
-        0,
-      ),
-    [nonDosingRows],
-  );
-
-  const dosingTotal = useMemo(
-    () =>
-      dosingRows.reduce(
-        (sum, item) =>
-          sum +
-          Array.from(item.batches.values()).reduce((s, v) => s + v, 0),
-        0,
-      ),
-    [dosingRows],
-  );
-
   const hasAnyItems = nonDosingRows.length > 0 || dosingRows.length > 0;
 
   const headerScrollRef = useRef<ScrollView>(null);
@@ -216,24 +233,6 @@ export const MaterialUtilizationDoneDetails: React.FC<
   const bodyScrollRef = useRef<ScrollView>(null);
   const isSyncing = useRef(false);
 
-  const syncTo = (
-    target: React.RefObject<ScrollView | null>,
-    x: number,
-  ) => {
-    if (isSyncing.current) return;
-    isSyncing.current = true;
-    target.current?.scrollTo({ x, animated: false });
-    requestAnimationFrame(() => {
-      isSyncing.current = false;
-    });
-  };
-
-  const syncAllFromX = (x: number) => {
-    syncTo(headerScrollRef, x);
-    syncTo(validatedScrollRef, x);
-    syncTo(weighedScrollRef, x);
-    syncTo(bodyScrollRef, x);
-  };
 
   const handleHeaderScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (isSyncing.current) return;
@@ -241,30 +240,6 @@ export const MaterialUtilizationDoneDetails: React.FC<
     const x = e.nativeEvent.contentOffset.x;
     validatedScrollRef.current?.scrollTo({ x, animated: false });
     weighedScrollRef.current?.scrollTo({ x, animated: false });
-    bodyScrollRef.current?.scrollTo({ x, animated: false });
-    requestAnimationFrame(() => {
-      isSyncing.current = false;
-    });
-  };
-
-  const handleValidatedScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (isSyncing.current) return;
-    isSyncing.current = true;
-    const x = e.nativeEvent.contentOffset.x;
-    headerScrollRef.current?.scrollTo({ x, animated: false });
-    weighedScrollRef.current?.scrollTo({ x, animated: false });
-    bodyScrollRef.current?.scrollTo({ x, animated: false });
-    requestAnimationFrame(() => {
-      isSyncing.current = false;
-    });
-  };
-
-  const handleWeighedScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (isSyncing.current) return;
-    isSyncing.current = true;
-    const x = e.nativeEvent.contentOffset.x;
-    headerScrollRef.current?.scrollTo({ x, animated: false });
-    validatedScrollRef.current?.scrollTo({ x, animated: false });
     bodyScrollRef.current?.scrollTo({ x, animated: false });
     requestAnimationFrame(() => {
       isSyncing.current = false;
@@ -296,6 +271,7 @@ export const MaterialUtilizationDoneDetails: React.FC<
 
   const minColWidth = 160;
   const firstColWidth = 200;
+  const kgsRequiredColWidth = 120;
   const totalColWidth = 140;
   const headerRowHeight = 40;
   const metaRowHeight = 40;
@@ -306,7 +282,7 @@ export const MaterialUtilizationDoneDetails: React.FC<
   const [availableWidth, setAvailableWidth] = useState(0);
   const numCols = Math.max(batchColumns.length, 1) + 1;
   const availableScrollWidth = Math.max(
-    availableWidth - firstColWidth,
+    availableWidth - firstColWidth - kgsRequiredColWidth,
     0,
   );
   const dynamicBatchWidth = Math.max(
@@ -563,82 +539,6 @@ export const MaterialUtilizationDoneDetails: React.FC<
                 },
               ]}
             >
-              <View style={styles.tableHeaderRow}>
-                <View
-                  style={[
-                    styles.headerCell,
-                    styles.firstColSticky,
-                    {
-                      width: firstColWidth,
-                      height: headerRowHeight,
-                      backgroundColor: colors.primary + "14",
-                      borderBottomColor: colors.cardBorder,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[styles.headerCellText, { color: colors.primary }]}
-                  >
-                    Item
-                  </Text>
-                </View>
-                <ScrollView
-                  ref={headerScrollRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.headerScroll}
-                  scrollEventThrottle={16}
-                  onScroll={handleHeaderScroll}
-                  contentContainerStyle={[
-                    styles.headerScrollContent,
-                    { width: scrollableWidth },
-                  ]}
-                >
-                  {batchColumns.map((batch) => (
-                    <View
-                      key={`hdr-${batch}`}
-                      style={[
-                        styles.headerCell,
-                        {
-                          width: dynamicBatchWidth,
-                          height: headerRowHeight,
-                          backgroundColor: colors.primary + "14",
-                          borderBottomColor: colors.cardBorder,
-                          borderBottomWidth: 1,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.headerCellText,
-                          { color: colors.primary },
-                        ]}
-                      >
-                        Batch {batch}
-                      </Text>
-                    </View>
-                  ))}
-                  <View
-                    style={[
-                      styles.headerCell,
-                      styles.lastCol,
-                      {
-                        width: dynamicTotalWidth,
-                        height: headerRowHeight,
-                        backgroundColor: colors.primary + "14",
-                        borderBottomColor: colors.cardBorder,
-                        borderBottomWidth: 1,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.headerCellText, { color: colors.primary }]}
-                    >
-                      Total
-                    </Text>
-                  </View>
-                </ScrollView>
-              </View>
 
               <View
                 style={styles.bodyContainer}
@@ -685,6 +585,39 @@ export const MaterialUtilizationDoneDetails: React.FC<
                           </Text>
                         </View>
                       </View>
+                      <View
+                        style={[
+                          styles.sectionDividerRow,
+                          styles.dividerRow,
+                          {
+                            height: dividerRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.primary + "30",
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.headerCell,
+                            styles.firstColSticky,
+                            {
+                              width: firstColWidth,
+                              height: dividerRowHeight,
+                              backgroundColor: colors.primary + "10",
+                              borderBottomColor: colors.primary + "30",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.headerCellText,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            Item
+                          </Text>
+                        </View>
+                      </View>
                       {nonDosingRows.map((item, idx) => (
                         <View
                           key={`sticky-nd-${item.itemNo}-${idx}`}
@@ -713,15 +646,6 @@ export const MaterialUtilizationDoneDetails: React.FC<
                           >
                             {item.itemNo}
                           </Text>
-                          {/* <Text
-                            style={[
-                              styles.itemDescText,
-                              { color: colors.textSecondary },
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {item.itemDescription}
-                          </Text> */}
                         </View>
                       ))}
                       <View
@@ -823,6 +747,39 @@ export const MaterialUtilizationDoneDetails: React.FC<
                           </Text>
                         </View>
                       </View>
+                      <View
+                        style={[
+                          styles.sectionDividerRow,
+                          styles.dividerRow,
+                          {
+                            height: dividerRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.primary + "30",
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.headerCell,
+                            styles.firstColSticky,
+                            {
+                              width: firstColWidth,
+                              height: dividerRowHeight,
+                              backgroundColor: colors.primary + "10",
+                              borderBottomColor: colors.primary + "30",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.headerCellText,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            Item
+                          </Text>
+                        </View>
+                      </View>
                       {dosingRows.map((item, idx) => (
                         <View
                           key={`sticky-d-${item.itemNo}-${idx}`}
@@ -851,17 +808,9 @@ export const MaterialUtilizationDoneDetails: React.FC<
                           >
                             {item.itemNo}
                           </Text>
-                          {/* <Text
-                            style={[
-                              styles.itemDescText,
-                              { color: colors.textSecondary },
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {item.itemDescription}
-                          </Text> */}
                         </View>
                       ))}
+                      
                       <View
                         style={[
                           styles.cell,
@@ -958,11 +907,321 @@ export const MaterialUtilizationDoneDetails: React.FC<
                   </View>
                 </View>
 
+                <View
+                  style={[
+                    styles.kgsRequiredStickyColumn,
+                    {
+                      zIndex: 10,
+                      backgroundColor: colors.cardBackground,
+                      width: kgsRequiredColWidth,
+                    },
+                  ]}
+                >
+                  {nonDosingRows.length > 0 && (
+                    <>
+                      <View
+                        style={[
+                          styles.sectionDividerRow,
+                          styles.dividerRow,
+                          {
+                            height: dividerRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.primary + "30",
+                          },
+                        ]}
+                      >
+                      </View>
+                      <View
+                        style={[
+                          styles.sectionDividerRow,
+                          styles.dividerRow,
+                          {
+                            height: dividerRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.primary + "30",
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.headerCell,
+                            styles.kgsRequiredColSticky,
+                            {
+                              width: kgsRequiredColWidth,
+                              height: dividerRowHeight,
+                              backgroundColor: colors.primary + "10",
+                              borderBottomColor: colors.primary + "30",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.headerCellText,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            KGS REQUIRED
+                          </Text>
+                        </View>
+                      </View>
+                      {nonDosingRows.map((item, idx) => (
+                        <View
+                          key={`kgs-sticky-nd-${item.itemNo}-${idx}`}
+                          style={[
+                            styles.cell,
+                            styles.kgsRequiredColSticky,
+                            styles.dataRow,
+                            {
+                              height: dataRowHeight,
+                              borderBottomColor: colors.cardBorder,
+                              borderBottomWidth:
+                                idx === nonDosingRows.length - 1 ? 0 : 1,
+                              backgroundColor:
+                                idx % 2 === 0
+                                  ? colors.cardBackground
+                                  : colors.cardBorder + "40",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.cellText,
+                              {
+                                color:
+                                  item.totalRequired > 0
+                                    ? colors.text
+                                    : colors.textTertiary,
+                                fontWeight: item.totalRequired > 0 ? "600" : "400",
+                              },
+                            ]}
+                          >
+                            {item.totalRequired > 0
+                              ? item.totalRequired.toLocaleString()
+                              : "-"}
+                          </Text>
+                        </View>
+                      ))}
+                      <View
+                        style={[
+                          styles.cell,
+                          styles.kgsRequiredColSticky,
+                          {
+                            height: metaRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.cardBorder,
+                            borderBottomWidth: 1,
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.cell,
+                          styles.kgsRequiredColSticky,
+                          {
+                            height: metaRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.cardBorder,
+                            borderBottomWidth: 1,
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.cell,
+                          styles.kgsRequiredColSticky,
+                          styles.totalRow,
+                          {
+                            height: totalRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderTopColor: colors.cardBorder,
+                            borderTopWidth: 2,
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.cellText,
+                            { color: colors.primary, fontWeight: "700" },
+                          ]}
+                        >
+                          {nonDosingTotalRequired > 0
+                            ? nonDosingTotalRequired.toLocaleString()
+                            : "-"}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+
+                  {dosingRows.length > 0 && (
+                    <>
+                      <View
+                        style={[
+                          styles.sectionDividerRow,
+                          styles.dividerRow,
+                          {
+                            height: dividerRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.primary + "30",
+                          },
+                        ]}
+                      >
+                      </View>
+                      <View
+                        style={[
+                          styles.sectionDividerRow,
+                          styles.dividerRow,
+                          {
+                            height: dividerRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.primary + "30",
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.headerCell,
+                            styles.kgsRequiredColSticky,
+                            {
+                              width: kgsRequiredColWidth,
+                              height: dividerRowHeight,
+                              backgroundColor: colors.primary + "10",
+                              borderBottomColor: colors.primary + "30",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.headerCellText,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            KGS REQUIRED
+                          </Text>
+                        </View>
+                      </View>
+                      {dosingRows.map((item, idx) => (
+                        <View
+                          key={`kgs-sticky-d-${item.itemNo}-${idx}`}
+                          style={[
+                            styles.cell,
+                            styles.kgsRequiredColSticky,
+                            styles.dataRow,
+                            {
+                              height: dataRowHeight,
+                              borderBottomColor: colors.cardBorder,
+                              borderBottomWidth:
+                                idx === dosingRows.length - 1 ? 0 : 1,
+                              backgroundColor:
+                                idx % 2 === 0
+                                  ? colors.cardBackground
+                                  : colors.cardBorder + "40",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.cellText,
+                              {
+                                color:
+                                  item.totalRequired > 0
+                                    ? colors.text
+                                    : colors.textTertiary,
+                                fontWeight: item.totalRequired > 0 ? "600" : "400",
+                              },
+                            ]}
+                          >
+                            {item.totalRequired > 0
+                              ? item.totalRequired.toLocaleString()
+                              : "-"}
+                          </Text>
+                        </View>
+                      ))}
+                      <View
+                        style={[
+                          styles.cell,
+                          styles.kgsRequiredColSticky,
+                          {
+                            height: metaRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.cardBorder,
+                            borderBottomWidth: 1,
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.cell,
+                          styles.kgsRequiredColSticky,
+                          {
+                            height: metaRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderBottomColor: colors.cardBorder,
+                            borderBottomWidth: 1,
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.cell,
+                          styles.kgsRequiredColSticky,
+                          styles.totalRow,
+                          {
+                            height: totalRowHeight,
+                            backgroundColor: colors.primary + "10",
+                            borderTopColor: colors.cardBorder,
+                            borderTopWidth: 2,
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.cellText,
+                            { color: colors.primary, fontWeight: "700" },
+                          ]}
+                        >
+                          {dosingTotalRequired > 0
+                            ? dosingTotalRequired.toLocaleString()
+                            : "-"}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+
+                  <View
+                    style={[
+                      styles.cell,
+                      styles.kgsRequiredColSticky,
+                      styles.totalRow,
+                      {
+                        height: totalRowHeight,
+                        marginTop: 8,
+                        backgroundColor: colors.primary + "20",
+                        borderTopColor: colors.cardBorder,
+                        borderTopWidth: 2,
+                        justifyContent: "center",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.cellText,
+                        { color: colors.primary, fontWeight: "700" },
+                      ]}
+                    >
+                      {totals.grandTotalRequired > 0
+                        ? totals.grandTotalRequired.toLocaleString()
+                        : "-"}
+                    </Text>
+                  </View>
+                </View>
+
                 <ScrollView
                   ref={bodyScrollRef}
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  style={styles.scrollableBody}
+                  style={[styles.scrollableBody, { marginLeft: firstColWidth + kgsRequiredColWidth }]}
                   scrollEventThrottle={16}
                   onScroll={handleBodyScroll}
                 >
@@ -971,7 +1230,7 @@ export const MaterialUtilizationDoneDetails: React.FC<
                       <>
                         <View
                           style={[
-                             styles.sectionDividerRow,
+                            styles.sectionDividerRow,
                             styles.dividerRow,
                             {
                               height: dividerRowHeight,
@@ -979,7 +1238,64 @@ export const MaterialUtilizationDoneDetails: React.FC<
                               borderBottomColor: colors.primary + "30",
                             },
                           ]}
-                        />
+                        >
+                        </View>
+                        <View
+                          style={[
+                            styles.sectionDividerRow,
+                            styles.dividerRow,
+                            {
+                              height: dividerRowHeight,
+                              backgroundColor: colors.primary + "10",
+                              borderBottomColor: colors.primary + "30",
+                            },
+                          ]}
+                        >
+                          {batchColumns.map((batch) => (
+                            <View
+                              key={`ndhdr-${batch}`}
+                              style={[
+                                styles.headerCell,
+                                {
+                                  width: dynamicBatchWidth,
+                                  height: dividerRowHeight,
+                                  backgroundColor: colors.primary + "10",
+                                  borderBottomColor: colors.primary + "30",
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.headerCellText,
+                                  { color: colors.primary },
+                                ]}
+                              >
+                                Batch {batch}
+                              </Text>
+                            </View>
+                          ))}
+                          <View
+                            style={[
+                              styles.headerCell,
+                              styles.lastCol,
+                              {
+                                width: dynamicTotalWidth,
+                                height: dividerRowHeight,
+                                backgroundColor: colors.primary + "10",
+                                borderBottomColor: colors.primary + "30",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.headerCellText,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Total
+                            </Text>
+                          </View>
+                        </View>
                         {nonDosingRows.map((item, idx) => {
                           const rowTotal = computeRowTotal(item);
                           const rowBg =
@@ -1179,7 +1495,64 @@ export const MaterialUtilizationDoneDetails: React.FC<
                               borderBottomColor: colors.primary + "30",
                             },
                           ]}
-                        />
+                        >
+                        </View>
+                        <View
+                          style={[
+                            styles.sectionDividerRow,
+                            styles.dividerRow,
+                            {
+                              height: dividerRowHeight,
+                              backgroundColor: colors.primary + "10",
+                              borderBottomColor: colors.primary + "30",
+                            },
+                          ]}
+                        >
+                          {batchColumns.map((batch) => (
+                            <View
+                              key={`dhdr-${batch}`}
+                              style={[
+                                styles.headerCell,
+                                {
+                                  width: dynamicBatchWidth,
+                                  height: dividerRowHeight,
+                                  backgroundColor: colors.primary + "10",
+                                  borderBottomColor: colors.primary + "30",
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.headerCellText,
+                                  { color: colors.primary },
+                                ]}
+                              >
+                                Batch {batch}
+                              </Text>
+                            </View>
+                          ))}
+                          <View
+                            style={[
+                              styles.headerCell,
+                              styles.lastCol,
+                              {
+                                width: dynamicTotalWidth,
+                                height: dividerRowHeight,
+                                backgroundColor: colors.primary + "10",
+                                borderBottomColor: colors.primary + "30",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.headerCellText,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Total
+                            </Text>
+                          </View>
+                        </View>
                         {dosingRows.map((item, idx) => {
                           const rowTotal = computeRowTotal(item);
                           const rowBg =
@@ -1555,9 +1928,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 10,
   },
+  kgsRequiredStickyColumn: {
+    position: "absolute",
+    left: 200,
+    top: 0,
+    bottom: 0,
+    zIndex: 10,
+  },
   scrollableBody: {
     flex: 1,
-    marginLeft: 200,
+    marginLeft: 320,
   },
   tableRow: {
     flexDirection: "row",
@@ -1570,6 +1950,9 @@ const styles = StyleSheet.create({
   },
   firstColSticky: {
     width: 200,
+  },
+  kgsRequiredColSticky: {
+    width: 120,
   },
   sectionDividerRow: {
     flexDirection: "row",
