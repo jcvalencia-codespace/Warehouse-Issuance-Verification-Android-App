@@ -7,16 +7,16 @@
 import { Colors } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from 'react-native';
 
 // --- IDAutomation Code128 helper ---
@@ -64,6 +64,15 @@ interface BarcodeScannerProps {
   validateScannedValue?: (value: string) => Promise<boolean | string>;
 }
 
+interface Layout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const EMPTY_LAYOUT: Layout = { x: 0, y: 0, width: 0, height: 0 };
+
 export function BarcodeScanner({
   visible,
   onClose,
@@ -78,12 +87,69 @@ export function BarcodeScanner({
   const [scanned, setScanned] = useState(false);
   const [barcodeText, setBarcodeText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [manualInput, setManualInput] = useState('');
-  const [showManualInput, setShowManualInput] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
 
-  const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+  // Layouts are captured in *window* coordinates (via measureInWindow) so
+  // they share the same coordinate space as each other and can be safely
+  // subtracted. onLayout's x/y are relative to each view's own parent,
+  // so two onLayout results from different parents are NOT comparable.
+  const [focusedLayout, setFocusedLayout] = useState<Layout>(EMPTY_LAYOUT);
+  const [scannerLayout, setScannerLayout] = useState<Layout>(EMPTY_LAYOUT);
+
+  const scannerContainerRef = useRef<View>(null);
+  const focusedContainerRef = useRef<View>(null);
+
+  const measureScannerContainer = () => {
+    scannerContainerRef.current?.measureInWindow((x, y, width, height) => {
+      setScannerLayout({ x, y, width, height });
+    });
+  };
+
+  const measureFocusedContainer = () => {
+    focusedContainerRef.current?.measureInWindow((x, y, width, height) => {
+      setFocusedLayout({ x, y, width, height });
+    });
+  };
+
+  const handleBarCodeScanned = async ({
+    type,
+    data,
+    bounds,
+  }: {
+    type: string;
+    data: string;
+    bounds?: { origin: { x: number; y: number }; size: { width: number; height: number } };
+  }) => {
     if (scanned || isValidating) return;
+
+    if (
+      bounds &&
+      focusedLayout.width > 0 &&
+      focusedLayout.height > 0 &&
+      scannerLayout.width > 0 &&
+      scannerLayout.height > 0
+    ) {
+      // Both layouts are in window coordinates, so this subtraction gives
+      // the focused box's offset relative to the scanner/camera view.
+      const focusedX = focusedLayout.x - scannerLayout.x;
+      const focusedY = focusedLayout.y - scannerLayout.y;
+      const focusedRight = focusedX + focusedLayout.width;
+      const focusedBottom = focusedY + focusedLayout.height;
+
+      const margin = 10;
+      const barcodeCenterX = bounds.origin.x + bounds.size.width / 2;
+      const barcodeCenterY = bounds.origin.y + bounds.size.height / 2;
+
+      const isInFocusedRegion =
+        barcodeCenterX >= focusedX - margin &&
+        barcodeCenterX <=  focusedRight + margin &&
+        barcodeCenterY >= focusedY - margin &&
+        barcodeCenterY <= focusedBottom + margin;
+
+      if (!isInFocusedRegion) {
+        return;
+      }
+    }
 
     // Validate against active forklift operators if enabled
     if (validateForkliftOperator) {
@@ -156,6 +222,10 @@ export function BarcodeScanner({
     if (visible) {
       setScanned(false);
       setBarcodeText('');
+      // Layouts can shift between opens (rotation, different screen), so
+      // clear stale measurements and let onLayout/measureInWindow refresh them.
+      setFocusedLayout(EMPTY_LAYOUT);
+      setScannerLayout(EMPTY_LAYOUT);
     }
   }, [visible]);
 
@@ -224,7 +294,11 @@ export function BarcodeScanner({
         </View>
 
         {/* Scanner */}
-        <View style={styles.scannerContainer}>
+        <View
+          ref={scannerContainerRef}
+          style={styles.scannerContainer}
+          onLayout={measureScannerContainer}
+        >
           <CameraView
             onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
             barcodeScannerSettings={{ barcodeTypes: ['code128'] }}
@@ -232,11 +306,15 @@ export function BarcodeScanner({
           />
 
           {/* Overlay */}
-          <View style={styles.overlay}>
+          <View style={styles.overlay} pointerEvents="none">
             <View style={styles.unfocusedContainer} />
             <View style={styles.middleContainer}>
               <View style={styles.unfocusedContainer} />
-              <View style={styles.focusedContainer}>
+              <View
+                ref={focusedContainerRef}
+                style={styles.focusedContainer}
+                onLayout={measureFocusedContainer}
+              >
                 <View style={[styles.corner, styles.topLeft]} />
                 <View style={[styles.corner, styles.topRight]} />
                 <View style={[styles.corner, styles.bottomLeft]} />
@@ -309,7 +387,7 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#fff', textAlign: 'center' },
   headerSpacer: { width: 40 },
   scannerContainer: { flex: 1, position: 'relative' },
-  overlay: { flex: 1, flexDirection: 'column' },
+  overlay: { ...StyleSheet.absoluteFillObject, flexDirection: 'column' },
   unfocusedContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' },
   middleContainer: { flexDirection: 'row', height: 200 },
   focusedContainer: { flex: 6, position: 'relative' },
