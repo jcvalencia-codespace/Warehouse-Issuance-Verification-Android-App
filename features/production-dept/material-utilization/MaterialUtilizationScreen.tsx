@@ -28,6 +28,8 @@ import { MaterialUtilizationDoneDetails } from "./components/MaterialUtilization
 import { MaterialUtilizationDoneLists } from "./components/MaterialUtilizationDoneLists";
 import { MaterialUtilizationDoneModal } from "./components/MaterialUtilizationDoneModal";
 import { MaterialUtilizationForPosting } from "./components/MaterialUtilizationForPosting";
+import { MaterialUtilizationForQaReview } from "./components/MaterialUtilizationForQaReview";
+import { MaterialUtilizationQaReviewDetails } from "./components/MaterialUtilizationQaReviewDetails";
 import {
   MaterialUtilizationHeader,
   MaterialUtilizationHeaderRef,
@@ -93,6 +95,9 @@ export default function MaterialUtilizationScreen({
   const [postingListsLoading, setPostingListsLoading] = useState(false);
   const [postingSearch, setPostingSearch] = useState("");
 
+  const [showQaReviewLists, setShowQaReviewLists] = useState(false);
+  const [showQaReviewDetails, setShowQaReviewDetails] = useState(false);
+
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -131,6 +136,7 @@ export default function MaterialUtilizationScreen({
 
   const handleClear = () => {
     setClearConfirmVisible(true);
+    setIsPosting(false);
   };
 
   const handleConfirmClear = async () => {
@@ -741,6 +747,27 @@ export default function MaterialUtilizationScreen({
     setItems([]);
   };
 
+  const handleShowQaReviewLists = () => {
+    setShowForm(false);
+    setShowPostingLists(false);
+    setShowQaReviewLists(true);
+  };
+
+  const handleQaReviewRecordPress = (record: any) => {
+    setShowQaReviewLists(false);
+    setSelectedUsageNo(Number(record.USAGENO));
+    setShowQaReviewDetails(true);
+  };
+
+  const handleBackFromQaReviewDetails = () => {
+    setShowQaReviewDetails(false);
+    setShowQaReviewLists(true);
+  };
+
+  const handleBackFromQaReviewLists = () => {
+    setShowQaReviewLists(false);
+  };
+
   useEffect(() => {
     if (!selectedUsageNo) {
       setItems([]);
@@ -1115,6 +1142,16 @@ export default function MaterialUtilizationScreen({
           rmTotalKgs={doneDetailsRmTotalKgs}
           onBack={handleBackFromDoneDetails}
         />
+      ) : showQaReviewDetails ? (
+        <MaterialUtilizationQaReviewDetails
+          usageNo={selectedUsageNo ?? 0}
+          onBack={handleBackFromQaReviewDetails}
+        />
+      ) : showQaReviewLists ? (
+        <MaterialUtilizationForQaReview
+          onRecordPress={handleQaReviewRecordPress}
+          onBack={handleBackFromQaReviewLists}
+        />
       ) : showPostingLists ? (
         <MaterialUtilizationForPosting
           data={postingLists}
@@ -1131,16 +1168,17 @@ export default function MaterialUtilizationScreen({
           onRecordPress={handleDoneRecordPress}
         />
       ) : (
-        <MaterialUtilizationList
-          data={lists}
-          loading={listsLoading}
-          search={search}
-          onSearchChange={setSearch}
-          onRecordPress={handleRecordPress}
-          onBack={onBack || (() => {})}
-          onAddNew={handleAddNew}
-          onShowDone={handleShowDoneLists}
-        />
+         <MaterialUtilizationList
+           data={lists}
+           loading={listsLoading}
+           search={search}
+           onSearchChange={setSearch}
+           onRecordPress={handleRecordPress}
+           onBack={onBack || (() => {})}
+           onAddNew={handleAddNew}
+           onShowDone={handleShowDoneLists}
+           onShowQaReview={handleShowQaReviewLists}
+         />
       )}
 
       <ConfirmModal

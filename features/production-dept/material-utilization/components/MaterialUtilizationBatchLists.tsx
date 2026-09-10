@@ -167,6 +167,19 @@ export const MaterialUtilizationBatchLists: React.FC<
     );
   };
 
+  const hasDosingBatchDetails = autoDosingBatchNos.length > 0;
+  const hasNotDosingBatchDetails = notDosingBatchNos.length > 0;
+  const batchDetailsMatch = notDosingBatchNos.length === autoDosingBatchNos.length;
+
+  let showMarkAsDone = false;
+  if (totalDosingItem > 0) {
+    showMarkAsDone =
+      hasDosingBatchDetails &&
+      batchDetailsMatch 
+  } else if (totalNotDosingItem > 0) {
+    showMarkAsDone = hasNotDosingBatchDetails
+  }
+
   return (
     <SafeAreaView
       edges={["bottom"]}
@@ -189,8 +202,7 @@ export const MaterialUtilizationBatchLists: React.FC<
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Batch Lists
         </Text>
-        {totalDosingItem > 0 ||
-        totalNotDosingItem > 0 ? (
+        {showMarkAsDone ? (
           <TouchableOpacity
             onPress={onMarkAsDone}
             activeOpacity={0.7}

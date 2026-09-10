@@ -75,6 +75,24 @@ export class MaterialUtilizationService {
     }
   }
 
+  async getMaterialUtilizationForQaReviewLists(company?: string): Promise<any[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; data: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-material-utilization-for-qa-review`,
+        { params: company ? { company } : undefined }
+      );
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getMaterialUtilizationDoneLists(company?: string): Promise<any[]> {
     try {
       if (!this.baseUrl) {

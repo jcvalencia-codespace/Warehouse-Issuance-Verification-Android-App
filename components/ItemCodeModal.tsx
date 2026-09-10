@@ -87,12 +87,12 @@ export function ItemCodeModal({
                 onChangeText={setSearch}
                 autoFocus
               />
-            </View>
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
                 <MaterialCommunityIcons name="close-circle" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
+            </View>
 
             <View style={[styles.tableHeader, { borderBottomColor: colors.cardBorder }]}>
               <Text style={[styles.tableHeaderCode, { color: colors.textTertiary }]}>CODE</Text>

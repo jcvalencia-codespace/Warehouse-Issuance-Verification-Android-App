@@ -21,6 +21,7 @@ interface MaterialUtilizationListProps {
   onBack: () => void;
   onAddNew: () => void;
   onShowDone?: () => void;
+  onShowQaReview?: () => void;
 }
 
 export const MaterialUtilizationList: React.FC<MaterialUtilizationListProps> = ({
@@ -32,6 +33,7 @@ export const MaterialUtilizationList: React.FC<MaterialUtilizationListProps> = (
   onBack,
   onAddNew,
   onShowDone,
+  onShowQaReview,
 }) => {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
@@ -110,6 +112,22 @@ export const MaterialUtilizationList: React.FC<MaterialUtilizationListProps> = (
                 name="clipboard-check-outline"
                 size={22}
                 color={colors.success}
+              />
+            </TouchableOpacity>
+          )}
+          {onShowQaReview && (
+            <TouchableOpacity
+              style={[
+                styles.qaReviewFab,
+                { backgroundColor: colors.warning + "14", borderColor: colors.warning },
+              ]}
+              onPress={onShowQaReview}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="microscope"
+                size={22}
+                color={colors.warning}
               />
             </TouchableOpacity>
           )}
@@ -193,6 +211,14 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   doneFab: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  qaReviewFab: {
     width: 48,
     height: 48,
     borderRadius: 24,

@@ -51,6 +51,19 @@ exports.getMaterialUtilizationForPosting = async (req, res) => {
         res.json({ success: true, message: error.message || 'Failed to fetch material utilization for posting lists' })
     }
 }
+exports.getMaterialUtilizationForQaReview = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    try {
+        const result = await pool.request().query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE POSTSTATUS = 1 AND IS_APPROVED IS NULL`);
+        res.json({ success: true, data: result.recordset });
+    } catch (error) {
+        console.error('Error fetching material utilization for QA review: ', error);
+        res.json({ success: true, message: error.message || 'Failed to fetch material utilization for QA review lists' })
+    }
+}
 
 exports.getNextUsageRefNo = async (req, res) => {
     const { company } = req.query;
@@ -622,11 +635,11 @@ exports.saveBatchingMaterialUtilization = async (req, res) => {
         const pool = await getPool(dbName);
 
         let detailsXml = '<Details />';
-        if (transType === 2) {
+        if (transType === 3) {
             if (!Array.isArray(details) || details.length === 0) {
                 return res.status(400).json({
                     success: false,
-                    message: 'details is required for transaction type 2.'
+                    message: 'details is required for transaction type 3.'
                 });
             }
 

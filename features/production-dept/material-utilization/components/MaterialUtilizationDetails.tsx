@@ -8,6 +8,9 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -541,8 +544,17 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     };
 
     return (
-      <View style={styles.container}>
-        <View style={styles.batchNoHeader}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.batchNoHeader}>
           <Text style={[styles.batchNoHeader, { color: colors.primary }]}>
             Usage No: PMU-<Text style={{ fontWeight: '900' }}>{initialData?.usageRefNo ?? 0}</Text>
           </Text>
@@ -746,7 +758,8 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
           onScan={handleBarcodeScanned}
           title="Scan QA Barcode"
         />
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 );
@@ -754,9 +767,13 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 MaterialUtilizationDetails.displayName = 'MaterialUtilizationDetails';
 
 const styles = StyleSheet.create({
+  keyboardAvoidingContainer: {
+    flex: 1,
+  },
   container: {
     // marginBottom: 16,
     // marginTop: 16,
+    paddingBottom: 120,
   },
   sectionTitle: {
     fontSize: 22,
