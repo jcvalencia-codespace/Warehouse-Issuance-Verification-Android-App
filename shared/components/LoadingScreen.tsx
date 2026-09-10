@@ -6,15 +6,15 @@
 
 import React, { useEffect, useRef } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Easing,
-  Image,
-  StatusBar,
-  StatusBarStyle,
-  StyleSheet,
-  Text,
-  View,
+    Animated,
+    Dimensions,
+    Easing,
+    Image,
+    StatusBar,
+    StatusBarStyle,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
@@ -303,7 +303,7 @@ export function LoadingScreen({
 
         {/* Version Info */}
         <Text style={[styles.version, { color: colors.textTertiary }]}>
-          Version 2.7.21.26
+          Version 2.9.10.26
         </Text>
       </Animated.View>
 

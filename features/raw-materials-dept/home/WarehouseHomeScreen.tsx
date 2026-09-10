@@ -16,13 +16,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const WAREHOUSE_MODULES: ModuleCardData[] = [
-  {
-    id: 'material-issuance-confirmation',
-    title: 'Material Issuance Confirmation',
-    description: 'Confirm and validate pending material issuances',
-    icon: 'file-lock-outline',
-    color: '#DD6B20',
-  },
+  // {
+  //   id: 'material-issuance-confirmation',
+  //   title: 'Material Issuance Confirmation',
+  //   description: 'Confirm and validate pending material issuances',
+  //   icon: 'file-lock-outline',
+  //   color: '#DD6B20',
+  // },
   {
     id: 'issuance-verification',
     title: 'New Issuance Verification',

@@ -219,7 +219,7 @@ export function HelpSupportScreen() {
               © 2026 Management Information System - Software
             </Text>
             <Text style={[styles.appVersion, { color: colors.textSecondary }]}>
-              Version 2.7.21.26
+              Version 2.9.10.26
             </Text>
           </View>
         </View>

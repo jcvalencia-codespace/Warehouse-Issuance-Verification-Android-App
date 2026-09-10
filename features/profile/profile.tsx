@@ -4,22 +4,22 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useToast } from '@/hooks/use-toast';
 import { router } from 'expo-router';
 import {
-  ChevronRight,
-  History,
-  Lock,
-  LogOut,
-  Shield,
-  User
+    ChevronRight,
+    History,
+    Lock,
+    LogOut,
+    Shield,
+    User
 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -279,7 +279,7 @@ export default function ProfileScreen() {
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={[styles.appVersion, { color: colors.textTertiary }]}>
-            Santeh Feeds Corporation - App v2.7.21.26
+            Santeh Feeds Corporation - App v2.9.10.26
           </Text>
           <Text style={[styles.appCopyright, { color: colors.textTertiary }]}>
             © 2026 MIS-SOFTWARE. All rights reserved.

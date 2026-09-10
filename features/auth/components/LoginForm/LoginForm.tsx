@@ -537,7 +537,7 @@ export function LoginForm() {
               <View style={styles.footer}>
                 <View style={[styles.footerLine, { backgroundColor: colors.divider }]} />
                 <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-                  VERSION 1.0.0 • SANTEH FEEDS CORPORATION
+                  VERSION 2.9.10.26 • SANTEH FEEDS CORPORATION
                 </Text>
               </View>
               <View style={styles.subFooter}>

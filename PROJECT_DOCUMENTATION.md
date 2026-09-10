@@ -2,7 +2,7 @@
 
 **Project Name:** Santeh Feeds Corporation — ERP Mobile App
 **Slug:** `ERP-Mobile`
-**Version:** 2.7.21.26 (per `app.json`)
+**Version:** 2.9.10.26 (per `app.json`)
 **Client:** `whseconfirmation` (per `package.json`)
 **Last Updated:** September 2026
 
