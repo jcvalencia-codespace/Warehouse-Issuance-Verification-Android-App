@@ -80,6 +80,21 @@ class SocketService {
       this.socket?.off('notification');
     }
   }
+
+  onNotificationUpdate(callback: (data: any) => void): void {
+    if (!this.socket) {
+      this.connect();
+    }
+    this.socket?.on('notification:update', callback);
+  }
+
+  offNotificationUpdate(callback?: (data: any) => void): void {
+    if (callback) {
+      this.socket?.off('notification:update', callback);
+    } else {
+      this.socket?.off('notification:update');
+    }
+  }
 }
 
 export const socketService = SocketService.getInstance();

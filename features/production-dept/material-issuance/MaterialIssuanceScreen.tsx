@@ -3,6 +3,7 @@ import { SuccessModal } from '@/components/SuccessModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
@@ -16,11 +17,10 @@ import {
     useColorScheme
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { socketService } from '../../shared/services/socketService';
 import { MaterialIssuanceDetails, MaterialIssuanceDetailsRef } from './components/MaterialIssuanceDetails';
 import { MaterialIssuanceHeader, MaterialIssuanceHeaderRef } from './components/MaterialIssuanceHeader';
 import { MaterialIssuanceService } from './services/materialIssuanceService';
-import { MaterialIssuancePayload } from './types/materialIssuance.types';
+import { MaterialIssuanceLineItem, MaterialIssuancePayload, MaterialIssuanceRequestDetail, MaterialIssuanceRequestHeader } from './types/materialIssuance.types';
 
 interface MaterialIssuanceProps {
     onBack?: () => void;
@@ -31,6 +31,8 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
+    const router = useRouter();
+    const { selectedHeader } = useLocalSearchParams<{ selectedHeader?: string }>();
     const headerRef = useRef<MaterialIssuanceHeaderRef>(null);
     const detailsRef = useRef<MaterialIssuanceDetailsRef>(null);
     const scrollViewRef = React.useRef<ScrollView>(null);
@@ -45,24 +47,63 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
     const [successTitle, setSuccessTitle] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
+    const handleRecordSelect = async (header: MaterialIssuanceRequestHeader) => {
+        try {
+            const { header: hdr, details } = await MaterialIssuanceService.getInstance().getMIRDetailsForEdit(
+                header.MIRNO,
+                user?.COMPANY
+            );
+            const lineItems: MaterialIssuanceLineItem[] = (details || []).map((d: MaterialIssuanceRequestDetail) => ({
+                itemCode: d.ITEMNMBR,
+                description: d.ITEMDESC || '',
+                quantity: String(d.QUANTITY || 0),
+                allocations: [],
+            }));
+            setSelectedIssuance(hdr);
+            setItems(lineItems);
+            headerRef.current?.setField('mirNo', hdr.MIRNO || '');
+            headerRef.current?.setField('shift', hdr.SHIFT || '');
+            headerRef.current?.setField('reviewedBy', hdr.REVIEWEDBY || '');
+            headerRef.current?.setField('remarks', hdr.REMARKS || '');
+            detailsRef.current?.setItems(lineItems);
+        } catch (error: any) {
+            Alert.alert('Error', error?.message || 'Failed to load request details.');
+        }
+    };
+
     useEffect(() => {
-        socketService.connect();
-
-        const handleRealtimeUpdate = (payload: any) => {
-            if (payload?.data?.mirNo && pendingHeader?.mirNo === payload.data.mirNo) {
-                Alert.alert('Realtime Update', `Material issuance ${payload.data.mirNo} was updated by another user.`);
+        if (selectedHeader) {
+            try {
+                const header = JSON.parse(selectedHeader) as MaterialIssuanceRequestHeader;
+                handleRecordSelect(header);
+            } catch {
+                // ignore parse errors
             }
-        };
+        }
+    }, [selectedHeader]);
 
-        socketService.onMaterialIssuanceUpdate(handleRealtimeUpdate);
+    // useEffect(() => {
+    //     socketService.connect();
 
-        return () => {
-            socketService.offMaterialIssuanceUpdate(handleRealtimeUpdate);
-        };
-    }, [pendingHeader?.mirNo]);
+    //     const handleRealtimeUpdate = (payload: any) => {
+    //         if (payload?.data?.mirNo && pendingHeader?.mirNo === payload.data.mirNo) {
+    //             Alert.alert('Realtime Update', `Material issuance ${payload.data.mirNo} was updated by another user.`);
+    //         }
+    //     };
+
+    //     socketService.onMaterialIssuanceUpdate(handleRealtimeUpdate);
+
+    //     return () => {
+    //         socketService.offMaterialIssuanceUpdate(handleRealtimeUpdate);
+    //     };
+    // }, [pendingHeader?.mirNo]);
 
     const handleClear = () => {
         setClearConfirmVisible(true);
+    };
+
+    const handleSearchPress = () => {
+        router.push('/production-dept/material-issuance-for-edit');
     };
 
     const handleConfirmClear = async () => {
@@ -71,11 +112,11 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
         setSubmitting(false);
         setPendingHeader(null);
         setItems([]);
+        setSelectedIssuance(null);
         headerRef.current?.clear();
         detailsRef.current?.clear();
-        setClearConfirmVisible(false);
-        setSelectedIssuance(null);
-        await headerRef.current?.refreshMirNo();
+         setClearConfirmVisible(false);
+         await headerRef.current?.refreshMirNo();
     };
 
     const handleValidSubmit = (headerData: any) => {
@@ -97,13 +138,21 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 reviewedBy: pendingHeader.reviewedBy,
                 createdBy: user?.NAME || user?.USERNAME || '',
                 dateCreated: pendingHeader.dateCreated,
+                remarks: pendingHeader.remarks,
                 details: items,
             };
 
-            const result = await MaterialIssuanceService.getInstance().saveMaterialIssuanceRequest(
-                basePayload,
-                user?.COMPANY || ''
-            );
+            const isEditMode = selectedIssuance != null;
+
+            const result = isEditMode
+                ? await MaterialIssuanceService.getInstance().updateMaterialIssuanceRequest(
+                    basePayload,
+                    user?.COMPANY || ''
+                )
+                : await MaterialIssuanceService.getInstance().saveMaterialIssuanceRequest(
+                    basePayload,
+                    user?.COMPANY || ''
+                );
 
             if (result.success) {
                 const originalMirNo = pendingHeader.mirNo;
@@ -114,7 +163,7 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 setSuccessMessage(
                     mirNoChanged
                         ? `MIR No. ${originalMirNo} already exists.\nSaved as ${savedMirNo}.`
-                        : `Material issuance saved successfully.\nMIR No.: ${savedMirNo}`
+                        : `Material issuance ${isEditMode ? 'updated' : 'saved'} successfully.\nMIR No.: ${savedMirNo}`
                 );
                 setSuccessVisible(true);
             } else {
@@ -149,15 +198,16 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                     <MaterialIssuanceHeader
                         ref={headerRef}
                         onValidSubmit={handleValidSubmit}
+                        onSearchPress={handleSearchPress}
                         searchable={true}
                         mode={selectedIssuance ? 'edit' : 'create'}
+                        initialData={selectedIssuance}
                     />
                     <MaterialIssuanceDetails
                         ref={detailsRef}
                         value={items}
                         onItemsChange={setItems}
                     />
-                    {/* <View style={{ height: 80 }} /> */}
                 </ScrollView>
 
 
@@ -236,8 +286,8 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                     buttonText="Done"
                     onDone={handleConfirmClear}
                 />
-            </KeyboardAvoidingView >
-        </SafeAreaView >
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
@@ -302,43 +352,5 @@ const styles = StyleSheet.create({
         color: '#ffffff',
         fontSize: 17,
         fontWeight: '700',
-    },
-    searchResultsContainer: {
-        width: '100%',
-        maxHeight: 280,
-        marginBottom: 16,
-    },
-    searchInputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        borderRadius: 14,
-        borderWidth: 1.5,
-        paddingHorizontal: 14,
-        height: 52,
-        marginBottom: 12,
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: 15,
-        fontWeight: '500',
-        paddingVertical: 0,
-    },
-    searchResultItem: {
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-    },
-    searchResultSeparator: {
-        height: 1,
-        borderBottomWidth: 1,
-    },
-    searchResultText: {
-        fontSize: 16,
-        fontWeight: '700',
-        marginBottom: 4,
-    },
-    searchResultSubtext: {
-        fontSize: 13,
-        fontWeight: '500',
     },
 });

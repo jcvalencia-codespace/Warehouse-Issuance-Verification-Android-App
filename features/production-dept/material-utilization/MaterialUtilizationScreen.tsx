@@ -459,6 +459,38 @@ export default function MaterialUtilizationScreen({
     setDoneModalVisible(true);
   };
 
+  const handleMarkAsDoneFromBatchLists = async () => {
+    setShowBatchLists(false);
+    setShowForm(false);
+    setShowBatchDetails(false);
+    setShowDoneDetails(true);
+    setShowDoneLists(false);
+    setDoneDetailsLoading(true);
+    setDoneDetailsHeader(null);
+    setDoneDetailsRows([]);
+    setDoneDetailsRmTotalKgs(null);
+    try {
+      const [pivot, rmTotalKgs] = await Promise.all([
+        MaterialUtilizationService.getInstance().getMaterialUtilizationDonePivotDetails(
+          user?.COMPANY,
+          selectedUsageNo,
+        ),
+        MaterialUtilizationService.getInstance().getRmTotalKgs(
+          user?.COMPANY,
+          selectedUsageNo,
+        ),
+      ]);
+      setDoneDetailsHeader(pivot.header || null);
+      setDoneDetailsRows(pivot.rows || []);
+      setDoneDetailsRmTotalKgs(rmTotalKgs || null);
+    } catch (error) {
+      console.error("Failed to load done pivot details:", error);
+      Alert.alert("Error", "Failed to load done material utilization details.");
+    } finally {
+      setDoneDetailsLoading(false);
+    }
+  };
+
   const handleDoneModalClose = () => {
     setDoneModalVisible(false);
     setDoneIssuanceNo(undefined);
@@ -473,6 +505,8 @@ export default function MaterialUtilizationScreen({
     setShowForm(false);
     setShowBatchLists(false);
     setShowBatchDetails(false);
+    setShowDoneLists(false);
+    setShowDoneDetails(false);
     setSelectedBatchInfo(null);
     setSelectedUsageNo(undefined);
     setDetailViewRecord(null);
@@ -1024,7 +1058,7 @@ export default function MaterialUtilizationScreen({
           onAddNew={handleCreateNewFromBatchLists}
           onAddBaseDetail={handleAddNew}
           onBatchPress={handleBatchPress}
-          onMarkAsDone={handleMarkAsDone}
+          onMarkAsDone={handleMarkAsDoneFromBatchLists}
         />
       ) : showBatchDetails ? (
         <MaterialUtilizationBatchDetails
@@ -1141,6 +1175,7 @@ export default function MaterialUtilizationScreen({
           rows={doneDetailsRows}
           rmTotalKgs={doneDetailsRmTotalKgs}
           onBack={handleBackFromDoneDetails}
+          onMarkAsDone={handleMarkAsDone}
         />
       ) : showQaReviewDetails ? (
         <MaterialUtilizationQaReviewDetails

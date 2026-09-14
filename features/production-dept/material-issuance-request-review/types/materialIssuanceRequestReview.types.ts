@@ -9,6 +9,12 @@ export interface MaterialIssuanceRequestReviewHeader {
     [key: string]: any;
 }
 
+export interface MaterialIssuanceRequestReviewHeaderGroup {
+    DATECREATED: string;
+    MIRNOS: string;
+    REVIEWEDBYS: string;
+}
+
 export interface MaterialIssuanceRequestReviewDetail {
     MIRNO: string;
     ITEMNMBR: string;

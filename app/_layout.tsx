@@ -143,6 +143,8 @@ function RootLayoutNav() {
             <Stack.Screen name="supplies-dept/supplies-issuance" options={{ title: 'Supplies Issuance' }} />
 
             {/**PRODUCTION ROUTE */}
+            <Stack.Screen name="production-dept/material-issuance" options={{ title: 'Material Issuance' }} />
+            <Stack.Screen name="production-dept/material-issuance-for-edit" options={{ title: 'Edit Material Issuance' }} />
             <Stack.Screen name="production-dept/material-issuance-confirmation" options={{ title: 'Material Issuance Confirmation' }} />
             <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
             <Stack.Screen name="coming-soon" options={{ title: 'Coming Soon' }} />

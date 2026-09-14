@@ -28,6 +28,7 @@ export interface MaterialIssuancePayload {
   reviewedBy: string;
   createdBy: string;
   dateCreated: string;
+  remarks?: string | null;
   details: MaterialIssuanceLineItem[];
 }
 
@@ -44,12 +45,17 @@ export interface MaterialIssuanceRequestHeader {
   CREATEDBY: string;
   DATECREATED: string;
   POSTSTATUS: number;
+  IS_APPROVED?: boolean | null;
+  REMARKS?: string | null;
 }
 
 export interface MaterialIssuanceRequestDetail {
   MIRNO: string;
   ITEMNMBR: string;
-  ITEMDESC?: string;
+  ITEMDESC?: string | null;
   QUANTITY: number;
-  UOFM?: string;
+  UOFM?: string | null;
+  SERVEDBY?: string | null;
+  CREATEDBY?: string | null;
+  DATECREATED?: string | null;
 }

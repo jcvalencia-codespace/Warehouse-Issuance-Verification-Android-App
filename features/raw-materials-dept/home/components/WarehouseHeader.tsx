@@ -58,6 +58,8 @@ export function WarehouseHeader({
   const [currentTime, setCurrentTime] = useState(new Date());
   const { isLocalConnected } = useNetworkStatus();
   const [notificationCount, setNotificationCount] = useState(0);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [unreadUpdate, setUnreadUpdate] = useState(false);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -66,16 +68,45 @@ export function WarehouseHeader({
       setNotificationCount(notifications.length);
     };
 
+    const handleNotification = () => {
+      fetchNotifications();
+      setUnreadUpdate(true);
+      setTimeout(() => setUnreadUpdate(false), 3000);
+    };
+
     fetchNotifications();
 
     socketService.connect();
-    const handler = () => {
+    const socket = socketService.getSocket();
+
+    const handleConnect = () => {
+      setSocketConnected(true);
+    };
+
+    const handleDisconnect = () => {
+      setSocketConnected(false);
+    };
+
+    socket?.on('connect', handleConnect);
+    socket?.on('disconnect', handleDisconnect);
+
+    if (socket?.connected) {
+      setSocketConnected(true);
+    }
+
+    socketService.onNotification(handleNotification);
+
+    const handleNotificationUpdate = () => {
       fetchNotifications();
     };
-    socketService.onNotification(handler);
+
+    socketService.onNotificationUpdate(handleNotificationUpdate);
 
     return () => {
-      socketService.offNotification(handler);
+      socket?.off('connect', handleConnect);
+      socket?.off('disconnect', handleDisconnect);
+      socketService.offNotification(handleNotification);
+      socketService.offNotificationUpdate(handleNotificationUpdate);
     };
   }, [user]);
 
@@ -133,16 +164,23 @@ export function WarehouseHeader({
         </View>
         <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
           <MaterialCommunityIcons
-            name="bell-outline"
+            name={notificationCount > 0 ? "bell-badge" : "bell-outline"}
             size={30}
             color={foreground}
           />
           {notificationCount > 0 && (
-            <View style={[styles.notificationBadge, { backgroundColor: colors.error, borderColor: headerColor }]}>
+            <View style={[
+              styles.notificationBadge,
+              { backgroundColor: colors.error, borderColor: headerColor },
+              unreadUpdate && styles.notificationBadgePulse,
+            ]}>
               <Text style={styles.notificationBadgeText}>
                 {notificationCount > 99 ? '99+' : notificationCount}
               </Text>
             </View>
+          )}
+          {!socketConnected && (
+            <View style={[styles.socketIndicator, { backgroundColor: colors.error }]} />
           )}
         </TouchableOpacity>
       </View>
@@ -291,6 +329,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 900,
     lineHeight: 14,
+  },
+  notificationBadgePulse: {
+    transform: [{ scale: 1.15 }],
+  },
+  socketIndicator: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
   },
   logoWrapper: {
     position: 'relative',

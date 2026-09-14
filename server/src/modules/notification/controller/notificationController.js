@@ -1,5 +1,6 @@
 const { getPool } = require('../../../config/database');
 const { getCompanyDbName } = require('../../../utils/companyDb');
+const { emitNotificationUpdate } = require('../../../utils/socketEvents');
 
 exports.getNotifications = async (req, res) => {
     const { user } = req.query;
@@ -46,6 +47,8 @@ exports.setAcknowledged = async (req, res) => {
         await transaction.commit();
 
         res.json({ success: true, acknowledged: insertResult.rowsAffected[0] > 0 });
+
+        emitNotificationUpdate('acknowledged', { receiver: user, rowId });
     } catch (error) {
         await transaction.rollback();
         console.error('Error acknowledgement: ', error);

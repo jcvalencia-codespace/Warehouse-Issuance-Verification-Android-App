@@ -898,7 +898,7 @@ exports.getMaterialUtilizationDonePivotDetails = async (req, res) => {
         const headerResult = await pool.request()
             .input('UsageNo', sql.Int, parsedUsageNo)
             .query(`SELECT USAGENO, FORMULANAME, FORMULATIONNO, VARIANTCODE, SHIFT, MACHINELINENO, USAGEDATE,
-                           ISSUANCENO, ENCODEDBY, CONTROLROOMOPERATOR, REVIEWEDBY, REMARKS
+                           ISSUANCENO, ENCODEDBY, CONTROLROOMOPERATOR, REVIEWEDBY, REMARKS, IS_DONE
                     FROM [PRODUCTION.USAGEHEADER] WHERE USAGENO = @UsageNo`);
 
         res.json({

@@ -24,15 +24,17 @@ export interface MaterialIssuanceDetailsRef {
   clear: () => void;
   refreshItemQuantities: () => Promise<void>;
   validate: () => boolean;
+  setItems: (items: MaterialIssuanceLineItem[]) => void;
 }
 
 interface MaterialIssuanceDetailsProps {
   value?: MaterialIssuanceLineItem[];
   onItemsChange?: (items: MaterialIssuanceLineItem[]) => void;
+  initialItems?: MaterialIssuanceLineItem[];
 }
 
 export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, MaterialIssuanceDetailsProps>(
-  ({ value, onItemsChange }, ref) => {
+  ({ value, onItemsChange, initialItems }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
@@ -59,6 +61,13 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
         setItems(value);
       }
     }, [value]);
+
+    useEffect(() => {
+      if (initialItems !== undefined) {
+        setItems(initialItems);
+        onItemsChange?.(initialItems);
+      }
+    }, [initialItems]);
 
     useEffect(() => {
       if (items.length > 0) {
@@ -229,6 +238,10 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
         setEditIndex(null);
         setRequiredError(false);
         onItemsChange?.([]);
+      },
+      setItems: (newItems: MaterialIssuanceLineItem[]) => {
+        setItems(newItems);
+        onItemsChange?.(newItems);
       },
       refreshItemQuantities: async () => {
         if (items.length === 0) return;

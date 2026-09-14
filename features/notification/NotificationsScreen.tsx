@@ -70,8 +70,14 @@ export function NotificationsScreen() {
     };
     socketService.onNotification(handler);
 
+    const updateHandler = () => {
+      fetchNotifications();
+    };
+    socketService.onNotificationUpdate(updateHandler);
+
     return () => {
       socketService.offNotification(handler);
+      socketService.offNotificationUpdate(updateHandler);
     };
   }, [user, fetchNotifications]);
 

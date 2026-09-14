@@ -1,6 +1,6 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { MaterialIssuancePayload, MaterialIssuancePostResponse, MaterialQuantityAllocation } from '../types/materialIssuance.types';
+import { MaterialIssuancePayload, MaterialIssuancePostResponse, MaterialIssuanceRequestDetail, MaterialIssuanceRequestHeader, MaterialQuantityAllocation } from '../types/materialIssuance.types';
 
 export type DropdownOption = {
   label: string;
@@ -89,19 +89,73 @@ export class MaterialIssuanceService {
       throw error;
     }
   }
-   async saveMaterialIssuanceRequest(payload: MaterialIssuancePayload, company?: string): Promise<MaterialIssuancePostResponse> {
+
+  async getMIRForEdit(company?: string): Promise<MaterialIssuanceRequestHeader[]> {
     try {
       if (!this.baseUrl) {
         throw new Error('API URL not configured');
       }
-      const response = await axios.put<MaterialIssuancePostResponse>(
-        `${this.baseUrl}/production-dept/material-issuance/save-material-issuance-request`,
-        payload,
+      const response = await axios.get<{ success: boolean; forEdit: MaterialIssuanceRequestHeader[] }>(
+        `${this.baseUrl}/production-dept/material-issuance/get-for-edit`,
         { params: company ? { company } : undefined }
       );
-      return response.data;
+      if (response.data.success) {
+        return response.data.forEdit;
+      }
+      return [];
     } catch (error) {
       throw error;
     }
   }
+
+  async getMIRDetailsForEdit(mirNo: string, company?: string): Promise<{ header: MaterialIssuanceRequestHeader; details: MaterialIssuanceRequestDetail[] }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; header: MaterialIssuanceRequestHeader; details: MaterialIssuanceRequestDetail[] }>(
+        `${this.baseUrl}/production-dept/material-issuance/get-details-for-edit/${encodeURIComponent(mirNo)}`,
+        { params: company ? { company } : undefined }
+      );
+      if (response.data.success) {
+        return { header: response.data.header, details: response.data.details };
+      }
+      return { header: {} as MaterialIssuanceRequestHeader, details: [] };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  
+    async saveMaterialIssuanceRequest(payload: MaterialIssuancePayload, company?: string): Promise<MaterialIssuancePostResponse> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.put<MaterialIssuancePostResponse>(
+                `${this.baseUrl}/production-dept/material-issuance/save-material-issuance-request`,
+                payload,
+                { params: company ? { company } : undefined }
+            );
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async updateMaterialIssuanceRequest(payload: MaterialIssuancePayload, company?: string): Promise<MaterialIssuancePostResponse> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.put<MaterialIssuancePostResponse>(
+                `${this.baseUrl}/production-dept/material-issuance/update-material-issuance-request`,
+                payload,
+                { params: company ? { company } : undefined }
+            );
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
 }

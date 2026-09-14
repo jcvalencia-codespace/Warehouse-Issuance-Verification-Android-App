@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { MaterialIssuanceService } from '../services/materialIssuanceService';
+import { MaterialIssuanceRequestHeader } from '../types/materialIssuance.types';
 
 export interface MaterialIssuanceHeaderRef {
   submit: () => void;
@@ -28,6 +29,7 @@ interface MaterialIssuanceHeaderProps {
   onSearchPress?: () => void;
   searchable?: boolean;
   mode?: 'create' | 'edit';
+  initialData?: MaterialIssuanceRequestHeader;
 }
 
 interface MaterialIssuanceFormData {
@@ -35,6 +37,7 @@ interface MaterialIssuanceFormData {
   shift: string;
   reviewedBy: string;
   dateCreated: Date;
+  remarks?: string;
 }
 
 const SHIFT_OPTIONS = [
@@ -59,16 +62,17 @@ type DropdownOption = {
 };
 
 export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, MaterialIssuanceHeaderProps>(
-  ({ onSubmit, onValidSubmit, onSearchPress, searchable = false, mode = 'create' }, ref) => {
+  ({ onSubmit, onValidSubmit, onSearchPress, searchable = false, mode = 'create', initialData }, ref) => {
     const scheme = useColorScheme();
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
 
     const [formData, setFormData] = useState<MaterialIssuanceFormData>({
-      mirNo: '',
-      shift: '',
-      reviewedBy: '',
-      dateCreated: new Date(),
+      mirNo: initialData?.MIRNO || '',
+      shift: initialData?.SHIFT || '',
+      reviewedBy: initialData?.REVIEWEDBY || '',
+      dateCreated: initialData?.DATECREATED ? new Date(initialData.DATECREATED) : new Date(),
+      remarks: initialData?.REMARKS || '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -147,6 +151,7 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
           shift: '',
           reviewedBy: '',
           dateCreated: new Date(),
+          remarks: '',
         }));
         setErrors({});
       },
@@ -164,7 +169,7 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
         setFormData((prev) => ({ ...prev, [field]: value }));
       },
       getField: (field: keyof MaterialIssuanceFormData) => {
-        return formData[field];
+        return formData[field] ?? '';
       },
     }));
 
@@ -287,6 +292,33 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
             </View>
           </View>
         </View>
+
+        {mode === 'edit' && formData.remarks ? (
+          <View style={styles.remarksSection}>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: colors.text }]}>Remarks</Text>
+              <MaterialCommunityIcons name="information" size={18} color={colors.error || '#ef4444'} />
+            </View>
+            <View
+              style={[
+                styles.remarksContainer,
+                {
+                  borderColor: colors.error || '#ef4444',
+                  backgroundColor: (colors.error || '#ef4444') + '10',
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={18}
+                color={colors.error || '#ef4444'}
+              />
+              <Text style={[styles.remarksText, { color: colors.text }]}>
+                {formData.remarks}
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -597,5 +629,23 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  remarksSection: {
+    marginTop: 16,
+  },
+  remarksContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 10,
+    padding: 12,
+    gap: 8,
+    borderWidth: 1,
+  },
+  remarksText: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'left',
+    lineHeight: 20,
   },
 });

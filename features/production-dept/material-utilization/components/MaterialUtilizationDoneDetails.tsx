@@ -21,11 +21,12 @@ interface MaterialUtilizationDoneDetailsProps {
   rows: MaterialUtilizationDonePivotRow[];
   rmTotalKgs?: RmTotalKgs | null;
   onBack: () => void;
+  onMarkAsDone?: () => void;
 }
 
 export const MaterialUtilizationDoneDetails: React.FC<
   MaterialUtilizationDoneDetailsProps
-> = ({ loading, header, rows, rmTotalKgs, onBack }) => {
+> = ({ loading, header, rows, rmTotalKgs, onBack, onMarkAsDone }) => {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? "light"];
 
@@ -312,6 +313,16 @@ export const MaterialUtilizationDoneDetails: React.FC<
         <Text style={[styles.headerBarTitle, { color: colors.text }]}>
           Done Utilization Details
         </Text>
+        {header?.IS_DONE !== 1 && onMarkAsDone ? (
+          <TouchableOpacity
+            onPress={onMarkAsDone}
+            activeOpacity={0.7}
+            style={[styles.headerDoneButton, { backgroundColor: colors.primary }]}
+          >
+            <MaterialCommunityIcons name="check" size={16} color="#fff" />
+            <Text style={styles.headerDoneButtonText}>Mark as Done</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {loading ? (
@@ -1836,6 +1847,20 @@ const styles = StyleSheet.create({
   headerBarTitle: {
     fontSize: 20,
     fontWeight: "700",
+  },
+  headerDoneButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginLeft: "auto",
+  },
+  headerDoneButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,

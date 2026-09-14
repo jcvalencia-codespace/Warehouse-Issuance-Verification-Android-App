@@ -1,6 +1,6 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { MaterialIssuanceRequestReviewDetail, MaterialIssuanceRequestReviewHeader } from '../types/materialIssuanceRequestReview.types';
+import { MaterialIssuanceRequestReviewDetail, MaterialIssuanceRequestReviewHeaderGroup } from '../types/materialIssuanceRequestReview.types';
 
 export class MaterialIssuanceRequestReviewService {
     private static instance: MaterialIssuanceRequestReviewService;
@@ -22,12 +22,12 @@ export class MaterialIssuanceRequestReviewService {
         return MaterialIssuanceRequestReviewService.instance;
     }
 
-    async getRequestHeaders(company?: string): Promise<MaterialIssuanceRequestReviewHeader[]> {
+    async getRequestHeaders(company?: string): Promise<MaterialIssuanceRequestReviewHeaderGroup[]> {
         try {
             if (!this.baseUrl) {
                 throw new Error('API URL not configured');
             }
-            const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestReviewHeader[] }>(
+            const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestReviewHeaderGroup[] }>(
                 `${this.baseUrl}/production-dept/material-issuance-request-review/get-request-header`,
                 { params: company ? { company } : undefined }
             );
@@ -40,14 +40,14 @@ export class MaterialIssuanceRequestReviewService {
         }
     }
 
-    async getRequestDetails(mirNo: string, company?: string): Promise<MaterialIssuanceRequestReviewDetail[]> {
+    async getRequestDetails(dateCreated: string, company?: string): Promise<MaterialIssuanceRequestReviewDetail[]> {
         try {
             if (!this.baseUrl) {
                 throw new Error('API URL not configured');
             }
             const response = await axios.get<{ success: boolean; data: MaterialIssuanceRequestReviewDetail[] }>(
-                `${this.baseUrl}/production-dept/material-issuance-request-review/get-request-details/${encodeURIComponent(mirNo)}`,
-                { params: company ? { company } : undefined }
+                `${this.baseUrl}/production-dept/material-issuance-request-review/get-request-details`,
+                { params: { company, dateCreated } }
             );
             if (response.data.success) {
                 return response.data.data;
@@ -74,6 +74,22 @@ export class MaterialIssuanceRequestReviewService {
         }
     }
 
+    async approveRequestsBulk(mirNos: string[], user?: string, company?: string): Promise<{ success: boolean; message: string }> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.put<{ success: boolean; message: string }>(
+                `${this.baseUrl}/production-dept/material-issuance-request-review/approve-request-bulk`,
+                { mirNos, user },
+                { params: company ? { company } : undefined }
+            );
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async rejectRequest(mirNo: string, user?: string, company?: string, remarks?: string): Promise<{ success: boolean; message: string }> {
         try {
             if (!this.baseUrl) {
@@ -82,6 +98,22 @@ export class MaterialIssuanceRequestReviewService {
             const response = await axios.put<{ success: boolean; message: string }>(
                 `${this.baseUrl}/production-dept/material-issuance-request-review/reject-request`,
                 { mirNo, user, remarks },
+                { params: company ? { company } : undefined }
+            );
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async rejectRequestsBulk(mirNos: string[], user?: string, company?: string, remarks?: string): Promise<{ success: boolean; message: string }> {
+        try {
+            if (!this.baseUrl) {
+                throw new Error('API URL not configured');
+            }
+            const response = await axios.put<{ success: boolean; message: string }>(
+                `${this.baseUrl}/production-dept/material-issuance-request-review/reject-request-bulk`,
+                { mirNos, user, remarks },
                 { params: company ? { company } : undefined }
             );
             return response.data;

@@ -9,21 +9,11 @@ import {
     useColorScheme,
     View,
 } from 'react-native';
-import { MaterialIssuanceRequestReviewHeader } from '../types/materialIssuanceRequestReview.types';
-
-type DetailItem = {
-    ITEMNMBR: string;
-    ITEMDESC?: string | null;
-    QUANTITY?: number;
-    UOFM?: string | null;
-    SERVEDBY?: string | null;
-    CREATEDBY?: string | null;
-    DATECREATED?: string | null;
-};
+import { MaterialIssuanceRequestReviewDetail, MaterialIssuanceRequestReviewHeaderGroup } from '../types/materialIssuanceRequestReview.types';
 
 interface MaterialIssuanceRequestDetailsProps {
-    header: MaterialIssuanceRequestReviewHeader | null;
-    details: DetailItem[];
+    header: MaterialIssuanceRequestReviewHeaderGroup | null;
+    details: MaterialIssuanceRequestReviewDetail[];
     loading: boolean;
     error: string | null;
 }
@@ -35,7 +25,7 @@ export function MaterialIssuanceRequestReviewDetails({ header, details, loading,
     const formatDateTime = (dateStr?: string | null) => {
         if (!dateStr) return '—';
         try {
-            return new Date(dateStr).toLocaleString();
+            return new Date(dateStr).toLocaleDateString();
         } catch {
             return dateStr;
         }
@@ -55,6 +45,7 @@ export function MaterialIssuanceRequestReviewDetails({ header, details, loading,
 
     const renderRequestInformation = () => {
         if (!header) return null;
+        const mirCount = (header.MIRNOS || '').split(',').map(s => s.trim()).filter(Boolean).length;
         return (
             <View
                 style={[
@@ -65,16 +56,15 @@ export function MaterialIssuanceRequestReviewDetails({ header, details, loading,
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
                     Request Information
                 </Text>
-                {renderMetaRow('MIR No.', header.MIRNO)}
-                {renderMetaRow('Shift', header.SHIFT)}
-                {renderMetaRow('For Review By', header.REVIEWEDBY)}
-                {renderMetaRow('Created By', header.CREATEDBY)}
+                {renderMetaRow('MIR No.', header.MIRNOS)}
+                {renderMetaRow('Requests Count', mirCount > 0 ? `${mirCount} request${mirCount > 1 ? 's' : ''}` : undefined)}
+                {renderMetaRow('Reviewed By', header.REVIEWEDBYS)}
                 {renderMetaRow('Date Created', formatDateTime(header.DATECREATED))}
             </View>
         );
     };
 
-    const renderDetailCard = ({ item }: { item: DetailItem }) => (
+    const renderDetailCard = ({ item }: { item: MaterialIssuanceRequestReviewDetail }) => (
         <View
             style={[
                 styles.detailCard,
@@ -93,6 +83,14 @@ export function MaterialIssuanceRequestReviewDetails({ header, details, loading,
                             numberOfLines={1}
                         >
                             {item.ITEMDESC}
+                        </Text>
+                    ) : null}
+                    {item.MIRNO ? (
+                        <Text
+                            style={[styles.detailItemDesc, { color: colors.textSecondary }]}
+                            numberOfLines={1}
+                        >
+                            {item.MIRNO}
                         </Text>
                     ) : null}
                 </View>

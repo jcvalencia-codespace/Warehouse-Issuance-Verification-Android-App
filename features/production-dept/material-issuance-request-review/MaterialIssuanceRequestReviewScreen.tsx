@@ -22,7 +22,7 @@ import { MaterialIssuanceRequestReviewDetails } from './components/MaterialIssua
 import { MaterialIssuanceRequestReviewService } from './services/materialIssuanceRequestReviewService';
 import {
     MaterialIssuanceRequestReviewDetail,
-    MaterialIssuanceRequestReviewHeader,
+    MaterialIssuanceRequestReviewHeaderGroup,
 } from './types/materialIssuanceRequestReview.types';
 
 interface MaterialIssuanceRequestReviewScreenProps {
@@ -34,12 +34,12 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
     const colors = Colors[scheme ?? 'light'];
     const { user } = useAuth();
 
-    const [requests, setRequests] = useState<MaterialIssuanceRequestReviewHeader[]>([]);
+    const [requests, setRequests] = useState<MaterialIssuanceRequestReviewHeaderGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
-    const [selectedRequest, setSelectedRequest] = useState<MaterialIssuanceRequestReviewHeader | null>(null);
+    const [selectedRequest, setSelectedRequest] = useState<MaterialIssuanceRequestReviewHeaderGroup | null>(null);
     const [details, setDetails] = useState<MaterialIssuanceRequestReviewDetail[]>([]);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [detailsError, setDetailsError] = useState<string | null>(null);
@@ -73,14 +73,14 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
     }, [fetchRequests, selectedRequest]);
 
     const handleSelectRequest = useCallback(
-        async (request: MaterialIssuanceRequestReviewHeader) => {
+        async (request: MaterialIssuanceRequestReviewHeaderGroup) => {
             setSelectedRequest(request);
             setDetails([]);
             setDetailsError(null);
             setDetailsLoading(true);
             try {
                 const data = await MaterialIssuanceRequestReviewService.getInstance().getRequestDetails(
-                    request.MIRNO,
+                    request.DATECREATED || '',
                     user?.COMPANY
                 );
                 setDetails(data);
@@ -106,17 +106,18 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
 
     const handleConfirmApprove = async () => {
         if (!selectedRequest) return;
+        const mirNos = (selectedRequest.MIRNOS || '').split(',').map(s => s.trim()).filter(Boolean);
         setApproveConfirmVisible(false);
         try {
-            const result = await MaterialIssuanceRequestReviewService.getInstance().approveRequest(
-                selectedRequest.MIRNO,
+            const result = await MaterialIssuanceRequestReviewService.getInstance().approveRequestsBulk(
+                mirNos,
                 user?.NAME || '',
                 user?.COMPANY
             );
             if (result.success) {
-                setSuccessMessage(`Request ${selectedRequest.MIRNO} approved successfully.`);
+                setSuccessMessage(`Request ${selectedRequest.MIRNOS} approved successfully.`);
                 setSuccessVisible(true);
-                setRequests((prev) => prev.filter((r) => r.MIRNO !== selectedRequest.MIRNO));
+                setRequests((prev) => prev.filter((r) => r.DATECREATED !== selectedRequest.DATECREATED));
                 handleBackToList();
             } else {
                 Alert.alert('Error', result.message || 'Failed to approve request.');
@@ -133,19 +134,19 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
 
     const handleConfirmReject = async (remarks: string) => {
         if (!selectedRequest) return;
+        const mirNos = (selectedRequest.MIRNOS || '').split(',').map(s => s.trim()).filter(Boolean);
         setRejectConfirmVisible(false);
         try {
-            const result = await MaterialIssuanceRequestReviewService.getInstance().rejectRequest(
-                selectedRequest.MIRNO,
+            const result = await MaterialIssuanceRequestReviewService.getInstance().rejectRequestsBulk(
+                mirNos,
                 user?.NAME || '',
                 user?.COMPANY,
                 remarks
             );
-            console.log(selectedRequest.MIRNO, remarks);
             if (result.success) {
-                setSuccessMessage(`Request ${selectedRequest.MIRNO} rejected successfully.`);
+                setSuccessMessage(`Request ${selectedRequest.MIRNOS} rejected successfully.`);
                 setSuccessVisible(true);
-                setRequests((prev) => prev.filter((r) => r.MIRNO !== selectedRequest.MIRNO));
+                setRequests((prev) => prev.filter((r) => r.DATECREATED !== selectedRequest.DATECREATED));
                 handleBackToList();
             } else {
                 Alert.alert('Error', result.message || 'Failed to reject request.');
@@ -163,7 +164,7 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
     const formatDateTime = (dateStr?: string | null) => {
         if (!dateStr) return '—';
         try {
-            return new Date(dateStr).toLocaleString();
+            return new Date(dateStr).toLocaleDateString();
         } catch {
             return dateStr;
         }
@@ -171,9 +172,8 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
 
     const filteredRequests = search.trim()
         ? requests.filter((r) =>
-            String(r.MIRNO ?? '').toLowerCase().includes(search.trim().toLowerCase()) ||
-            String(r.REVIEWEDBY ?? '').toLowerCase().includes(search.trim().toLowerCase()) ||
-            String(r.CREATEDBY ?? '').toLowerCase().includes(search.trim().toLowerCase())
+            String(r.MIRNOS ?? '').toLowerCase().includes(search.trim().toLowerCase()) ||
+            String(r.REVIEWEDBYS ?? '').toLowerCase().includes(search.trim().toLowerCase())
         )
         : requests;
 
@@ -191,7 +191,7 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>
-                    {selectedRequest ? selectedRequest.MIRNO : 'Request Review'}
+                    {selectedRequest ? selectedRequest.MIRNOS : 'Request Review'}
                 </Text>
                 <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
                     {selectedRequest
@@ -227,7 +227,9 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
         </View>
     );
 
-    const renderRequestCard = ({ item }: { item: MaterialIssuanceRequestReviewHeader }) => (
+    const renderRequestCard = ({ item }: { item: MaterialIssuanceRequestReviewHeaderGroup }) => {
+        const mirCount = (item.MIRNOS || '').split(',').map(s => s.trim()).filter(Boolean).length;
+        return (
         <TouchableOpacity
             style={[
                 styles.requestCard,
@@ -241,18 +243,15 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
                     <MaterialCommunityIcons name="file-document-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.requestBody}>
-                    <Text style={[styles.mirNo, { color: colors.text }]}>{item.MIRNO}</Text>
+                    <Text style={[styles.mirNo, { color: colors.text }]}>{item.MIRNOS}</Text>
+                    <Text style={[styles.requestMeta, { color: colors.textSecondary }]}>
+                        {mirCount} request{mirCount > 1 ? 's' : ''} pending review
+                    </Text>
                     <View style={styles.metaRow}>
                         <Text style={[styles.requestMeta, { color: colors.textSecondary }]}>
-                            Shift: {item.SHIFT || '—'}
-                        </Text>
-                        <Text style={[styles.requestMeta, { color: colors.textSecondary }]}>
-                            For Review By: {item.REVIEWEDBY || '—'}
+                            Reviewed By: {item.REVIEWEDBYS || '—'}
                         </Text>
                     </View>
-                    <Text style={[styles.requestMeta, { color: colors.textSecondary }]}>
-                        Requested By: {item.CREATEDBY || '—'}
-                    </Text>
                     <Text style={[styles.requestDate, { color: colors.textTertiary }]}>
                         Created: {formatDateTime(item.DATECREATED)}
                     </Text>
@@ -261,6 +260,7 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
             <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textTertiary} />
         </TouchableOpacity>
     );
+    };
 
     const renderList = () => {
         if (loading) {
@@ -326,7 +326,7 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
         return (
             <FlatList
                 data={filteredRequests}
-                keyExtractor={(item, index) => `${item.MIRNO}-${index}`}
+                keyExtractor={(item, index) => `${item.DATECREATED}-${index}`}
                 renderItem={renderRequestCard}
                 ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
                 contentContainerStyle={styles.listContent}
@@ -400,7 +400,7 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
             <ConfirmModal
                 visible={approveConfirmVisible}
                 title="Approve Request"
-                message={`Are you sure you want to approve request ${selectedRequest?.MIRNO}? This will mark it as approved.`}
+                message={`Are you sure you want to approve request ${selectedRequest?.MIRNOS}? This will mark it as approved.`}
                 iconName="check-circle-outline"
                 iconColor={colors.success}
                 cancelText="Cancel"
@@ -414,7 +414,7 @@ export default function MaterialIssuanceRequestReviewScreen({ onBack }: Material
                 remarksRequired={false}
                 title="Reject Request"
                 placeholder="Enter remarks here (optional)..."
-                message={`Are you sure you want to reject request ${selectedRequest?.MIRNO}? This will mark it as rejected.`}
+                message={`Are you sure you want to reject request ${selectedRequest?.MIRNOS}? This will mark it as rejected.`}
                 onConfirm={handleConfirmReject}
                 onCancel={() => setRejectConfirmVisible(false)}
             />
