@@ -1,6 +1,7 @@
 const sql = require('mssql');
 const { getPool } = require('../../../../config/database');
 const { getCompanyDbName } = require('../../../../utils/companyDb');
+const { emitMaterialUtilizationUpdate } = require('../../../../utils/socketEvents');
 const { getTagValue } = require('../../material-utilization-tag/controller/materialUtilizationTagController');
 
 function escapeXml(unsafe) {
@@ -494,6 +495,22 @@ exports.getAllowedReviewer = async (req, res) => {
     }
 }
 
+exports.getQaApprover = async (req, res) => {
+    try {
+        const company = 'GDB';
+        const dbName = getCompanyDbName(company);
+        const pool = await getPool(dbName);
+
+        const result = await pool.request()
+            .query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE DEPTCODE = 'QALAB' AND ACTIVE = 1`);
+
+        res.json({ success: true, qaApprover: result.recordset });
+    } catch (err) {
+        console.error('Error fetching QA Approver:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch QA Approver' });
+    }
+}
+
 exports.saveMaterialUtilization = async (req, res) => {
     try {
         const { company } = req.query;
@@ -947,5 +964,93 @@ exports.setComplete = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Failed to update usage header' });
+    }
+}
+
+exports.approveQaReview = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const { usageNo, qaName, remarks, user } = req.body || {};
+
+    if (!usageNo) {
+        return res.status(400).json({ success: false, message: 'usageNo is required' });
+    }
+
+    const transaction = new sql.Transaction(pool);
+
+    try {
+        await transaction.begin();
+
+        await transaction.request()
+            .input('usageNo', sql.Int, parseInt(usageNo, 10) || 0)
+            .input('qaName', sql.NVarChar, qaName || null)
+            .input('remarks', sql.NVarChar, remarks || null)
+            .input('user', sql.NVarChar, user || null)
+            .query(`UPDATE [PRODUCTION.USAGEHEADER]
+                    SET IS_APPROVED = 1, MODIFIEDBY = @user, DATEMODIFIED = GETDATE(),
+                        QA_NAME = @qaName, REMARKS = COALESCE(@remarks, REMARKS)
+                    WHERE USAGENO = @usageNo`);
+
+        await transaction.commit();
+
+        emitMaterialUtilizationUpdate('qa-approved', { usageNo, company });
+
+        res.json({ success: true, message: 'QA review approved successfully.' });
+    } catch (error) {
+        try {
+            if (transaction.active) {
+                await transaction.rollback();
+            }
+        } catch (rollbackError) {
+            console.error('Rollback failed:', rollbackError);
+        }
+        console.error('Error approving QA review:', error);
+        res.status(500).json({ success: false, message: 'Failed to approve QA review.' });
+    }
+}
+
+exports.rejectQaReview = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const { usageNo, qaName, remarks, user } = req.body || {};
+
+    if (!usageNo) {
+        return res.status(400).json({ success: false, message: 'usageNo is required' });
+    }
+
+    const transaction = new sql.Transaction(pool);
+
+    try {
+        await transaction.begin();
+
+        await transaction.request()
+            .input('usageNo', sql.Int, parseInt(usageNo, 10) || 0)
+            .input('qaName', sql.NVarChar, qaName || null)
+            .input('remarks', sql.NVarChar, remarks || null)
+            .input('user', sql.NVarChar, user || null)
+            .query(`UPDATE [PRODUCTION.USAGEHEADER]
+                    SET IS_APPROVED = 0, MODIFIEDBY = @user, DATEMODIFIED = GETDATE(),
+                        QA_NAME = @qaName, REMARKS = COALESCE(@remarks, REMARKS)
+                    WHERE USAGENO = @usageNo`);
+
+        await transaction.commit();
+
+        emitMaterialUtilizationUpdate('qa-rejected', { usageNo, company });
+
+        res.json({ success: true, message: 'QA review rejected successfully.' });
+    } catch (error) {
+        try {
+            if (transaction.active) {
+                await transaction.rollback();
+            }
+        } catch (rollbackError) {
+            console.error('Rollback failed:', rollbackError);
+        }
+        console.error('Error rejecting QA review:', error);
+        res.status(500).json({ success: false, message: 'Failed to reject QA review.' });
     }
 }

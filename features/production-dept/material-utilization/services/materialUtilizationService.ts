@@ -463,6 +463,25 @@ export class MaterialUtilizationService {
     }
   }
 
+  async getQaApprovers(): Promise<string[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; qaApprover?: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-qa-approver`,
+      );
+      if (response.data.success && response.data.qaApprover) {
+        return response.data.qaApprover
+          .map((r) => r.NAME)
+          .filter((name): name is string => typeof name === 'string' && name.trim().length > 0);
+      }
+      return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async setComplete(
     payload: {
       usageNo: number;
@@ -551,7 +570,45 @@ export class MaterialUtilizationService {
       const response = await axios.put<MaterialUtilizationPostResponse>(
         `${this.baseUrl}/production-dept/material-utilization/update-batching-material-utilization`,
         payload,
-        { params: company ? { company } : undefined }
+        { params: company ? { company } : undefined },
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async approveQaReview(
+    payload: { usageNo: number; qaName: string; remarks?: string; user?: string },
+    company?: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.put<{ success: boolean; message?: string }>(
+        `${this.baseUrl}/production-dept/material-utilization/approve-qa-review`,
+        payload,
+        { params: company ? { company } : undefined },
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async rejectQaReview(
+    payload: { usageNo: number; qaName: string; remarks?: string; user?: string },
+    company?: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.put<{ success: boolean; message?: string }>(
+        `${this.baseUrl}/production-dept/material-utilization/reject-qa-review`,
+        payload,
+        { params: company ? { company } : undefined },
       );
       return response.data;
     } catch (error) {

@@ -39,7 +39,7 @@ const corsOptions = {
       callback(null, true);
     } else {
       // For development, log and allow anyway (remove in production)
-      console.log(`CORS: Allowing request from origin: ${origin}`);
+      // console.log(`CORS: Allowing request from origin: ${origin}`);
       callback(null, true);
     }
   },

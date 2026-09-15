@@ -12,19 +12,24 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialUtilizationService } from "../services/materialUtilizationService";
 
 interface MaterialUtilizationForQaReviewProps {
   onBack: () => void;
   onRecordPress: (record: any) => void;
+  company?: string;
+  onUpdated?: () => void;
 }
 
 export const MaterialUtilizationForQaReview: React.FC<
   MaterialUtilizationForQaReviewProps
-> = ({ onBack, onRecordPress }) => {
+> = ({ onBack, onRecordPress, company, onUpdated }) => {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? "light"];
   const { user } = useAuth();
+
+  const effectiveCompany = company ?? user?.COMPANY;
 
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,7 +40,7 @@ export const MaterialUtilizationForQaReview: React.FC<
     try {
       const result =
         await MaterialUtilizationService.getInstance().getMaterialUtilizationForQaReviewLists(
-          user?.COMPANY,
+          effectiveCompany,
         );
       setData(result || []);
     } catch (error) {
@@ -48,7 +53,7 @@ export const MaterialUtilizationForQaReview: React.FC<
 
   useEffect(() => {
     load();
-  }, [user?.COMPANY]);
+  }, [effectiveCompany]);
 
   const formatDateDisplay = (dateValue: string | Date): string => {
     if (!dateValue) return "—";

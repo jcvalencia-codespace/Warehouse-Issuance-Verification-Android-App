@@ -10,10 +10,11 @@ import {
   Text,
   TouchableOpacity,
   useColorScheme,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialUtilizationService } from "../services/materialUtilizationService";
+import { MaterialUtilizationQaReviewModal } from "./MaterialUtilizationQaReviewModal";
 
 interface QaReviewBaseItem {
   ROWID: number;
@@ -27,18 +28,27 @@ interface QaReviewBaseItem {
 interface MaterialUtilizationQaReviewDetailsProps {
   usageNo: number;
   onBack: () => void;
+  company?: string;
+  userName?: string;
+  onUpdated?: () => void;
 }
 
 export const MaterialUtilizationQaReviewDetails: React.FC<
   MaterialUtilizationQaReviewDetailsProps
-> = ({ usageNo, onBack }) => {
+> = ({ usageNo, onBack, company, userName, onUpdated }) => {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? "light"];
   const { user } = useAuth();
 
+  const effectiveCompany = company ?? user?.COMPANY;
+  const effectiveUserName = userName ?? user?.NAME;
+
   const [header, setHeader] = useState<any | null>(null);
   const [baseDetails, setBaseDetails] = useState<QaReviewBaseItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [qaReviewModalVisible, setQaReviewModalVisible] = useState(false);
+  const [qaReviewAction, setQaReviewAction] = useState<"approve" | "reject">("approve");
 
   const load = async () => {
     if (!usageNo) return;
@@ -46,7 +56,7 @@ export const MaterialUtilizationQaReviewDetails: React.FC<
     try {
       const result =
         await MaterialUtilizationService.getInstance().getMaterialUtilizationDetailsForPosting(
-          user?.COMPANY,
+          effectiveCompany,
           usageNo,
         );
       setHeader(result.header || null);
@@ -62,7 +72,7 @@ export const MaterialUtilizationQaReviewDetails: React.FC<
 
   useEffect(() => {
     load();
-  }, [usageNo, user?.COMPANY]);
+  }, [usageNo, effectiveCompany]);
 
   const formatDate = (value: any) => {
     if (!value) return "-";
@@ -83,6 +93,16 @@ export const MaterialUtilizationQaReviewDetails: React.FC<
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  };
+
+  const handleApprove = () => {
+    setQaReviewAction("approve");
+    setQaReviewModalVisible(true);
+  };
+
+  const handleReject = () => {
+    setQaReviewAction("reject");
+    setQaReviewModalVisible(true);
   };
 
   const nonDosingItems = baseDetails.filter(
@@ -149,6 +169,52 @@ export const MaterialUtilizationQaReviewDetails: React.FC<
         <Text style={[styles.headerBarTitle, { color: colors.text }]}>
           QA Review Details
         </Text>
+        <View style={styles.headerActionButtons}>
+          <TouchableOpacity
+            style={[
+              styles.headerActionButton,
+              { backgroundColor: colors.success + "14" },
+            ]}
+            onPress={handleApprove}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="check-circle-outline"
+              size={20}
+              color={colors.success}
+            />
+             <Text
+              style={[
+                styles.headerActionButtonText,
+                { color: colors.success, textAlign: "center" },
+              ]}
+            >
+              Approve
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.headerActionButton,
+              { backgroundColor: colors.error + "14" },
+            ]}
+            onPress={handleReject}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="close-circle-outline"
+              size={20}
+              color={colors.error}
+            />
+            <Text
+              style={[
+                styles.headerActionButtonText,
+                { color: colors.error, textAlign: "center" },
+              ]}
+            >
+              Reject
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
@@ -420,6 +486,19 @@ export const MaterialUtilizationQaReviewDetails: React.FC<
           )}
         </ScrollView>
       )}
+
+      <MaterialUtilizationQaReviewModal
+        visible={qaReviewModalVisible}
+        usageNo={usageNo}
+        company={effectiveCompany}
+        userName={effectiveUserName}
+        action={qaReviewAction}
+        onClose={() => setQaReviewModalVisible(false)}
+        onSuccess={() => {
+          onUpdated?.();
+          load();
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -555,5 +634,24 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+  },
+  headerActionButtons: {
+    flexDirection: "row",
+    gap: 8,
+    marginLeft: "auto",
+  },
+  headerActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    height: 36,
+    width: 200,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  headerActionButtonText: {
+    fontSize: 18,
+    fontWeight: "600",
   },
 });

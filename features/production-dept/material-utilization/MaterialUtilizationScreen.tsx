@@ -1181,11 +1181,16 @@ export default function MaterialUtilizationScreen({
         <MaterialUtilizationQaReviewDetails
           usageNo={selectedUsageNo ?? 0}
           onBack={handleBackFromQaReviewDetails}
+          company={user?.COMPANY}
+          userName={user?.NAME}
+          onUpdated={loadLists}
         />
       ) : showQaReviewLists ? (
         <MaterialUtilizationForQaReview
           onRecordPress={handleQaReviewRecordPress}
           onBack={handleBackFromQaReviewLists}
+          company={user?.COMPANY}
+          onUpdated={loadLists}
         />
       ) : showPostingLists ? (
         <MaterialUtilizationForPosting
