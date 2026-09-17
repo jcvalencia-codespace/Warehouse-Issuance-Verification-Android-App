@@ -22,6 +22,7 @@ router.get('/get-qa-approver', MaterialUtilizationController.getQaApprover);
 router.get('/get-next-batch-no', MaterialUtilizationController.getNextBatchNo);
 router.get('/get-material-utilization-details', MaterialUtilizationController.getMaterialUtilizationDetails);
 router.get('/get-material-utilization-details-for-posting', MaterialUtilizationController.getMaterialUtilizationDetailsForPosting);
+router.get('/get-material-utilization-for-edit', MaterialUtilizationController.getMaterialUtilizationForEdit);
 router.get('/get-material-utilization-dosing-machine-details', MaterialUtilizationController.getMaterialUtilizationDosingMachineDetails);
 router.post('/set-complete', MaterialUtilizationController.setComplete);
 router.post('/save-material-utilization', MaterialUtilizationController.saveMaterialUtilization);

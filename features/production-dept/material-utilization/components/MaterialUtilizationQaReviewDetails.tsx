@@ -496,7 +496,8 @@ export const MaterialUtilizationQaReviewDetails: React.FC<
         onClose={() => setQaReviewModalVisible(false)}
         onSuccess={() => {
           onUpdated?.();
-          load();
+          setQaReviewModalVisible(false);
+          onBack();
         }}
       />
     </SafeAreaView>

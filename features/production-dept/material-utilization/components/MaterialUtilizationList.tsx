@@ -22,6 +22,7 @@ interface MaterialUtilizationListProps {
   onAddNew: () => void;
   onShowDone?: () => void;
   onShowQaReview?: () => void;
+  onShowEdit?: () => void;
 }
 
 export const MaterialUtilizationList: React.FC<MaterialUtilizationListProps> = ({
@@ -34,6 +35,7 @@ export const MaterialUtilizationList: React.FC<MaterialUtilizationListProps> = (
   onAddNew,
   onShowDone,
   onShowQaReview,
+  onShowEdit,
 }) => {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
@@ -131,6 +133,22 @@ export const MaterialUtilizationList: React.FC<MaterialUtilizationListProps> = (
               />
             </TouchableOpacity>
           )}
+          {onShowEdit && (
+            <TouchableOpacity
+              style={[
+                styles.editFab,
+                { backgroundColor: colors.secondary + "14", borderColor: colors.secondary },
+              ]}
+              onPress={onShowEdit}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="pencil-outline"
+                size={22}
+                color={colors.secondary}
+              />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.addFab, { backgroundColor: colors.primary }]}
             onPress={onAddNew}
@@ -219,6 +237,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   qaReviewFab: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  editFab: {
     width: 48,
     height: 48,
     borderRadius: 24,

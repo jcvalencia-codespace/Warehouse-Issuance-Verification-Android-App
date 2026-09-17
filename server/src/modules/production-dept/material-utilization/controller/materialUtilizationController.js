@@ -511,6 +511,17 @@ exports.getQaApprover = async (req, res) => {
     }
 }
 
+exports.getMaterialUtilizationForEdit = async (req, res) => {
+    const { company } = req.query;
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const result = await pool.request()
+        .query(`SELECT * FROM [PRODUCTION.USAGEHEADER] WHERE IS_DONE = 0 AND POSTSTATUS = 0 AND IS_APPROVED = 0`)
+
+    res.json({ success: true, data: result.recordset });
+}
+
 exports.saveMaterialUtilization = async (req, res) => {
     try {
         const { company } = req.query;
@@ -986,11 +997,10 @@ exports.approveQaReview = async (req, res) => {
         await transaction.request()
             .input('usageNo', sql.Int, parseInt(usageNo, 10) || 0)
             .input('qaName', sql.NVarChar, qaName || null)
-            .input('remarks', sql.NVarChar, remarks || null)
             .input('user', sql.NVarChar, user || null)
             .query(`UPDATE [PRODUCTION.USAGEHEADER]
                     SET IS_APPROVED = 1, MODIFIEDBY = @user, DATEMODIFIED = GETDATE(),
-                        QA_NAME = @qaName, REMARKS = COALESCE(@remarks, REMARKS)
+                        APPROVALBY = @qaName, DATEAPPROVAL = GETDATE()
                     WHERE USAGENO = @usageNo`);
 
         await transaction.commit();
@@ -1034,7 +1044,9 @@ exports.rejectQaReview = async (req, res) => {
             .input('user', sql.NVarChar, user || null)
             .query(`UPDATE [PRODUCTION.USAGEHEADER]
                     SET IS_APPROVED = 0, MODIFIEDBY = @user, DATEMODIFIED = GETDATE(),
-                        QA_NAME = @qaName, REMARKS = COALESCE(@remarks, REMARKS)
+                        APPROVALBY = @qaName, DATEAPPROVAL = GETDATE(),
+                        POSTSTATUS = 0,
+                        APPROVALREMARKS = COALESCE(@remarks, APPROVALREMARKS)
                     WHERE USAGENO = @usageNo`);
 
         await transaction.commit();

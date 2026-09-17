@@ -27,6 +27,7 @@ import { MaterialUtilizationDetailsUpdate } from "./components/MaterialUtilizati
 import { MaterialUtilizationDoneDetails } from "./components/MaterialUtilizationDoneDetails";
 import { MaterialUtilizationDoneLists } from "./components/MaterialUtilizationDoneLists";
 import { MaterialUtilizationDoneModal } from "./components/MaterialUtilizationDoneModal";
+import { MaterialUtilizationEdit } from "./components/MaterialUtilizationEdit";
 import { MaterialUtilizationForPosting } from "./components/MaterialUtilizationForPosting";
 import { MaterialUtilizationForQaReview } from "./components/MaterialUtilizationForQaReview";
 import { MaterialUtilizationQaReviewDetails } from "./components/MaterialUtilizationQaReviewDetails";
@@ -97,6 +98,7 @@ export default function MaterialUtilizationScreen({
 
   const [showQaReviewLists, setShowQaReviewLists] = useState(false);
   const [showQaReviewDetails, setShowQaReviewDetails] = useState(false);
+  const [showEditLists, setShowEditLists] = useState(false);
 
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -787,6 +789,30 @@ export default function MaterialUtilizationScreen({
     setShowQaReviewLists(true);
   };
 
+  const handleShowEditLists = () => {
+    setShowForm(false);
+    setShowPostingLists(false);
+    setShowQaReviewLists(false);
+    setShowDoneLists(false);
+    setShowEditLists(true);
+  };
+
+  const handleBackFromEditLists = () => {
+    setShowEditLists(false);
+  };
+
+  const handleEditRecordPress = (record: any) => {
+    setShowEditLists(false);
+    setSelectedUsageNo(Number(record.USAGENO));
+    setShowForm(true);
+    setShowBatchLists(false);
+    setShowBatchDetails(false);
+    setIsPosting(false);
+    setDetailViewRecord(null);
+    setDetailLineItems([]);
+    setItems([]);
+  };
+
   const handleQaReviewRecordPress = (record: any) => {
     setShowQaReviewLists(false);
     setSelectedUsageNo(Number(record.USAGENO));
@@ -1202,23 +1228,31 @@ export default function MaterialUtilizationScreen({
           onBack={() => setShowPostingLists(false)}
           onAddNew={handleAddNew}
         />
+      ) : showEditLists ? (
+        <MaterialUtilizationEdit
+          onRecordPress={handleEditRecordPress}
+          onBack={handleBackFromEditLists}
+          company={user?.COMPANY}
+          onUpdated={loadLists}
+        />
       ) : showDoneLists ? (
         <MaterialUtilizationDoneLists
           onBack={handleBackToMainFromDoneLists}
           onRecordPress={handleDoneRecordPress}
         />
       ) : (
-         <MaterialUtilizationList
-           data={lists}
-           loading={listsLoading}
-           search={search}
-           onSearchChange={setSearch}
-           onRecordPress={handleRecordPress}
-           onBack={onBack || (() => {})}
-           onAddNew={handleAddNew}
-           onShowDone={handleShowDoneLists}
-           onShowQaReview={handleShowQaReviewLists}
-         />
+          <MaterialUtilizationList
+            data={lists}
+            loading={listsLoading}
+            search={search}
+            onSearchChange={setSearch}
+            onRecordPress={handleRecordPress}
+            onBack={onBack || (() => {})}
+            onAddNew={handleAddNew}
+            onShowDone={handleShowDoneLists}
+            onShowQaReview={handleShowQaReviewLists}
+            onShowEdit={handleShowEditLists}
+          />
       )}
 
       <ConfirmModal
