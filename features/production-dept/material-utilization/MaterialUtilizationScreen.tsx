@@ -807,7 +807,8 @@ export default function MaterialUtilizationScreen({
     setShowForm(true);
     setShowBatchLists(false);
     setShowBatchDetails(false);
-    setIsPosting(false);
+    setIsPosting(true);
+    setPendingPostStatus(1);
     setDetailViewRecord(null);
     setDetailLineItems([]);
     setItems([]);
@@ -862,6 +863,7 @@ export default function MaterialUtilizationScreen({
           setIf('variant', header?.VARIANTCODE);
           setIf('formulationNo', header?.FORMULATIONNO);
           setIf('remarks', header?.REMARKS);
+          setIf('approvalRemarks', header?.APPROVALREMARKS);
         }
 
         if (result.details && result.details.length > 0) {

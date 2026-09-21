@@ -9,6 +9,7 @@ export interface MaterialUtilizationFormData {
   formulationNo: string;
   batchNo: number;
   remarks: string;
+  approvalRemarks?: string;
   transType: number;
 }
 
@@ -150,7 +151,7 @@ export interface MaterialUtilizationHeaderRef {
   refreshusageNo: () => Promise<void>;
   setField: (field: keyof MaterialUtilizationFormData, value: string | number) => void;
   setPostStatus: (value: number) => void;
-  getField: (field: keyof MaterialUtilizationFormData) => string | number;
+  getField: (field: keyof MaterialUtilizationFormData) => string | number | undefined;
 }
 
 export interface MaterialUtilizationDetailsRef {

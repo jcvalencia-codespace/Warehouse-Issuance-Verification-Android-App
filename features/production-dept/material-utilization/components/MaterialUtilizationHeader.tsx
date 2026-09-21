@@ -654,38 +654,65 @@ export const MaterialUtilizationHeader = forwardRef<MaterialUtilizationHeaderRef
           </View>
         </View>
 
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <Text style={[styles.label, { color: colors.text }]}>Remarks</Text>
+        {formData.approvalRemarks ? (
+          <View style={styles.remarksSection}>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: colors.text }]}>Remarks</Text>
+              <MaterialCommunityIcons name="information" size={18} color={colors.error || '#ef4444'} />
+            </View>
+            <View
+              style={[
+                styles.remarksContainer,
+                {
+                  borderColor: colors.error || '#ef4444',
+                  backgroundColor: (colors.error || '#ef4444') + '10',
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={18}
+                color={colors.error || '#ef4444'}
+              />
+              <Text style={[styles.remarksText, { color: colors.text }]}>
+                {formData.approvalRemarks}
+              </Text>
+            </View>
           </View>
-          <View
-            style={[
-              styles.inputContainer,
-              {
-                borderColor: colors.cardBorder,
-                backgroundColor: colors.background,
-                height: 80,
-                alignItems: 'flex-start',
-              },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name="text"
-              size={20}
-              color={colors.textSecondary}
-              style={[styles.inputIcon, { marginTop: 8 }]}
-            />
-            <TextInput
-              style={[styles.input, { color: colors.text, height: 72 }]}
-              value={formData.remarks}
-              placeholder="Enter remarks"
-              placeholderTextColor={colors.textTertiary}
-              onChangeText={(text) => updateField('remarks', text)}
-              multiline
-              textAlignVertical="top"
-            />
+        ) : (
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: colors.text }]}>Remarks</Text>
+            </View>
+            <View
+              style={[
+                styles.inputContainer,
+                {
+                  borderColor: colors.cardBorder,
+                  backgroundColor: colors.background,
+                  height: 80,
+                  alignItems: 'flex-start',
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="text"
+                size={20}
+                color={colors.textSecondary}
+                style={[styles.inputIcon, { marginTop: 8 }]}
+              />
+              <TextInput
+                style={[styles.input, { color: colors.text, height: 72 }]}
+                value={formData.remarks}
+                placeholder="Enter remarks"
+                placeholderTextColor={colors.textTertiary}
+                onChangeText={(text) => updateField('remarks', text)}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
           </View>
-        </View>
+        )}
       <DatePickerModal
         visible={showDatePicker}
         mode="start"
@@ -849,5 +876,22 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  remarksSection: {
+    marginBottom: 16,
+  },
+  remarksContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  remarksText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

@@ -246,6 +246,7 @@ export const MaterialUtilizationQaReviewModal: React.FC<
                         setQaNameError("");
                       }}
                       autoCapitalize="none"
+                      readOnly
                     />
                     <TouchableOpacity
                       style={[styles.scanButton, { backgroundColor: colors.primary }]}
