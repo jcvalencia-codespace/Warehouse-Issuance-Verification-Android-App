@@ -633,6 +633,26 @@ export class MaterialUtilizationService {
       throw error;
     }
   }
+
+  async unpostMaterialUtilization(
+    usageNo: number,
+    company?: string,
+    modifiedBy?: string,
+  ): Promise<{ success: boolean; message?: string; rowsAffected?: number }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.post<{ success: boolean; message?: string; rowsAffected?: number }>(
+        `${this.baseUrl}/production-dept/material-utilization/mark-undone`,
+        { usageNo, modifiedBy },
+        { params: company ? { company } : undefined },
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 

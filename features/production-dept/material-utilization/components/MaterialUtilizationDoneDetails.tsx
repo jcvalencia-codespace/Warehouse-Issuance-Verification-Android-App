@@ -1,4 +1,5 @@
 ﻿import { Colors } from "@/constants/theme";
+import { useAuth } from "@/features/auth/context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useRef, useState } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
@@ -22,13 +23,17 @@ interface MaterialUtilizationDoneDetailsProps {
   rmTotalKgs?: RmTotalKgs | null;
   onBack: () => void;
   onMarkAsDone?: () => void;
+  onUnpost?: () => void;
 }
 
 export const MaterialUtilizationDoneDetails: React.FC<
   MaterialUtilizationDoneDetailsProps
-> = ({ loading, header, rows, rmTotalKgs, onBack, onMarkAsDone }) => {
+> = ({ loading, header, rows, rmTotalKgs, onBack, onMarkAsDone, onUnpost }) => {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? "light"];
+  const { user, isAdmin } = useAuth();
+
+  const canUnpost = isAdmin || user?.NAME === "Joenas De Guzman";
 
   const {
     nonDosingRows,
@@ -321,6 +326,19 @@ export const MaterialUtilizationDoneDetails: React.FC<
           >
             <MaterialCommunityIcons name="check" size={16} color="#fff" />
             <Text style={styles.headerDoneButtonText}>Mark as Done</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {onUnpost && canUnpost && header?.IS_DONE !== 0 ? (
+          <TouchableOpacity onPress={onUnpost} activeOpacity={0.7} style={[styles.headerDoneButton, { borderWidth: 1, borderColor: colors.error, backgroundColor: colors.error + "10" }]}>
+            <MaterialCommunityIcons
+              name="close-circle-outline"
+              size={18}
+              color={colors.error}
+            />
+            <Text style={[styles.headerDoneButtonText, { color: colors.error }]}>
+              Mark Undone
+            </Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -821,7 +839,7 @@ export const MaterialUtilizationDoneDetails: React.FC<
                           </Text>
                         </View>
                       ))}
-                      
+
                       <View
                         style={[
                           styles.cell,

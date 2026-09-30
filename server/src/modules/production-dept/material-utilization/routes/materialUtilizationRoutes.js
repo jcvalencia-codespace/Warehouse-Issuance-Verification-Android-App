@@ -25,6 +25,7 @@ router.get('/get-material-utilization-details-for-posting', MaterialUtilizationC
 router.get('/get-material-utilization-for-edit', MaterialUtilizationController.getMaterialUtilizationForEdit);
 router.get('/get-material-utilization-dosing-machine-details', MaterialUtilizationController.getMaterialUtilizationDosingMachineDetails);
 router.post('/set-complete', MaterialUtilizationController.setComplete);
+router.post('/mark-undone', MaterialUtilizationController.markUndone);
 router.post('/save-material-utilization', MaterialUtilizationController.saveMaterialUtilization);
 router.post('/save-batching-material-utilization', MaterialUtilizationController.saveBatchingMaterialUtilization);
 router.put('/update-batching-material-utilization', MaterialUtilizationController.updateBatchingMaterialUtilization);

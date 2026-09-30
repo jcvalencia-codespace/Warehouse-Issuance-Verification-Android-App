@@ -135,6 +135,7 @@ export default function MaterialUtilizationScreen({
   >([]);
   const [doneDetailsRmTotalKgs, setDoneDetailsRmTotalKgs] =
     useState<RmTotalKgs | null>(null);
+  const [unpostConfirmVisible, setUnpostConfirmVisible] = useState(false);
 
   const handleClear = () => {
     setClearConfirmVisible(true);
@@ -939,6 +940,37 @@ export default function MaterialUtilizationScreen({
     setShowDoneLists(true);
   };
 
+  const handleUnpost = () => {
+    setUnpostConfirmVisible(true);
+  };
+
+  const handleConfirmUnpost = async () => {
+    setUnpostConfirmVisible(false);
+    try {
+      const result = await MaterialUtilizationService.getInstance().unpostMaterialUtilization(
+        selectedUsageNo ?? 0,
+        user?.COMPANY,
+        user?.NAME || "",
+      );
+      if (result.success) {
+        setSuccessMessage("Material utilization unposted successfully.");
+        setSuccessVisible(true);
+        setShowDoneDetails(false);
+        setShowDoneLists(true);
+        loadLists();
+      } else {
+        Alert.alert("Error", result.message || "Failed to unpost material utilization.");
+      }
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to unpost material utilization.",
+      );
+    }
+  };
+
   return (
     <SafeAreaView
       edges={["top", "bottom"]}
@@ -1204,6 +1236,7 @@ export default function MaterialUtilizationScreen({
           rmTotalKgs={doneDetailsRmTotalKgs}
           onBack={handleBackFromDoneDetails}
           onMarkAsDone={handleMarkAsDone}
+          onUnpost={handleUnpost}
         />
       ) : showQaReviewDetails ? (
         <MaterialUtilizationQaReviewDetails
@@ -1316,6 +1349,18 @@ export default function MaterialUtilizationScreen({
         confirmText="Update"
         onConfirm={handleConfirmUpdateDetailSave}
         onCancel={() => setUpdateConfirmVisible(false)}
+      />
+
+      <ConfirmModal
+        visible={unpostConfirmVisible}
+        title="Unpost Material Utilization"
+        message="Are you sure you want to unpost this material utilization record? This will reset it back to an editable state."
+        iconName="close-circle-outline"
+        iconColor={colors.error}
+        cancelText="Cancel"
+        confirmText="Unpost"
+        onConfirm={handleConfirmUnpost}
+        onCancel={() => setUnpostConfirmVisible(false)}
       />
 
       <SuccessModal

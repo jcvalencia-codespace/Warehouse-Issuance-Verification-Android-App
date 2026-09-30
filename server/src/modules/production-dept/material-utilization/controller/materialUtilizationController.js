@@ -953,7 +953,7 @@ exports.setComplete = async (req, res) => {
 
     const setCompleteActionQuery = `UPDATE [PRODUCTION.USAGEHEADER]
         SET ISSUANCENO = @issuanceNo, ENCODEDBY = @encodedBy, CONTROLROOMOPERATOR = @controlRoomOperator, 
-        REVIEWEDBY = @reviewedBy, REMARKS = @remarks, IS_DONE = 1, MODIFIEDBY = @encodedBy, DATEMODIFIED = GETDATE()
+            REVIEWEDBY = @reviewedBy, REMARKS = @remarks, IS_DONE = 1, MODIFIEDBY = @encodedBy, DATEMODIFIED = GETDATE()
         WHERE USAGENO = @usageNo`;
 
     try {
@@ -975,6 +975,49 @@ exports.setComplete = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Failed to update usage header' });
+    }
+}
+
+exports.markUndone = async (req, res) => {
+    const { company } = req.query;
+    const { usageNo, modifiedBy } = req.body;
+
+    if (!usageNo) {
+        return res.status(400).json({ success: false, message: 'usageNo is required' });
+    }
+
+    const dbName = getCompanyDbName(company);
+    const pool = await getPool(dbName);
+
+    const unpostQuery = `UPDATE [PRODUCTION.USAGEHEADER]
+        SET IS_DONE = 0, ISSUANCENO = NULL, ENCODEDBY = NULL, CONTROLROOMOPERATOR = NULL,
+            MODIFIEDBY = @modifiedBy, DATEMODIFIED = GETDATE()
+        WHERE USAGENO = @usageNo`;
+    const auditLogQuery = `INSERT INTO [SYSTEM.AUDITTRAIL] (TRANSDATE, DOCNUM, LOCNCODE, SUBMODULENAME, REASON, USERNAME)
+                           VALUES (GETDATE(), @usageNo, 'OPPROD', 'Material Utilization', 'Mark Undone', @modifiedBy)`;
+
+    try {
+        const result = await pool.request()
+            .input('usageNo', sql.Int, parseInt(usageNo, 10) || 0)
+            .input('modifiedBy', sql.NVarChar, modifiedBy || null)
+            .query(unpostQuery);
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({ success: false, message: 'No matching usage record found' });
+        }
+
+        
+        await pool.request()
+            .input('usageNo', sql.Int, parseInt(usageNo, 10) || 0)
+            .input('modifiedBy', sql.NVarChar, modifiedBy || null)
+            .query(auditLogQuery);
+
+        emitMaterialUtilizationUpdate('unposted', { usageNo, company });
+
+        res.json({ success: true, rowsAffected: result.rowsAffected[0] });
+    } catch (err) {
+        console.error('Error unposting material utilization:', err);
+        res.status(500).json({ success: false, message: 'Failed to unpost material utilization' });
     }
 }
 
@@ -1065,4 +1108,4 @@ exports.rejectQaReview = async (req, res) => {
         console.error('Error rejecting QA review:', error);
         res.status(500).json({ success: false, message: 'Failed to reject QA review.' });
     }
-}
+}    
