@@ -9,21 +9,24 @@ exports.getRequestsHeaderForReview = async (req, res) => {
     const pool = await getPool(dbName);
 
     const query = `SELECT CAST(H.DATECREATED AS DATE) AS DATECREATED,
-                        (SELECT STRING_AGG(MIRNO, ', ')
+                        (SELECT STUFF((
+                            SELECT ', ' + MIRNO
                             FROM [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] H2
                             WHERE CAST(H2.DATECREATED AS DATE) = CAST(H.DATECREATED AS DATE)
-                            AND H2.POSTSTATUS = 0 AND H2.IS_APPROVED IS NULL) AS MIRNOS,
-                        (SELECT STRING_AGG(REVIEWEDBY, ', ')
-                            FROM (
-                                SELECT DISTINCT REVIEWEDBY
-                                FROM [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] H3
-                                WHERE CAST(H3.DATECREATED AS DATE) = CAST(H.DATECREATED AS DATE)
-                                AND H3.POSTSTATUS = 0 AND H3.IS_APPROVED IS NULL
-                            ) X) AS REVIEWEDBYS
-                    FROM [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] H
-                    WHERE H.POSTSTATUS = 0 AND H.IS_APPROVED IS NULL
-                    GROUP BY CAST(H.DATECREATED AS DATE)
-                    ORDER BY CAST(H.DATECREATED AS DATE)`;
+                            AND H2.POSTSTATUS = 0 AND H2.IS_APPROVED IS NULL
+                            FOR XML PATH('')), 1, 2, '')
+                        ) AS MIRNOS,
+                        (SELECT STUFF((
+                            SELECT DISTINCT ', ' + REVIEWEDBY
+                            FROM [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] H3
+                            WHERE CAST(H3.DATECREATED AS DATE) = CAST(H.DATECREATED AS DATE)
+                            AND H3.POSTSTATUS = 0 AND H3.IS_APPROVED IS NULL
+                            FOR XML PATH('')), 1, 2, '')
+                        ) AS REVIEWEDBYS
+                        FROM [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] H
+                        WHERE H.POSTSTATUS = 0 AND H.IS_APPROVED IS NULL
+                        GROUP BY CAST(H.DATECREATED AS DATE)
+                        ORDER BY CAST(H.DATECREATED AS DATE)`;
 
     try {
         const result = await pool.request().query(query);
