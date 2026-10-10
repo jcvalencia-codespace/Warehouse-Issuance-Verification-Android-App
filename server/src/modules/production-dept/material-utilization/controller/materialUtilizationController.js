@@ -71,7 +71,7 @@ exports.getNextUsageRefNo = async (req, res) => {
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
     try {
-        const result = await pool.request().query('SELECT TOP 1 USAGENO + 1 as USAGENO FROM [PRODUCTION.USAGEHEADER] ORDER BY DATECREATED DESC');
+        const result = await pool.request().query('SELECT ISNULL(MAX(USAGENO), 0) + 1 AS USAGENO FROM [PRODUCTION.USAGEHEADER]');
         res.json({ success: true, usageNo: result.recordset[0]?.USAGENO });
     } catch (error) {
         console.error('Error fetching next usage no:', error);
@@ -502,7 +502,7 @@ exports.getQaApprover = async (req, res) => {
         const pool = await getPool(dbName);
 
         const result = await pool.request()
-            .query(`SELECT NAME FROM [SYSTEM.USERACCOUNT] WHERE DEPTCODE = 'QALAB' AND ACTIVE = 1`);
+            .query(`SELECT NAME FROM [SYSTEM.MOBILEAPPNAMES] WHERE ACTIVE = 1`);
 
         res.json({ success: true, qaApprover: result.recordset });
     } catch (err) {

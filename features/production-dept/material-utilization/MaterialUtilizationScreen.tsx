@@ -91,6 +91,7 @@ export default function MaterialUtilizationScreen({
   const [isUpdating, setIsUpdating] = useState(false);
   const [pendingPostStatus, setPendingPostStatus] = useState<number | null>(null);
   const [isPosting, setIsPosting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [showPostingLists, setShowPostingLists] = useState(false);
   const [postingLists, setPostingLists] = useState<any[]>([]);
   const [postingListsLoading, setPostingListsLoading] = useState(false);
@@ -162,6 +163,7 @@ export default function MaterialUtilizationScreen({
   const handleConfirmSubmit = async () => {
     if (!pendingHeader) return;
 
+    setSubmitting(true);
     try {
       const basePayload: MaterialUtilizationPayload = {
         usageDate: pendingHeader.usageDate,
@@ -189,9 +191,10 @@ export default function MaterialUtilizationScreen({
           user?.COMPANY || "",
         );
 
-      if (result.success) {
+       if (result.success) {
         setConfirmVisible(false);
         setPendingPostStatus(null);
+        setSubmitting(false);
         setSuccessMessage(
           result.message || "Material utilization saved successfully.",
         );
@@ -202,12 +205,14 @@ export default function MaterialUtilizationScreen({
         setShowForm(false);
         loadLists();
       } else {
+        setSubmitting(false);
         Alert.alert(
           "Error",
           result.message || "Failed to submit material utilization.",
         );
       }
     } catch (error: any) {
+      setSubmitting(false);
       Alert.alert(
         "Error",
         error?.response?.data?.message ||
@@ -1308,11 +1313,12 @@ export default function MaterialUtilizationScreen({
         confirmText={isPosting
           ? (pendingPostStatus === 1 ? "Update and Post" : "Update")
           : (pendingPostStatus === 1 ? "Save and Post" : "Save")}
-        onConfirm={handleConfirmSubmit}
+         onConfirm={handleConfirmSubmit}
         onCancel={() => {
           setConfirmVisible(false);
           setPendingPostStatus(null);
         }}
+        disabled={submitting}
       />
 
       <ConfirmModal

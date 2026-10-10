@@ -9,6 +9,7 @@ import {
     Lock,
     LogOut,
     Shield,
+    Smartphone,
     User
 } from 'lucide-react-native';
 import { useState } from 'react';
@@ -112,6 +113,13 @@ export default function ProfileScreen() {
       title: 'Personal Information',
       subtitle: 'Update your profile details',
       onPress: () => router.push('/coming-soon'),
+    },
+    {
+      id: 'mobileAppNames',
+      icon: Smartphone,
+      title: 'Mobile App Names',
+      subtitle: 'Manage mobile app names',
+      onPress: () => router.push('/profile/mobile-app-names'),
     },
     {
       id: 'history',

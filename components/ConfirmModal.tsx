@@ -20,6 +20,7 @@ interface ConfirmModalProps {
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  disabled?: boolean;
 }
 
 export function ConfirmModal({
@@ -32,6 +33,7 @@ export function ConfirmModal({
   cancelText = 'Cancel',
   onConfirm,
   onCancel,
+  disabled = false,
 }: ConfirmModalProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
@@ -83,9 +85,14 @@ export function ConfirmModal({
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.confirmSubmit, { backgroundColor: iconColor }]}
+                style={[
+                  styles.confirmSubmit,
+                  { backgroundColor: iconColor },
+                  disabled && { opacity: 0.6 },
+                ]}
                 onPress={onConfirm}
                 activeOpacity={0.8}
+                disabled={disabled}
               >
                 <Text style={styles.confirmSubmitText}>{confirmText}</Text>
               </TouchableOpacity>
