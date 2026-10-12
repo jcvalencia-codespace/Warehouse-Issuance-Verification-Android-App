@@ -495,6 +495,23 @@ exports.getAllowedReviewer = async (req, res) => {
     }
 }
 
+exports.getAllowedQaName = async (req, res) => {
+    try {
+        const company = 'GDB';
+        const dbName = getCompanyDbName(company);
+        const pool = await getPool(dbName);
+
+        await pool.request()
+            .query(`SELECT NAME FROM [SYSTEM.MOBILEAPPNAMES] WHERE ACTIVE = 1 AND LOCNCODE = 'QALINE'`)
+            .then(result => {
+                res.json({ success: true, allowedQaName: result.recordset });
+            })
+    } catch (err) {
+        console.error('Error fetching allowed QA names:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch allowed QA names' });
+    }
+}
+
 exports.getQaApprover = async (req, res) => {
     try {
         const company = 'GDB';
@@ -502,7 +519,7 @@ exports.getQaApprover = async (req, res) => {
         const pool = await getPool(dbName);
 
         const result = await pool.request()
-            .query(`SELECT NAME FROM [SYSTEM.MOBILEAPPNAMES] WHERE ACTIVE = 1`);
+            .query(`SELECT NAME FROM [SYSTEM.MOBILEAPPNAMES] WHERE ACTIVE = 1 AND LOCNCODE = 'QALINE'`);
 
         res.json({ success: true, qaApprover: result.recordset });
     } catch (err) {
@@ -1006,7 +1023,7 @@ exports.markUndone = async (req, res) => {
             return res.status(404).json({ success: false, message: 'No matching usage record found' });
         }
 
-        
+
         await pool.request()
             .input('usageNo', sql.Int, parseInt(usageNo, 10) || 0)
             .input('modifiedBy', sql.NVarChar, modifiedBy || null)

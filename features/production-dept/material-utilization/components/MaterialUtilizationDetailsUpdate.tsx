@@ -52,6 +52,7 @@ export const MaterialUtilizationDetailsUpdate = forwardRef<MaterialUtilizationDe
     const [batchNo, setBatchNo] = useState('');
     const [randomSampled, setRandomSampled] = useState(0);
     const [qaName, setQaName] = useState('');
+    const [allowedQaNames, setAllowedQaNames] = useState<string[]>([]);
     const [weighedBy, setWeighedBy] = useState('');
     const [validatedBy, setValidatedBy] = useState('');
     const [items, setItems] = useState<MaterialUtilizationLineItem[]>(value ?? []);
@@ -82,6 +83,22 @@ export const MaterialUtilizationDetailsUpdate = forwardRef<MaterialUtilizationDe
       if (user?.COMPANY) {
         loadTagStatus();
       }
+    }, [user?.COMPANY]);
+
+    const loadAllowedQaNames = async () => {
+      try {
+        const data = await MaterialUtilizationService.getInstance().getAllowedQaNames(
+          user?.COMPANY,
+        );
+        setAllowedQaNames(data || []);
+      } catch (error: any) {
+        console.error('Failed to load QA names:', error);
+        setAllowedQaNames([]);
+      }
+    };
+
+    useEffect(() => {
+      loadAllowedQaNames();
     }, [user?.COMPANY]);
 
     useEffect(() => {
@@ -251,8 +268,30 @@ export const MaterialUtilizationDetailsUpdate = forwardRef<MaterialUtilizationDe
       }
     };
 
+    const handleQaNameBlur = () => {
+      if (qaName && allowedQaNames.length > 0 && !allowedQaNames.includes(qaName)) {
+        setErrors((prev) => ({
+          ...prev,
+          qaName: 'QA name not allowed. Please scan a valid QA barcode.',
+        }));
+      } else {
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next.qaName;
+          return next;
+        });
+      }
+    };
+
     const handleBarcodeScanned = (data: string) => {
       setBarcodeScannerVisible(false);
+      if (allowedQaNames.length > 0 && !allowedQaNames.includes(data)) {
+        setErrors((prev) => ({
+          ...prev,
+          qaName: 'QA name not allowed. Please scan a valid QA barcode.',
+        }));
+        return;
+      }
       setQaName(data);
       setRandomSampled(1);
       const next = items.map((item) => ({ ...item, qaName: data, randomSampled: 1 }));
@@ -609,21 +648,23 @@ export const MaterialUtilizationDetailsUpdate = forwardRef<MaterialUtilizationDe
                   <Text style={[styles.label, { color: colors.text }]}>QA Name <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
                 </View>
                 <View style={styles.qaRow}>
-                  <View
-                    style={[
-                      styles.inputContainer,
-                      { borderColor: errors.qaName ? colors.error : colors.cardBorder, backgroundColor: colors.background, flex: 1 },
-                    ]}
-                  >
-                    <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, { color: colors.text }]}
-                      value={qaName}
-                      placeholder="Scan or enter QA name"
-                      placeholderTextColor={colors.textTertiary}
-                      onChangeText={handleQaNameChange}
-                    />
-                  </View>
+                   <View
+                     style={[
+                       styles.inputContainer,
+                       { borderColor: errors.qaName ? colors.error : colors.cardBorder, backgroundColor: colors.background, flex: 1 },
+                     ]}
+                   >
+                     <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, { color: colors.text }]}
+                        value={qaName}
+                        placeholder="Scan or enter QA name"
+                        placeholderTextColor={colors.textTertiary}
+                        onChangeText={handleQaNameChange}
+                        onBlur={handleQaNameBlur}
+                        readOnly
+                      />
+                   </View>
                   <TouchableOpacity
                     style={[styles.scanButton, { backgroundColor: colors.primary }]}
                     onPress={() => setBarcodeScannerVisible(true)}

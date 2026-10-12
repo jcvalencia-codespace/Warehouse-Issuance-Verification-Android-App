@@ -80,6 +80,7 @@ export class MobileAppNamesService {
   async deactivateMobileAppName(
     id: number,
     company?: string,
+    modifiedBy?: string,
   ): Promise<{ success: boolean; message?: string }> {
     try {
       if (!this.baseUrl) {
@@ -87,7 +88,46 @@ export class MobileAppNamesService {
       }
       const response = await axios.put<{ success: boolean; message?: string }>(
         `${this.baseUrl}/profile/deactivate-mobile-app-name`,
-        { id },
+        { id, modifiedBy },
+        { params: company ? { company } : undefined }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async activateMobileAppName(
+    id: number,
+    company?: string,
+    modifiedBy?: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.put<{ success: boolean; message?: string }>(
+        `${this.baseUrl}/profile/activate-mobile-app-name`,
+        { id, modifiedBy },
+        { params: company ? { company } : undefined }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateMobileAppName(
+    payload: { id: number; name: string; locnCode: string; modifiedBy?: string },
+    company?: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.put<{ success: boolean; message?: string }>(
+        `${this.baseUrl}/profile/update-mobile-app-name`,
+        payload,
         { params: company ? { company } : undefined }
       );
       return response.data;

@@ -19,6 +19,7 @@ router.get('/get-rm-total-kgs', MaterialUtilizationController.getRmTotalKgs);
 router.get('/get-issuance-no', MaterialUtilizationController.getIssuanceNo);
 router.get('/get-allowed-reviewer', MaterialUtilizationController.getAllowedReviewer);
 router.get('/get-qa-approver', MaterialUtilizationController.getQaApprover);
+router.get('/get-allowed-qa-name', MaterialUtilizationController.getAllowedQaName);
 router.get('/get-next-batch-no', MaterialUtilizationController.getNextBatchNo);
 router.get('/get-material-utilization-details', MaterialUtilizationController.getMaterialUtilizationDetails);
 router.get('/get-material-utilization-details-for-posting', MaterialUtilizationController.getMaterialUtilizationDetailsForPosting);

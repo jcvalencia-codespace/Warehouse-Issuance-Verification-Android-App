@@ -74,6 +74,7 @@ const materialUtilizationRoutes = require('./modules/production-dept/material-ut
 const materialUtilizationTagRoutes = require('./modules/production-dept/material-utilization-tag/routes/materialUtilizationTagRoutes');
 const profileRoutes = require('./modules/profile/routes/profileRoutes');
 const notificationRoutes = require('./modules/notification/routes/notificationRoutes');
+const qaLineInspectorRoutes = require('./modules/production-dept/qa-line-inspector/routes/qaLineInspectorRoutes');
 const warehouseController = require('./modules/raw-materials-dept/warehouse/controllers/warehouseController');
 const AuthController = require('./modules/auth/controllers/authController');
 
@@ -92,6 +93,7 @@ app.use('/raw-materials-dept/material-issuance-confirmation', materialIssuanceCo
 app.use('/production-dept/material-utilization', materialUtilizationRoutes);
 app.use('/production-dept/material-utilization-tag', materialUtilizationTagRoutes);
 app.use('/profile', profileRoutes);
+app.use('/production-dept/qa-line-inspector', qaLineInspectorRoutes);
 app.use('/notification', notificationRoutes);
 
 // Stock balance endpoint (direct route)

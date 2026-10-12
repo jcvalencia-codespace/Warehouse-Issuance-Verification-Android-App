@@ -6,5 +6,7 @@ router.get('/get-mobile-app-names', ProfileController.getMobileAppNames);
 router.get('/get-mobile-app-names-by-locn-code', ProfileController.getMobileAppNamesByLocnCode);
 router.post('/save-mobile-app-name', ProfileController.saveMobileAppName);
 router.put('/deactivate-mobile-app-name', ProfileController.deactivateMobileAppName);
+router.put('/activate-mobile-app-name', ProfileController.activateMobileAppName);
+router.put('/update-mobile-app-name', ProfileController.updateMobileAppName);
 
 module.exports = router;

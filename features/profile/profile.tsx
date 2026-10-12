@@ -38,7 +38,7 @@ interface ProfileScreenProps {
 }
 
 export default function ProfileScreen() {
-  const { user, logout: authLogout } = useAuth();
+  const { user, logout: authLogout, isAdmin } = useAuth();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { toast } = useToast();
@@ -115,13 +115,6 @@ export default function ProfileScreen() {
       onPress: () => router.push('/coming-soon'),
     },
     {
-      id: 'mobileAppNames',
-      icon: Smartphone,
-      title: 'Mobile App Names',
-      subtitle: 'Manage mobile app names',
-      onPress: () => router.push('/profile/mobile-app-names'),
-    },
-    {
       id: 'history',
       icon: History,
       title: 'Transaction History',
@@ -129,6 +122,18 @@ export default function ProfileScreen() {
       onPress: () => router.push('/coming-soon'),
     },
   ];
+
+  const adminMenuItems: MenuItem[] = isAdmin
+    ? [
+        {
+          id: 'mobileAppNames',
+          icon: Smartphone,
+          title: 'Mobile App Names',
+          subtitle: 'Manage mobile app names',
+          onPress: () => router.push('/profile/mobile-app-names'),
+        },
+      ]
+    : [];
 
   // const preferenceMenuItems: MenuItem[] = [
   //   {
@@ -235,6 +240,9 @@ export default function ProfileScreen() {
           {renderSectionHeader('ACCOUNT')}
           <View style={styles.menuGroup}>
             {accountMenuItems.map((item) => (
+              <MenuItemComponent key={item.id} item={item} colors={colors} />
+            ))}
+            {adminMenuItems.map((item) => (
               <MenuItemComponent key={item.id} item={item} colors={colors} />
             ))}
           </View>

@@ -500,6 +500,26 @@ export class MaterialUtilizationService {
     }
   }
 
+  async getAllowedQaNames(company?: string): Promise<string[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('API URL not configured');
+      }
+      const response = await axios.get<{ success: boolean; allowedQaName?: any[] }>(
+        `${this.baseUrl}/production-dept/material-utilization/get-allowed-qa-name`,
+        { params: company ? { company } : undefined }
+      );
+      if (response.data.success && response.data.allowedQaName) {
+        return response.data.allowedQaName
+          .map((r) => r.NAME)
+          .filter((name): name is string => typeof name === 'string' && name.trim().length > 0);
+      }
+      return [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async setComplete(
     payload: {
       usageNo: number;

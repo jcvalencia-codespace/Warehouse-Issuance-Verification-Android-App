@@ -37,11 +37,18 @@ const PRODUCTION_MODULES: ModuleCardData[] = [
     color: 'success',
   },
   {
+    id: 'qa-line-inspector',
+    title: 'QA Line Inspector',
+    description: 'Manage quality assurance inspections',
+    icon: 'clipboard-check-outline',
+    color: 'primary',
+  },
+  {
     id: 'material-utilization-tag',
     title: 'Material Utilization Tag',
     description: 'Manage function for material utilization',
     icon: 'tag-outline',
-    color: 'primary',
+    color: 'review',
   },
 ];
 
@@ -74,6 +81,13 @@ export function ProductionDeptHomeScreen({
 
     if (!canReviewRequests) {
       modules = modules.filter(module => module.id !== 'material-request-review');
+    }
+
+    const canAddQaLineInspector =
+      user?.NAME === 'Joenas De Guzman' || user?.NAME === 'Cesar Tolentino' || isAdmin || user?.NAME === 'David Jonathan Cruz';
+
+    if (!canAddQaLineInspector) {
+      modules = modules.filter(module => module.id !== 'qa-line-inspector');
     }
 
     return modules;

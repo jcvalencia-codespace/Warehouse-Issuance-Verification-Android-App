@@ -28,7 +28,7 @@ interface MobileAppNamesProps {
 export default function MobileAppNames({ onBack }: MobileAppNamesProps) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [appNames, setAppNames] = useState<MobileAppName[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,8 +44,16 @@ export default function MobileAppNames({ onBack }: MobileAppNamesProps) {
 
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirmItem, setConfirmItem] = useState<MobileAppName | null>(null);
+  const [activateItem, setActivateItem] = useState<MobileAppName | null>(null);
+  const [activating, setActivating] = useState(false);
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<MobileAppName | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editLocnCode, setEditLocnCode] = useState<string | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   const loadAppNames = async () => {
     setLoading(true);
@@ -162,13 +170,97 @@ export default function MobileAppNames({ onBack }: MobileAppNamesProps) {
       } else {
         Alert.alert('Error', result.message || 'Failed to deactivate mobile app name.');
       }
-    } catch (error: any) {
+     } catch (error: any) {
       Alert.alert(
         'Error',
         error?.response?.data?.message ||
           error?.message ||
           'Failed to deactivate mobile app name.',
       );
+    }
+  };
+
+  const handleEdit = (item: MobileAppName) => {
+    setEditingItem(item);
+    setEditName(item.NAME || '');
+    setEditLocnCode(item.LOCNCODE || locnCodes[0] || null);
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingItem) return;
+    if (!editName.trim()) {
+      Alert.alert('Validation', 'Please enter a mobile app name.');
+      return;
+    }
+    if (!editLocnCode) {
+      Alert.alert('Validation', 'Please select a location code.');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const result = await MobileAppNamesService.getInstance().updateMobileAppName(
+        {
+          id: editingItem.ROWID,
+          name: editName.trim(),
+          locnCode: editLocnCode,
+        },
+        user?.COMPANY,
+      );
+
+      if (result.success) {
+        setShowEditModal(false);
+        setEditingItem(null);
+        setSuccessMessage(result.message || 'Mobile app name updated successfully.');
+        setSuccessVisible(true);
+        loadAppNames();
+      } else {
+        Alert.alert('Error', result.message || 'Failed to update mobile app name.');
+      }
+    } catch (error: any) {
+      Alert.alert(
+        'Error',
+        error?.response?.data?.message ||
+          error?.message ||
+          'Failed to update mobile app name.',
+      );
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleActivate = (item: MobileAppName) => {
+    setActivateItem(item);
+  };
+
+  const handleConfirmActivate = async () => {
+    if (!activateItem) return;
+
+    setActivating(true);
+    try {
+      const result = await MobileAppNamesService.getInstance().activateMobileAppName(
+        activateItem.ROWID,
+        user?.COMPANY,
+        user?.NAME || '',
+      );
+      if (result.success) {
+        setActivateItem(null);
+        setSuccessMessage(result.message || 'Mobile app name activated successfully.');
+        setSuccessVisible(true);
+        loadAppNames();
+      } else {
+        Alert.alert('Error', result.message || 'Failed to activate mobile app name.');
+      }
+    } catch (error: any) {
+      Alert.alert(
+        'Error',
+        error?.response?.data?.message ||
+          error?.message ||
+          'Failed to activate mobile app name.',
+      );
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -204,6 +296,15 @@ export default function MobileAppNames({ onBack }: MobileAppNamesProps) {
               Location: {item.LOCNCODE || '—'}
             </Text>
           </View>
+          {isAdmin && (
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => handleEdit(item)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="pencil" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          )}
           <View style={{ alignItems: 'flex-end' }}>
             <View
               style={[
@@ -227,6 +328,15 @@ export default function MobileAppNames({ onBack }: MobileAppNamesProps) {
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons name="close-circle" size={20} color={colors.error} />
+              </TouchableOpacity>
+            )}
+            {!isActive && isAdmin && (
+              <TouchableOpacity
+                style={styles.activateButton}
+                onPress={() => handleActivate(item)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
               </TouchableOpacity>
             )}
           </View>
@@ -462,6 +572,154 @@ export default function MobileAppNames({ onBack }: MobileAppNamesProps) {
         }}
       />
 
+      <ConfirmModal
+        visible={!!activateItem}
+        title="Activate Mobile App Name"
+        message="Are you sure you want to activate this mobile app name?"
+        iconName="alert-outline"
+        iconColor={colors.success}
+        cancelText="Cancel"
+        confirmText="Activate"
+        onConfirm={handleConfirmActivate}
+        onCancel={() => setActivateItem(null)}
+        disabled={activating}
+      />
+
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowEditModal(false)}>
+          <Pressable
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Mobile App Name</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Name</Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.cardBorder,
+                    color: colors.text,
+                  },
+                ]}
+                placeholder="Enter app name"
+                placeholderTextColor={colors.textTertiary}
+                value={editName}
+                onChangeText={setEditName}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Location Code</Text>
+              <TouchableOpacity
+                style={[
+                  styles.locnCodeSelector,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.cardBorder,
+                  },
+                ]}
+                onPress={() => setLocnCodeDropdownOpen(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.locnCodeSelectedText, { color: colors.text }]}>
+                  {editLocnCode || 'Select location code'}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Modal
+              visible={locnCodeDropdownOpen}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setLocnCodeDropdownOpen(false)}
+            >
+              <Pressable
+                style={styles.modalOverlay}
+                onPress={() => setLocnCodeDropdownOpen(false)}
+              >
+                <View
+                  style={[
+                    styles.dropdownContent,
+                    { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder },
+                  ]}
+                >
+                  <Text style={[styles.dropdownTitle, { color: colors.textSecondary }]}>
+                    Select Location Code
+                  </Text>
+                  {locnCodesLoading ? (
+                    <View style={styles.dropdownLoading}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={locnCodes}
+                      keyExtractor={(item, index) => `${item}-${index}`}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            setEditLocnCode(item);
+                            setLocnCodeDropdownOpen(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.dropdownItemText, { color: colors.text }]}>
+                            {item}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      showsVerticalScrollIndicator={false}
+                    />
+                  )}
+                </View>
+              </Pressable>
+            </Modal>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.modalCancelButton,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.cardBorder,
+                  },
+                ]}
+                onPress={() => setShowEditModal(false)}
+                activeOpacity={0.7}
+                disabled={updating}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalConfirmButton, { backgroundColor: colors.primary }]}
+                onPress={handleUpdate}
+                activeOpacity={0.8}
+                disabled={updating}
+              >
+                {updating ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <SuccessModal
         visible={successVisible}
         title="Success"
@@ -574,6 +832,14 @@ const styles = StyleSheet.create({
   },
   deactivateButton: {
     padding: 4,
+  },
+  editButton: {
+    padding: 4,
+    marginRight: 8,
+  },
+  activateButton: {
+    padding: 4,
+    marginRight: 8,
   },
   emptyContainer: {
     flex: 1,
