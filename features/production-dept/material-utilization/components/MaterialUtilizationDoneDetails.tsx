@@ -5,6 +5,7 @@ import React, { useMemo, useRef, useState } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -41,6 +42,7 @@ export const MaterialUtilizationDoneDetails: React.FC<
     batchColumns,
     nonDosingBatchMeta,
     dosingBatchMeta,
+    randomSampledBatches,
     totals,
     nonDosingTotal,
     dosingTotal,
@@ -61,6 +63,14 @@ export const MaterialUtilizationDoneDetails: React.FC<
     const batchMeta = new Map<
       number,
       { weighedBy: string; validatedBy: string }
+    >();
+    const randomSampledBatches = new Map<
+      number,
+      {
+        isRandomSampled: boolean;
+        randomSampledBy: string;
+        sampledItems: Set<string>;
+      }
     >();
     const nonDosingBatchMeta = new Map<
       number,
@@ -98,6 +108,22 @@ export const MaterialUtilizationDoneDetails: React.FC<
 
       if (!batchMeta.has(r.BATCHNO)) {
         batchMeta.set(r.BATCHNO, { weighedBy, validatedBy });
+      }
+      if (!randomSampledBatches.has(r.BATCHNO)) {
+        randomSampledBatches.set(r.BATCHNO, {
+          isRandomSampled: false,
+          randomSampledBy: "—",
+          sampledItems: new Set<string>(),
+        });
+      }
+      const rsEntry = randomSampledBatches.get(r.BATCHNO)!;
+      if (Number(r.IS_RANDOMSAMPLED) === 1) {
+        rsEntry.isRandomSampled = true;
+        rsEntry.randomSampledBy =
+          (r.RANDOMSAMPLEDBY || "").toString().trim() || rsEntry.randomSampledBy;
+        if (r.ITEMNMBR) {
+          rsEntry.sampledItems.add(r.ITEMNMBR);
+        }
       }
       const isDosing = Number(r.IS_DOSING_MACHINE) === 1;
       const sectionMap = isDosing ? dosingBatchMeta : nonDosingBatchMeta;
@@ -145,6 +171,7 @@ export const MaterialUtilizationDoneDetails: React.FC<
       dosingRows,
       batchColumns: Array.from(batchSet).sort((a, b) => a - b),
       batchMeta,
+      randomSampledBatches,
       nonDosingBatchMeta,
       dosingBatchMeta,
       totals: { grandTotal, grandTotalRequired },
@@ -238,6 +265,19 @@ export const MaterialUtilizationDoneDetails: React.FC<
   const weighedScrollRef = useRef<ScrollView>(null);
   const bodyScrollRef = useRef<ScrollView>(null);
   const isSyncing = useRef(false);
+
+  const handleBatchPress = (batch: number) => {
+    const info = randomSampledBatches.get(batch);
+    if (info?.isRandomSampled) {
+      const itemNos = Array.from(info.sampledItems).join(", ");
+      Alert.alert(
+        "Random Sampled",
+        `Batch ${batch}\nQA Name: ${info.randomSampledBy ?? "—"}\nItem(s): ${
+          itemNos || "—"
+        }`,
+      );
+    }
+  };
 
 
   const handleHeaderScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -1280,29 +1320,47 @@ export const MaterialUtilizationDoneDetails: React.FC<
                             },
                           ]}
                         >
-                          {batchColumns.map((batch) => (
-                            <View
-                              key={`ndhdr-${batch}`}
-                              style={[
-                                styles.headerCell,
-                                {
-                                  width: dynamicBatchWidth,
-                                  height: dividerRowHeight,
-                                  backgroundColor: colors.primary + "10",
-                                  borderBottomColor: colors.primary + "30",
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.headerCellText,
-                                  { color: colors.primary },
-                                ]}
+                          {batchColumns.map((batch) => {
+                            const rsInfo = randomSampledBatches.get(batch);
+                            const isRandomSampled = rsInfo?.isRandomSampled ?? false;
+                            return (
+                              <TouchableOpacity
+                                key={`ndhdr-${batch}`}
+                                activeOpacity={0.6}
+                                onPress={() => handleBatchPress(batch)}
                               >
-                                Batch {batch}
-                              </Text>
-                            </View>
-                          ))}
+                                <View
+                                  style={[
+                                    styles.headerCell,
+                                    {
+                                      width: dynamicBatchWidth,
+                                      height: dividerRowHeight,
+                                      backgroundColor: colors.primary + "10",
+                                      borderBottomColor: colors.primary + "30",
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.headerCellText,
+                                      { color: colors.primary },
+                                    ]}
+                                  >
+                                    Batch {batch}
+                                  </Text>
+                                  {isRandomSampled && (
+                                    <View style={styles.randomSampleBadge}>
+                                      <MaterialCommunityIcons
+                                        name="magnify-scan"
+                                        size={10}
+                                        color={colors.error}
+                                      />
+                                    </View>
+                                  )}
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })}
                           <View
                             style={[
                               styles.headerCell,
@@ -1537,29 +1595,47 @@ export const MaterialUtilizationDoneDetails: React.FC<
                             },
                           ]}
                         >
-                          {batchColumns.map((batch) => (
-                            <View
-                              key={`dhdr-${batch}`}
-                              style={[
-                                styles.headerCell,
-                                {
-                                  width: dynamicBatchWidth,
-                                  height: dividerRowHeight,
-                                  backgroundColor: colors.primary + "10",
-                                  borderBottomColor: colors.primary + "30",
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.headerCellText,
-                                  { color: colors.primary },
-                                ]}
+                          {batchColumns.map((batch) => {
+                            const rsInfo = randomSampledBatches.get(batch);
+                            const isRandomSampled = rsInfo?.isRandomSampled ?? false;
+                            return (
+                              <TouchableOpacity
+                                key={`dhdr-${batch}`}
+                                activeOpacity={0.6}
+                                onPress={() => handleBatchPress(batch)}
                               >
-                                Batch {batch}
-                              </Text>
-                            </View>
-                          ))}
+                                <View
+                                  style={[
+                                    styles.headerCell,
+                                    {
+                                      width: dynamicBatchWidth,
+                                      height: dividerRowHeight,
+                                      backgroundColor: colors.primary + "10",
+                                      borderBottomColor: colors.primary + "30",
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.headerCellText,
+                                      { color: colors.primary },
+                                    ]}
+                                  >
+                                    Batch {batch}
+                                  </Text>
+                                  {isRandomSampled && (
+                                    <View style={styles.randomSampleBadge}>
+                                      <MaterialCommunityIcons
+                                        name="magnify-scan"
+                                        size={10}
+                                        color={colors.error}
+                                      />
+                                    </View>
+                                  )}
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })}
                           <View
                             style={[
                               styles.headerCell,
@@ -2040,6 +2116,11 @@ const styles = StyleSheet.create({
   cellText: {
     fontSize: 13,
     textAlign: "center",
+  },
+  randomSampleBadge: {
+    position: "absolute",
+    top: 2,
+    right: 4,
   },
   lastCol: {},
   itemNoText: {

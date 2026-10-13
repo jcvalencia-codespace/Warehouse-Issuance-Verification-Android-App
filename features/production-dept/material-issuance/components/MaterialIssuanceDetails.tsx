@@ -43,6 +43,7 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
     const [selectedItemCode, setSelectedItemCode] = useState('');
     const [itemModalVisible, setItemModalVisible] = useState(false);
     const [quantity, setQuantity] = useState('');
+    const [itemRemarks, setItemRemarks] = useState('');
     const [items, setItems] = useState<MaterialIssuanceLineItem[]>(value ?? []);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [editIndex, setEditIndex] = useState<number | null>(null);
@@ -137,6 +138,7 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
           description,
           quantity: String(chunkQty),
           allocations,
+          itemRemarks: itemRemarks || undefined,
         });
       }
 
@@ -154,6 +156,7 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
 
       setSelectedItemCode('');
       setQuantity('');
+      setItemRemarks('');
       setErrors({});
       setEditIndex(null);
     };
@@ -163,6 +166,7 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
       if (!item) return;
       setSelectedItemCode(item.itemCode);
       setQuantity(item.quantity);
+      setItemRemarks(item.itemRemarks || '');
       setEditIndex(index);
     };
 
@@ -225,6 +229,14 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
               </TouchableOpacity>
             </View>
           </View>
+          {item.itemRemarks ? (
+            <View style={styles.itemRemarksRow}>
+              <MaterialCommunityIcons name="text" size={14} color={colors.textSecondary} />
+              <Text style={[styles.itemRemarksText, { color: colors.textSecondary }]}>
+                {item.itemRemarks}
+              </Text>
+            </View>
+          ) : null}
         </View>
       );
     };
@@ -234,6 +246,7 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
         setItems([]);
         setSelectedItemCode('');
         setQuantity('');
+        setItemRemarks('');
         setErrors({});
         setEditIndex(null);
         setRequiredError(false);
@@ -400,6 +413,33 @@ export const MaterialIssuanceDetails = forwardRef<MaterialIssuanceDetailsRef, Ma
             <MaterialCommunityIcons name={editIndex !== null ? 'check' : 'plus'} size={20} color="#ffffff" />
             <Text style={styles.addButtonText}>{editIndex !== null ? 'Update Item' : 'Add Item'}</Text>
           </TouchableOpacity>
+
+          {/* Item Remarks Input */}
+          <View style={styles.itemRemarksGroup}>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: colors.text }]}>Item Remarks</Text>
+            </View>
+            <View
+              style={[
+                styles.itemRemarksContainer,
+                {
+                  borderColor: colors.cardBorder,
+                  backgroundColor: colors.background,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons name="text" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.itemRemarksInput, { color: colors.text }]}
+                value={itemRemarks}
+                placeholder="Enter item remarks (optional)"
+                placeholderTextColor={colors.textTertiary}
+                multiline
+                numberOfLines={3}
+                onChangeText={setItemRemarks}
+              />
+            </View>
+          </View>
         </View>
 
         {/* Items List */}
@@ -649,5 +689,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
+  },
+  remarksInputGroup: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  remarksInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 72,
+  },
+  remarksInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    paddingVertical: 0,
+    textAlignVertical: 'top',
+  },
+  itemRemarksGroup: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  itemRemarksContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 72,
+  },
+  itemRemarksInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    paddingVertical: 0,
+    textAlignVertical: 'top',
+  },
+  itemRemarksRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 10,
+    paddingLeft: 4,
+  },
+  itemRemarksText: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+    lineHeight: 18,
   },
 });

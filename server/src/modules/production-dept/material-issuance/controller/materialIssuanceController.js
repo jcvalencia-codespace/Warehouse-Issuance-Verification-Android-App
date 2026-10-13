@@ -75,7 +75,7 @@ exports.getMIRDetailsForEdit = async (req, res) => {
 
         const detailsResult = await pool.request()
             .input('mirNo', mirNo)
-            .query(`SELECT D.MIRNO, D.ITEMNMBR,I.ITEMDESC, D.QUANTITY, D.CREATEDBY, D.DATECREATED
+            .query(`SELECT D.MIRNO, D.ITEMNMBR, D.ITEMREMARKS, I.ITEMDESC, D.QUANTITY, D.CREATEDBY, D.DATECREATED
                     FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] D
                     LEFT JOIN [IV00101] I ON D.ITEMNMBR = I.ITEMNMBR
                     WHERE D.MIRNO = @mirNo`);
@@ -103,17 +103,18 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
     const headerQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.HEADER] (MIRNO, SHIFT, REVIEWEDBY, CREATEDBY, POSTSTATUS, DATECREATED)
                      VALUES (@mirNo, @shift, @reviewedBy, @createdBy, 0, GETDATE())`;
 
-    const detailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED)
-                     VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, GETDATE())`;
+    const detailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED, ITEMREMARKS)
+                     VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, GETDATE(), @itemRemarks)`;
 
     let items = [];
     if (Array.isArray(details)) {
         items = details.map(item => ({
             itemCode: item.itemCode || item.ITEMNMBR,
-            quantity: item.quantity || item.QUANTITY
+            quantity: item.quantity || item.QUANTITY,
+            itemRemarks: item.itemRemarks || item.ITEMREMARKS || null
         }));
     } else if (itemCode && quantity) {
-        items = [{ itemCode, quantity }];
+        items = [{ itemCode, quantity, itemRemarks: null }];
     }
 
     const transaction = new sql.Transaction(pool);
@@ -158,6 +159,7 @@ exports.saveMaterialIssuanceRequest = async (req, res) => {
                 .input('itemCode', detailItem.itemCode)
                 .input('quantity', detailItem.quantity)
                 .input('createdBy', createdBy)
+                .input('itemRemarks', detailItem.itemRemarks || null)
                 .query(detailsQuery);
         }
 
@@ -199,7 +201,8 @@ exports.updateMaterialIssuanceRequest = async (req, res) => {
     if (Array.isArray(details)) {
         items = details.map(item => ({
             itemCode: item.itemCode || item.ITEMNMBR,
-            quantity: item.quantity || item.QUANTITY
+            quantity: item.quantity || item.QUANTITY,
+            itemRemarks: item.itemRemarks || item.ITEMREMARKS || null
         }));
     }
 
@@ -214,8 +217,8 @@ exports.updateMaterialIssuanceRequest = async (req, res) => {
 
     const deleteDetailsQuery = `DELETE FROM [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] WHERE MIRNO = @mirNo`;
 
-    const insertDetailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED)
-                                VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, @dateCreated)`;
+    const insertDetailsQuery = `INSERT INTO [PRODUCTION.MATERIALISSUANCEREQUEST.DETAILS] (MIRNO, ITEMNMBR, QUANTITY, SERVEDBY, CREATEDBY, DATECREATED, ITEMREMARKS)
+                                VALUES (@mirNo, @itemCode, @quantity, '', @createdBy, @dateCreated, @itemRemarks)`;
 
     const transaction = new sql.Transaction(pool);
     try {
@@ -249,6 +252,7 @@ exports.updateMaterialIssuanceRequest = async (req, res) => {
                 .input('quantity', detailItem.quantity)
                 .input('createdBy', createdBy)
                 .input('dateCreated', originalDateCreated)
+                .input('itemRemarks', detailItem.itemRemarks || null)
                 .query(insertDetailsQuery);
         }
 

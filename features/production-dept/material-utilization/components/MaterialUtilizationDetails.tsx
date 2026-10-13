@@ -51,9 +51,8 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const { user, isAdmin } = useAuth();
 
     const [batchNo, setBatchNo] = useState('');
-    const [randomSampled, setRandomSampled] = useState(0);
-    const [qaName, setQaName] = useState('');
     const [allowedQaNames, setAllowedQaNames] = useState<string[]>([]);
+    const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
     const [weighedBy, setWeighedBy] = useState('');
     const [validatedBy, setValidatedBy] = useState('');
     const [items, setItems] = useState<MaterialUtilizationLineItem[]>(value ?? []);
@@ -174,8 +173,6 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
     const seededRef = useRef(false);
     useEffect(() => {
       if (initialData && !seededRef.current && items.length > 0) {
-        setRandomSampled(items[0].randomSampled);
-        setQaName(items[0].qaName || '');
         seededRef.current = true;
       }
     }, [initialData, items]);
@@ -253,41 +250,41 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
       onItemsChange?.(next);
     };
 
-    const handleRandomSampledChange = (value: number) => {
-      setRandomSampled(value);
-      const next = items.map((item) => ({
-        ...item,
-        randomSampled: value,
-        qaName: value === 1 ? item.qaName : '',
-      }));
+    const handleItemRandomSampledToggle = (index: number, value: boolean) => {
+      const next = [...items];
+      next[index] = {
+        ...next[index],
+        randomSampled: value ? 1 : 0,
+        qaName: value ? next[index].qaName : '',
+      };
       setItems(next);
       onItemsChange?.(next);
     };
 
-    const handleQaNameChange = (text: string) => {
-      setQaName(text);
-      const next = items.map((item) => ({ ...item, qaName: text }));
+    const handleItemQaNameChange = (index: number, text: string) => {
+      const next = [...items];
+      next[index] = { ...next[index], qaName: text };
       setItems(next);
       onItemsChange?.(next);
-      if (errors.qaName) {
+      if (errors[`qaName_${index}`]) {
         setErrors((prev) => {
           const next = { ...prev };
-          delete next.qaName;
+          delete next[`qaName_${index}`];
           return next;
-         });
+        });
       }
     };
 
-    const handleQaNameBlur = () => {
-      if (qaName && allowedQaNames.length > 0 && !allowedQaNames.includes(qaName)) {
+    const handleQaNameBlur = (name: string, index: number) => {
+      if (name && allowedQaNames.length > 0 && !allowedQaNames.includes(name)) {
         setErrors((prev) => ({
           ...prev,
-          qaName: 'QA name not allowed. Please scan a valid QA barcode.',
+          [`qaName_${index}`]: 'QA name not allowed. Please scan a valid QA barcode.',
         }));
       } else {
         setErrors((prev) => {
           const next = { ...prev };
-          delete next.qaName;
+          delete next[`qaName_${index}`];
           return next;
         });
       }
@@ -295,6 +292,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
 
     const handleBarcodeScanned = (data: string) => {
       setBarcodeScannerVisible(false);
+      const index = currentItemIndex !== null ? currentItemIndex : undefined;
       if (allowedQaNames.length > 0 && !allowedQaNames.includes(data)) {
         setErrors((prev) => ({
           ...prev,
@@ -302,16 +300,26 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
         }));
         return;
       }
-      setQaName(data);
-      setRandomSampled(1);
-      const next = items.map((item) => ({ ...item, qaName: data, randomSampled: 1 }));
-      setItems(next);
-      onItemsChange?.(next);
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next.qaName;
-        return next;
-      });
+      if (index !== undefined) {
+        const next = [...items];
+        next[index] = { ...next[index], qaName: data, randomSampled: 1 };
+        setItems(next);
+        onItemsChange?.(next);
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next[`qaName_${index}`];
+          return next;
+        });
+      } else {
+        const next = items.map((item) => ({ ...item, qaName: data, randomSampled: 1 }));
+        setItems(next);
+        onItemsChange?.(next);
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next.qaName;
+          return next;
+        });
+      }
     };
 
     useImperativeHandle(ref, () => ({
@@ -349,9 +357,11 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
           newErrors.validatedBy = 'Validated by is required';
         }
 
-        if (randomSampled === 1 && !qaName.trim()) {
-          newErrors.qaName = 'QA name is required';
-        }
+        items.forEach((item, index) => {
+          if (item.randomSampled === 1 && !item.qaName.trim()) {
+            newErrors[`qaName_${index}`] = 'QA name is required';
+          }
+        });
 
         setErrors(newErrors);
         setRequiredError(false);
@@ -509,29 +519,84 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
                 </View>
               )}
             </View>
-            {!isDetailMode && (
-              <>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Random Sampled</Text>
-                  <View style={[
-                    styles.sampledBadge,
-                    { backgroundColor: item.randomSampled === 1 ? colors.success + '20' : colors.textSecondary + '20' }
-                  ]}>
-                    <Text style={[
-                      styles.sampledBadgeText,
-                      { color: item.randomSampled === 1 ? colors.success : colors.textSecondary }
-                    ]}>
-                      {item.randomSampled === 1 ? 'Yes' : 'No'}
-                    </Text>
-                    {item.randomSampled === 1 && item.qaName ? (
-                      <View style={styles.detailItem}>
-                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>QA Name</Text>
-                        <Text style={[styles.detailValue, { color: colors.text }]}>{item.qaName}</Text>
-                      </View>
-                    ) : null}
-                  </View>
+          </View>
+
+          <View style={styles.rowContainer}>
+            <View style={[styles.weightColumn, { flex: 1 }]}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: colors.text }]}>Random Sampled</Text>
+              </View>
+              <View
+                style={[
+                  styles.switchContainer,
+                  { borderColor: colors.cardBorder, backgroundColor: colors.background },
+                ]}
+              >
+                <Switch
+                  value={item.randomSampled === 1}
+                  onValueChange={(value) => handleItemRandomSampledToggle(index, value)}
+                  trackColor={{ false: colors.textSecondary + '40', true: colors.success }}
+                  thumbColor="#ffffff"
+                  style={styles.switch}
+                />
+                <Text
+                  style={[
+                    styles.switchValueText,
+                    { color: item.randomSampled === 1 ? colors.success : colors.textSecondary },
+                  ]}
+                >
+                  {item.randomSampled === 1 ? 'Yes' : 'No'}
+                </Text>
+              </View>
+            </View>
+
+            {item.randomSampled === 1 && (
+              <View style={[styles.weightColumn, { flex: 2 }]}>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.label, { color: colors.text }]}>QA Name <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
                 </View>
-              </>
+                <View style={styles.qaRow}>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      {
+                        borderColor: errors[`qaName_${index}`] ? colors.error : colors.cardBorder,
+                        backgroundColor: colors.background,
+                        flex: 1,
+                        height: 50,
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, { color: colors.text }]}
+                      value={item.qaName}
+                      placeholder="Scan QA name"
+                      placeholderTextColor={colors.textTertiary}
+                      onChangeText={(text) => handleItemQaNameChange(index, text)}
+                      onBlur={() => handleQaNameBlur(item.qaName, index)}
+                      readOnly
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.scanButton, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                      setCurrentItemIndex(index);
+                      setBarcodeScannerVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialCommunityIcons name="barcode-scan" size={20} color="#fff" />
+                    <Text style={styles.scanButtonText}>Scan</Text>
+                  </TouchableOpacity>
+                </View>
+                {errors[`qaName_${index}`] ? (
+                  <View style={styles.errorContainer}>
+                    <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
+                    <Text style={[styles.errorText, { color: colors.error }]}>{errors[`qaName_${index}`]}</Text>
+                  </View>
+                ) : null}
+              </View>
             )}
           </View>
 
@@ -720,77 +785,7 @@ export const MaterialUtilizationDetails = forwardRef<MaterialUtilizationDetailsR
               </View>
             </View>
 
-            <View style={styles.rowContainer}>
-              <View style={[styles.weightColumn, { flex: 1 }]}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.label, { color: colors.text }]}>Random Sampled</Text>
-                </View>
-                <View
-                  style={[
-                    styles.switchContainer,
-                    { borderColor: colors.cardBorder, backgroundColor: colors.background },
-                  ]}
-                >
-                  <Switch
-                    value={randomSampled === 1}
-                    onValueChange={(value) => handleRandomSampledChange(value ? 1 : 0)}
-                    trackColor={{ false: colors.textSecondary + '40', true: colors.success }}
-                    thumbColor="#ffffff"
-                    style={styles.switch}
-                  />
-                  <Text
-                    style={[
-                      styles.switchValueText,
-                      { color: randomSampled === 1 ? colors.success : colors.textSecondary },
-                    ]}
-                  >
-                    {randomSampled === 1 ? 'Yes' : 'No'}
-                  </Text>
-                </View>
-              </View>
-
-              {randomSampled === 1 && (
-                <View style={[styles.weightColumn, { flex: 2 }]}>
-                  <View style={styles.labelRow}>
-                    <Text style={[styles.label, { color: colors.text }]}>QA Name <Text style={{ color: colors.error, fontSize: 15 }}>*</Text></Text>
-                  </View>
-                  <View style={styles.qaRow}>
-                   <View
-                     style={[
-                       styles.inputContainer,
-                       { borderColor: errors.qaName ? colors.error : colors.cardBorder, backgroundColor: colors.background, flex: 1 },
-                     ]}
-                   >
-                     <MaterialCommunityIcons name="account" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.input, { color: colors.text }]}
-                        value={qaName}
-                        placeholder="Scan QA name"
-                        placeholderTextColor={colors.textTertiary}
-                        onChangeText={handleQaNameChange}
-                        onBlur={handleQaNameBlur}
-                        readOnly
-                      />
-                   </View>
-                    <TouchableOpacity
-                      style={[styles.scanButton, { backgroundColor: colors.primary }]}
-                      onPress={() => setBarcodeScannerVisible(true)}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialCommunityIcons name="barcode-scan" size={20} color="#fff" />
-                      <Text style={styles.scanButtonText}>Scan</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {errors.qaName ? (
-                    <View style={styles.errorContainer}>
-                      <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-                      <Text style={[styles.errorText, { color: colors.error }]}>{errors.qaName}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              )}
-            </View>
-          </View>
+        </View>
         )}
 
         <BarcodeScanner

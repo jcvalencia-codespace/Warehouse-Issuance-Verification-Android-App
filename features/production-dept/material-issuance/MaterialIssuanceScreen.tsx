@@ -58,6 +58,7 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 description: d.ITEMDESC || '',
                 quantity: String(d.QUANTITY || 0),
                 allocations: [],
+                itemRemarks: d.ITEMREMARKS || undefined,
             }));
             setSelectedIssuance(hdr);
             setItems(lineItems);
@@ -138,7 +139,6 @@ export default function MaterialIssuanceScreen({ onBack, onSubmit }: MaterialIss
                 reviewedBy: pendingHeader.reviewedBy,
                 createdBy: user?.NAME || user?.USERNAME || '',
                 dateCreated: pendingHeader.dateCreated,
-                remarks: pendingHeader.remarks,
                 details: items,
             };
 

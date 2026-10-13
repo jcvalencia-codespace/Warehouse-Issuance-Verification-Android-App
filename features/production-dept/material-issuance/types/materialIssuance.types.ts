@@ -3,6 +3,7 @@ export interface MaterialIssuanceLineItem {
   description: string;
   quantity: string;
   allocations: MaterialQuantityAllocation[];
+  itemRemarks?: string;
 }
 
 export interface MaterialQuantityAllocation {
@@ -58,4 +59,5 @@ export interface MaterialIssuanceRequestDetail {
   SERVEDBY?: string | null;
   CREATEDBY?: string | null;
   DATECREATED?: string | null;
+  ITEMREMARKS?: string | null;
 }

@@ -183,7 +183,7 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
         <View style={styles.headerTopRow}>
           <View>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Material Issuance
+              Material Issuance Request
             </Text>
             <Text
               style={[styles.sectionDescription, { color: colors.textSecondary }]}
@@ -292,35 +292,8 @@ export const MaterialIssuanceHeader = forwardRef<MaterialIssuanceHeaderRef, Mate
             </View>
           </View>
         </View>
-
-        {mode === 'edit' && formData.remarks ? (
-          <View style={styles.remarksSection}>
-            <View style={styles.labelRow}>
-              <Text style={[styles.label, { color: colors.text }]}>Remarks</Text>
-              <MaterialCommunityIcons name="information" size={18} color={colors.error || '#ef4444'} />
-            </View>
-            <View
-              style={[
-                styles.remarksContainer,
-                {
-                  borderColor: colors.error || '#ef4444',
-                  backgroundColor: (colors.error || '#ef4444') + '10',
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="alert-circle-outline"
-                size={18}
-                color={colors.error || '#ef4444'}
-              />
-              <Text style={[styles.remarksText, { color: colors.text }]}>
-                {formData.remarks}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-      </View>
-    );
+    </View>
+  )
   }
 );
 

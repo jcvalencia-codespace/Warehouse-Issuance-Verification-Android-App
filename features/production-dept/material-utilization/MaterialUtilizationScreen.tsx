@@ -85,8 +85,6 @@ export default function MaterialUtilizationScreen({
   );
   const [detailViewWeighedBy, setDetailViewWeighedBy] = useState("");
   const [detailViewValidatedBy, setDetailViewValidatedBy] = useState("");
-  const [detailViewRandomSampled, setDetailViewRandomSampled] = useState(0);
-  const [detailViewQaName, setDetailViewQaName] = useState("");
   const [isDosingMachine, setIsDosingMachine] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [pendingPostStatus, setPendingPostStatus] = useState<number | null>(null);
@@ -332,8 +330,6 @@ export default function MaterialUtilizationScreen({
         setDetailViewBatchNo(null);
         setDetailViewWeighedBy("");
         setDetailViewValidatedBy("");
-        setDetailViewRandomSampled(0);
-        setDetailViewQaName("");
         setIsDosingMachine(false);
         setIsUpdating(false);
       } else {
@@ -395,8 +391,6 @@ export default function MaterialUtilizationScreen({
     setDetailViewBatchNo(null);
     setDetailViewWeighedBy("");
     setDetailViewValidatedBy("");
-    setDetailViewRandomSampled(0);
-    setDetailViewQaName("");
     setIsDosingMachine(false);
     setIsUpdating(false);
   };
@@ -411,8 +405,6 @@ export default function MaterialUtilizationScreen({
     setDetailViewBatchNo(null);
     setDetailViewWeighedBy("");
     setDetailViewValidatedBy("");
-    setDetailViewRandomSampled(0);
-    setDetailViewQaName("");
     setIsDosingMachine(false);
     setIsUpdating(false);
   };
@@ -522,9 +514,7 @@ export default function MaterialUtilizationScreen({
     setDetailViewBatchNo(null);
     setDetailViewWeighedBy("");
     setDetailViewValidatedBy("");
-    setDetailViewRandomSampled(0);
-     setDetailViewQaName("");
-     setIsDosingMachine(false);
+    setIsDosingMachine(false);
     setIsUpdating(false);
     setDoneIssuanceNo(undefined);
     setDoneControlRoomOperator(null);
@@ -603,8 +593,6 @@ export default function MaterialUtilizationScreen({
 
         setDetailViewWeighedBy(header.WEIGHEDBY || "");
         setDetailViewValidatedBy(header.VALIDATEDBY || "");
-        setDetailViewRandomSampled(Number(header.IS_RANDOM_SAMPLED) || 0);
-        setDetailViewQaName(header?.QA_NAME || "");
 
         const nextBatchNo = (latestBatchNo ?? 0) + 1;
 
@@ -678,27 +666,14 @@ export default function MaterialUtilizationScreen({
 
         let weighedBy = "";
         let validatedBy = "";
-        let randomSampled = 0;
-        let qaName = "";
 
         for (const detail of batchDetails) {
           weighedBy = detail.WEIGHEDBY || weighedBy;
           validatedBy = detail.VALIDATEDBY || validatedBy;
-          if (
-            detail.RANDOM_SAMPLED !== undefined &&
-            detail.RANDOM_SAMPLED !== null
-          ) {
-            randomSampled = Number(detail.RANDOM_SAMPLED);
-          }
-          qaName = detail.QA_NAME || qaName;
         }
 
         setDetailViewWeighedBy(weighedBy || header.WEIGHEDBY || "");
         setDetailViewValidatedBy(validatedBy || header.VALIDATEDBY || "");
-        setDetailViewRandomSampled(
-          randomSampled || Number(header.IS_RANDOM_SAMPLED) || 0,
-        );
-        setDetailViewQaName(qaName || header?.QA_NAME || "");
 
         const nextBatchNo = (latestBatchNo ?? 0) + 1;
 
@@ -715,8 +690,8 @@ export default function MaterialUtilizationScreen({
             processType: detail.PROCESS || "Prepared and Loaded",
             weighedBy: detail.WEIGHEDBY || header.WEIGHEDBY || "",
             ValidatedBy: detail.VALIDATEDBY || header.VALIDATEDBY || "",
-            randomSampled: Number(detail.RANDOM_SAMPLED) || 0,
-            qaName: detail.QA_NAME || header?.QA_NAME || "",
+            randomSampled: Number(detail.IS_RANDOMSAMPLED) || 0,
+            qaName: detail.RANDOMSAMPLEDBY || header?.QA_NAME || "",
             isDosingMachine,
             remarks: "",
           }),
@@ -782,8 +757,6 @@ export default function MaterialUtilizationScreen({
     setDetailViewBatchNo(null);
     setDetailViewWeighedBy("");
     setDetailViewValidatedBy("");
-    setDetailViewRandomSampled(0);
-    setDetailViewQaName("");
     setIsDosingMachine(false);
     setIsUpdating(false);
     setItems([]);
@@ -1176,8 +1149,6 @@ export default function MaterialUtilizationScreen({
                   itemnmbr: detailViewRecord?.FEEDTYPE || "",
                   weighedBy: detailViewWeighedBy,
                   validatedBy: detailViewValidatedBy,
-                  randomSampled: detailViewRandomSampled,
-                  qaName: detailViewQaName,
                 }}
               />
             ) : (

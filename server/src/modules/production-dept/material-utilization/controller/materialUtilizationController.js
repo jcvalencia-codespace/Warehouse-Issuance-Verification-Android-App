@@ -934,7 +934,8 @@ exports.getMaterialUtilizationDonePivotDetails = async (req, res) => {
             .input('UsageNo', sql.Int, parsedUsageNo)
             .query(`SELECT UD.PUDROWID, UD.BATCHNO, UD.ITEMNMBR, ISNULL(I.ITEMDESC, UD.ITEMNMBR) AS ITEMDESC,
                            UD.KGSUSED, UD.KGSREQUIRED, UD.IS_DOSING_MACHINE,
-                           UD.WEIGHEDBY, UD.VALIDATEDBY
+                            UD.WEIGHEDBY, UD.VALIDATEDBY,
+                            UD.IS_RANDOMSAMPLED, UD.RANDOMSAMPLEDBY
                     FROM [PRODUCTION.USAGEDETAILS] UD
                     LEFT JOIN [IV00101] I ON UD.ITEMNMBR = I.ITEMNMBR
                     WHERE UD.USAGENO = @UsageNo

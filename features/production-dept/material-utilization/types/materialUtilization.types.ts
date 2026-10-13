@@ -59,8 +59,8 @@ export interface BatchDetail {
   IS_DOSING_MACHINE?: number;
   WEIGHEDBY?: string;
   VALIDATEDBY?: string;
-  RANDOM_SAMPLED?: number;
-  QA_NAME?: string;
+  IS_RANDOMSAMPLED?: number;
+  RANDOMSAMPLEDBY?: string;
   LOTNUMBER?: string;
   REMAINING_QTY?: number;
 }
@@ -143,6 +143,8 @@ export interface MaterialUtilizationDonePivotRow {
   IS_DOSING_MACHINE: number;
   WEIGHEDBY?: string;
   VALIDATEDBY?: string;
+  IS_RANDOMSAMPLED?: number;
+  RANDOMSAMPLEDBY?: string;
 }
 
 export interface MaterialUtilizationHeaderRef {
