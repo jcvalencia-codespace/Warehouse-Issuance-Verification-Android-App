@@ -102,7 +102,7 @@ PORT=3000
 # - On local network: http://<your-local-ip>:3000
 # - On same machine:   http://localhost:3000
 # - Production:        http://<server-ip>:3000
-EXPO_PUBLIC_API_URL=http://192.168.10.85:3000
+EXPO_PUBLIC_API_URL=http://192.168.10.25:3000
 ```
 
 > **Important:** The `EXPO_PUBLIC_API_URL` must be reachable from the mobile
@@ -117,7 +117,7 @@ The Expo config in `app.json` exposes the API URL to the app via `expo.extra.api
 
 ```json
 "extra": {
-  "apiUrl": "http://192.168.10.85:3000"
+  "apiUrl": "http://192.168.10.25:3000"
 }
 ```
 
@@ -144,7 +144,7 @@ You should see output like:
 
 ```
 🚀 Server running on http://0.0.0.0:3000
-📍 Test with: http://192.168.10.85:3000/health
+📍 Test with: http://192.168.10.25:3000/health
 🔌 Socket.io initialized
 ✅ Database connection established
 ```

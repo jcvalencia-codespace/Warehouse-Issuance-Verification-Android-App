@@ -153,7 +153,7 @@ exports.getItemCode = async (req, res) => {
                              FROM [INVENTORY.QUANTITYMASTER3.HEADER] AS H 
                              INNER JOIN [INVENTORY.QUANTITYMASTER3.DETAILS] AS D ON H.QM_IDNUMBER = D.QM_IDNUMBER
                              INNER JOIN [IV00101] AS I ON D.ITEMNMBR = I.ITEMNMBR
-                             WHERE (H.LOCNCODE IN ('PAWHRM', 'PAWHPMX'))
+                             WHERE (H.LOCNCODE IN ('PAWHRM', 'PAWHPMX', 'MIPA', 'RMWS', 'QAPREP', 'SFG'))
                              ORDER BY D.ITEMNMBR`;
 
         let result = '';

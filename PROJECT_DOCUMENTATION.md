@@ -578,7 +578,7 @@ prepared/served/confirmed triggers `'prepared'`/`'served'`/`'confirmed'` events)
 | `DB_FEEDPRO` | FeedPro company database | `FEEDPRO` |
 | `DB_PET1` | PET1 company database | `PET1` |
 | `PORT` | Server port | `3000` |
-| `EXPO_PUBLIC_API_URL` | Frontend → Backend API URL | `http://192.168.10.85:3000` |
+| `EXPO_PUBLIC_API_URL` | Frontend → Backend API URL | `http://192.168.10.25:3000` |
 
 > The frontend reads its API base URL from `Constants.expoConfig?.extra?.apiUrl`
 > (configured in `app.json` under `expo.extra.apiUrl`), which is set from

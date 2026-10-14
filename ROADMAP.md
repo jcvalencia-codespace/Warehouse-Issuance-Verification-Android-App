@@ -471,7 +471,7 @@ node --openssl-legacy-provider server/index.js  # Start (prod with TLS)
 
 ```
 # SQL Server
-DB_HOST=192.168.10.85
+DB_HOST=192.168.10.25
 DB_USER=santeh
 DB_PASSWORD=***********
 DB_GDB=GDB_Santeh
@@ -483,10 +483,10 @@ DB_PET1=PET1_Santeh
 PORT=3000
 
 # Expo (client-side)
-EXPO_PUBLIC_API_URL=http://192.168.10.85:3000
+EXPO_PUBLIC_API_URL=http://192.168.10.25:3000
 ```
 
-**In app.json:** `"extra": { "apiUrl": "http://192.168.10.85:3000" }` — accessed via `Constants.expoConfig?.extra?.apiUrl`.
+**In app.json:** `"extra": { "apiUrl": "http://192.168.10.25:3000" }` — accessed via `Constants.expoConfig?.extra?.apiUrl`.
 
 ---
 

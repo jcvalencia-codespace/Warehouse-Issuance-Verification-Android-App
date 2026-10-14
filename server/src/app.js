@@ -20,7 +20,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
 
 // Get the API URL from environment for CORS configuration
-const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://192.168.10.85:3000`;
+const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://192.168.10.25:3000`;
 const ALLOWED_ORIGINS = [
   API_URL,
   'http://localhost:8081',

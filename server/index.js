@@ -11,7 +11,7 @@ const DEFAULT_DB = process.env.DB_GDB || 'GDB';
 
 const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`\n🚀 Server running on http://0.0.0.0:${PORT}`);
-  console.log(`📍 Test with: http://192.168.10.85:${PORT}/health\n`);
+  console.log(`📍 Test with: http://192.168.10.25:${PORT}/health\n`);
   
   // Initialize Socket.io
   initializeSocket(server);

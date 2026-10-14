@@ -64,7 +64,7 @@
       "eas": {
         "projectId": "87117d36-2b1e-499c-9965-f77f6854627b"
       },
-      "apiUrl": "http://192.168.10.85:3000"
+      "apiUrl": "http://192.168.10.25:3000"
     },
     "owner": "jcvbrowsing"
   }
