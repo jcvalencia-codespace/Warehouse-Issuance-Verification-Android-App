@@ -39,6 +39,7 @@ export interface IssuanceLineItem {
   remarks: string;
   details: ItemCodeDetails[];
   allocations: AssignQuantityAllocation[];
+  selectedLots: Record<string, number>;
 }
 
 export interface IssuanceDetailsRef {
@@ -57,7 +58,6 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
   const [selectedItemCode, setSelectedItemCode] = useState('');
   const [itemModalVisible, setItemModalVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
-  const [quantity, setQuantity] = useState('');
   const [items, setItems] = useState<IssuanceLineItem[]>(value ?? []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [itemDetails, setItemDetails] = useState<ItemCodeDetails[]>([]);
@@ -68,10 +68,11 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
   const [remarks, setRemarks] = useState('');
   const [machineModalVisible, setMachineModalVisible] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [selectedLotQuantities, setSelectedLotQuantities] = useState<Record<string, number>>({});
 
   const selectedItem = itemCodeOptions.find((o) => o.value === selectedItemCode);
 
-  const totalAvailable = itemDetails.reduce((sum, d) => sum + Number(d.QUANTITY), 0);
+  const selectedLotTotal = Object.values(selectedLotQuantities).reduce((sum, q) => sum + Number(q || 0), 0);
 
   useEffect(() => {
     loadItemCodes();
@@ -88,6 +89,7 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
       setItemDetails([]);
       setMachineNoOptions([]);
       setSelectedMachineNo('');
+      setSelectedLotQuantities({});
       return;
     }
     const fetchDetails = async () => {
@@ -113,6 +115,17 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
     fetchMachineNos();
   }, [selectedItemCode, company]);
 
+  const resetFormState = () => {
+    setSelectedItemCode('');
+    setErrors({});
+    setItemDetails([]);
+    setSelectedLotQuantities({});
+    setExpandedItems({});
+    setSelectedMachineNo('');
+    setRemarks('');
+    setEditIndex(null);
+  };
+
   const loadItemCodes = async () => {
     try {
       const options = await IssuanceService.getInstance().getItemCodes(company);
@@ -134,12 +147,17 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
       newErrors.itemCode = 'Item code already added';
     }
 
-    const quantityValue = Number(quantity);
-
-    if (!quantity.trim() || isNaN(quantityValue) || quantityValue <= 0) {
-      newErrors.quantity = 'Enter a valid quantity';
-    } else if (totalAvailable > 0 && quantityValue > totalAvailable) {
-      newErrors.quantity = `Quantity exceeds available stock (${totalAvailable})`;
+    const hasLotQuantities = Object.keys(selectedLotQuantities).length > 0;
+    if (!hasLotQuantities) {
+      newErrors.lotAllocation = 'Select quantities for at least one lot';
+    } else {
+      for (const [lotNumber, lotQty] of Object.entries(selectedLotQuantities)) {
+        const detail = itemDetails.find((d) => d.LOTNUMBER === lotNumber);
+        if (detail && lotQty > Number(detail.QUANTITY)) {
+          newErrors.lotAllocation = `Quantity for lot ${lotNumber} (${lotQty}) exceeds available (${Number(detail.QUANTITY)})`;
+          break;
+        }
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -152,25 +170,18 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
     );
     const description = selectedOption?.label.split(' - ')[1] || '';
 
-    let allocations: AssignQuantityAllocation[] = [];
-    try {
-      allocations = await IssuanceService.getInstance().getAssignQuantityAllocation(
-        selectedItemCode,
-        quantityValue,
-        company
-      );
-    } catch (error) {
-      allocations = [];
-    }
+    const selectedLots: Record<string, number> = { ...selectedLotQuantities };
+    const totalQuantity = selectedLotTotal;
 
     const newItem: IssuanceLineItem = {
       itemCode: selectedItemCode,
       description,
-      quantity: quantity.trim(),
+      quantity: String(totalQuantity),
       machineNo: selectedMachineNo,
       remarks: remarks.trim(),
       details: itemDetails,
-      allocations,
+      allocations: [],
+      selectedLots,
     };
 
     let updatedItems: IssuanceLineItem[];
@@ -182,21 +193,44 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
     setItems(updatedItems);
     onItemsChange?.(updatedItems);
 
-    setSelectedItemCode('');
-    setQuantity('');
-    setErrors({});
-    setItemDetails([]);
-    setExpandedItems({});
-    setSelectedMachineNo('');
-    setRemarks('');
-    setEditIndex(null);
+    resetFormState();
+  };
+
+  const handleLotQuantityChange = (lotNumber: string, value: string) => {
+    const numValue = value === '' ? NaN : Number(value);
+    const detail = itemDetails.find((d) => d.LOTNUMBER === lotNumber);
+    const maxAvailable = detail ? Number(detail.QUANTITY) : 0;
+    let finalValue: number | '' = value === '' ? '' : numValue;
+    if (typeof numValue === 'number' && !isNaN(numValue)) {
+      if (numValue < 0) {
+        finalValue = 0;
+      } else if (numValue > maxAvailable) {
+        finalValue = maxAvailable;
+      }
+    }
+    setSelectedLotQuantities((prev) => {
+      const next = { ...prev };
+      if (finalValue === '' || (typeof finalValue === 'number' && isNaN(finalValue))) {
+        delete next[lotNumber];
+      } else {
+        next[lotNumber] = finalValue as number;
+      }
+      return next;
+    });
+    setErrors((prev) => {
+      if (!prev.lotAllocation) return prev;
+      const next = { ...prev };
+      delete next.lotAllocation;
+      return next;
+    });
   };
 
   const handleEdit = (index: number) => {
     const item = items[index];
     if (!item) return;
     setSelectedItemCode(item.itemCode);
-    setQuantity(item.quantity);
+    setItemDetails(item.details);
+    setSelectedLotQuantities(item.selectedLots || {});
     setSelectedMachineNo(item.machineNo);
     setRemarks(item.remarks);
     setEditIndex(index);
@@ -217,7 +251,8 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
     onItemsChange?.(updatedItems);
   };
 
-  const handleScanned = (data: string) => {
+   const handleScanned = (data: string) => {
+    setSelectedLotQuantities({});
     const matched = itemCodeOptions.find((o) => o.value === data);
     if (matched) {
       setSelectedItemCode(matched.value);
@@ -319,24 +354,14 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
         {expanded && item.details.length > 0 && (
           <View style={[styles.itemDetailsTable, { borderColor: colors.cardBorder }]}>
             <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>PRBY</Text>
               <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>REFERENCE</Text>
-              <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>AREA</Text>
-              <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>UOM</Text>
-              <Text style={[styles.tableHeaderRight, { color: colors.textTertiary }]}>QTY</Text>
-              <Text style={[styles.tableHeaderRight, { color: colors.textTertiary }]}>ASSIGNED</Text>
+              <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>AVAILABLE</Text>
+              <Text style={[styles.tableHeaderRight, { color: colors.textTertiary }]}>SELECTED</Text>
             </View>
-            {item.details
-              .map((detail) => ({
-                detail,
-                assigned: item.allocations.find(
-                  (a) =>
-                    a.LOTNUMBER === detail.LOTNUMBER &&
-                    a.REFERENCENO === detail.REFERENCENO &&
-                    a.LINENUMBER === detail.LINENUMBER
-                ),
-              }))
-              .filter(({ assigned }) => assigned && Number(assigned.ASSIGNED_QUANTITY) > 0)
-              .map(({ detail, assigned }, dIndex) => {
+            {item.details.map((detail, dIndex) => {
+              const selectedQty = item.selectedLots?.[detail.LOTNUMBER] ?? 0;
+              const isSelected = selectedQty > 0;
               return (
                 <View
                   key={`${detail.LOTNUMBER}-${dIndex}`}
@@ -346,40 +371,60 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
                   ]}
                 >
                   <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>
+                    {detail.PRBY}
+                  </Text>
+                  <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
                     {detail.REFERENCENO}
-                  </Text>
-                  <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {detail.AREA}
-                  </Text>
-                  <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {detail.UOFM}
                   </Text>
                   <View style={[styles.qtyPill, { backgroundColor: colors.primary + '14' }]}>
                     <Text style={[styles.qtyPillText, { color: colors.primary }]}>{detail.QUANTITY}</Text>
                   </View>
-                  <Text style={[styles.tableCellRight, { color: colors.text }]} numberOfLines={1}>
-                    {assigned ? assigned.ASSIGNED_QUANTITY : '0'}
-                  </Text>
+                  <View style={styles.lotSelectContainer}>
+                    <TextInput
+                      style={[
+                        styles.lotQtyInput,
+                        {
+                          color: colors.text,
+                          borderColor: isSelected ? colors.primary : colors.cardBorder,
+                          backgroundColor: isSelected ? colors.primary + '14' : colors.background,
+                        },
+                      ]}
+                      value={item.selectedLots?.[detail.LOTNUMBER] !== undefined ? String(item.selectedLots[detail.LOTNUMBER]) : ''}
+                      placeholder="0"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="numeric"
+                      onChangeText={(text) => {
+                        const newSelectedLots = { ...(item.selectedLots || {}) };
+                        const numVal = text === '' ? NaN : Number(text);
+                        if (text === '' || isNaN(numVal)) {
+                          delete newSelectedLots[detail.LOTNUMBER];
+                        } else {
+                          const clamped = Math.max(0, Math.min(numVal, Number(detail.QUANTITY)));
+                          if (clamped > 0) {
+                            newSelectedLots[detail.LOTNUMBER] = clamped;
+                          } else {
+                            delete newSelectedLots[detail.LOTNUMBER];
+                          }
+                        }
+                        const updatedItems = [...items];
+                        updatedItems[index] = {
+                          ...updatedItems[index],
+                          selectedLots: newSelectedLots,
+                        };
+                        setItems(updatedItems);
+                        onItemsChange?.(updatedItems);
+                      }}
+                    />
+                  </View>
                 </View>
               );
             })}
-            {item.details.every(
-              (detail) =>
-                !item.allocations.some(
-                  (a) =>
-                    a.LOTNUMBER === detail.LOTNUMBER &&
-                    a.REFERENCENO === detail.REFERENCENO &&
-                    a.LINENUMBER === detail.LINENUMBER &&
-                    Number(a.ASSIGNED_QUANTITY) > 0
-                )
-            ) && (
-              <View style={styles.detailsEmpty}>
-                <MaterialCommunityIcons name="package-variant" size={32} color={colors.textTertiary} />
-                <Text style={[styles.detailsEmptyText, { color: colors.textSecondary }]}>
-                  No assigned quantity for this item
-                </Text>
-              </View>
-            )}
+            <View style={styles.lotTotalRow}>
+              <Text style={[styles.lotTotalLabel, { color: colors.textSecondary }]}>Total Selected</Text>
+              <Text style={[styles.lotTotalValue, { color: colors.primary }]}>
+                {Object.values(item.selectedLots || {}).reduce((sum, q) => sum + Number(q || 0), 0)}
+              </Text>
+            </View>
           </View>
         )}
       </View>
@@ -397,21 +442,20 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
       if (!existingItem) continue;
 
       try {
-        const [details, allocations] = await Promise.all([
-          IssuanceService.getInstance().getItemCodeDetails(itemCode, company),
-          IssuanceService.getInstance().getAssignQuantityAllocation(
-            itemCode,
-            Number(existingItem.quantity) || 0,
-            company
-          ),
-        ]);
-
+        const details = await IssuanceService.getInstance().getItemCodeDetails(itemCode, company);
         const itemIndex = updatedItems.findIndex((i) => i.itemCode === itemCode);
         if (itemIndex !== -1) {
+          const preservedLots: Record<string, number> = {};
+          for (const detail of details) {
+            const prevQty = existingItem.selectedLots?.[detail.LOTNUMBER];
+            if (prevQty && prevQty > 0 && prevQty <= Number(detail.QUANTITY)) {
+              preservedLots[detail.LOTNUMBER] = prevQty;
+            }
+          }
           updatedItems[itemIndex] = {
             ...updatedItems[itemIndex],
             details,
-            allocations,
+            selectedLots: preservedLots,
           };
         }
       } catch (error) {
@@ -427,9 +471,9 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
     clear: () => {
       setItems([]);
       setSelectedItemCode('');
-      setQuantity('');
       setErrors({});
       setItemDetails([]);
+      setSelectedLotQuantities({});
       setExpandedItems({});
       setSelectedMachineNo('');
       setRemarks('');
@@ -499,12 +543,16 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
             </View>
           ) : null}
 
+          {/* Available Lots with per-lot quantity selection (replaces standalone quantity input) */}
+
+        {/* Machine No */}
+
           {selectedItemCode ? (
             <View style={[styles.detailsTable, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
               <View style={[styles.detailsTitleRow, { borderBottomColor: colors.cardBorder }]}>
                 <View style={styles.detailsTitleWrap}>
                   <MaterialCommunityIcons name="package-variant-closed" size={18} color={colors.primary} />
-                  <Text style={[styles.detailsTitle, { color: colors.text }]}>Item Details</Text>
+                  <Text style={[styles.detailsTitle, { color: colors.text }]}>Available Lots</Text>
                 </View>
                 <View style={[styles.detailsCountBadge, { backgroundColor: colors.primary + '18' }]}>
                   <Text style={[styles.detailsCountText, { color: colors.primary }]}>{itemDetails.length}</Text>
@@ -519,37 +567,63 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
               ) : itemDetails.length > 0 ? (
                 <View>
                   <View style={styles.tableHeaderRow}>
+                    <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>PRBY</Text>
                     <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>REFERENCE</Text>
-                    {/* <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>AREA</Text> */}
-                    <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>UOM</Text>
-                    <Text style={[styles.tableHeaderRight, { color: colors.textTertiary }]}>QTY</Text>
+                    {/* <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>UOM</Text> */}
+                    <Text style={[styles.tableHeader, { color: colors.textTertiary }]}>AVAILABLE</Text>
+                    <Text style={[styles.tableHeaderRight, { color: colors.textTertiary }]}>SELECT</Text>
                   </View>
                   <FlatList
                     data={itemDetails}
                     keyExtractor={(_, index) => `detail-${index}`}
                     scrollEnabled={false}
-                    renderItem={({ item, index }) => (
-                      <View
-                        style={[
-                          styles.tableRow,
-                          index % 2 === 1 && { backgroundColor: colors.background },
-                        ]}
-                      >
-                        <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>
-                          {item.REFERENCENO}
-                        </Text>
-                        {/* <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
-                          {item.AREA}
-                        </Text> */}
-                        <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
-                          {item.UOFM}
-                        </Text>
-                        <View style={[styles.qtyPill, { backgroundColor: colors.primary + '14' }]}>
-                          <Text style={[styles.qtyPillText, { color: colors.primary }]}>{item.QUANTITY}</Text>
+                    renderItem={({ item, index }) => {
+                      const lotKey = item.LOTNUMBER;
+                      const selectedQty = selectedLotQuantities[lotKey] !== undefined ? String(selectedLotQuantities[lotKey]) : '';
+                      const isSelected = selectedLotQuantities[lotKey] && selectedLotQuantities[lotKey] > 0;
+                      return (
+                        <View
+                          style={[
+                            styles.tableRow,
+                            index % 2 === 1 && { backgroundColor: colors.background },
+                          ]}
+                        >
+                          <Text style={[styles.tableCell, { color: colors.text }]} numberOfLines={1}>
+                            {item.PRBY}
+                          </Text>
+                          <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {item.REFERENCENO}
+                          </Text>
+                          {/* <Text style={[styles.tableCell, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {item.UOFM}
+                          </Text> */}
+                          <View style={[styles.qtyPill, { backgroundColor: colors.primary + '14' }]}>
+                            <Text style={[styles.qtyPillText, { color: colors.primary }]}>{item.QUANTITY}</Text>
+                          </View>
+                          <View style={styles.lotSelectContainer}>
+                            <TextInput
+                              style={[
+                                styles.lotQtyInput,
+                                {
+                                  color: colors.text,
+                                  borderColor: isSelected ? colors.primary : colors.cardBorder,
+                                  backgroundColor: isSelected ? colors.primary + '14' : colors.background,
+                                },
+                              ]}
+                              value={selectedQty}
+                              placeholder="0"
+                              placeholderTextColor={colors.textTertiary}
+                              keyboardType="numeric"
+                              onChangeText={(text) => handleLotQuantityChange(lotKey, text)}
+                            />
+                          </View>
                         </View>
-                      </View>
-                    )}
+                      );
+                    }}
                   />
+                  <View style={styles.lotTotalRow}>
+                    <Text style={[styles.lotTotalLabel, { color: colors.textSecondary }]}>Total Selected: {selectedLotTotal}</Text>
+                  </View>
                 </View>
               ) : (
                 <View style={styles.detailsEmpty}>
@@ -557,47 +631,6 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
                   <Text style={[styles.detailsEmptyText, { color: colors.textSecondary }]}>No available lots for this item</Text>
                 </View>
               )}
-            </View>
-          ) : null}
-        </View>
-
-        {/* Quantity Input */}
-        <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: colors.text }]}>
-            Quantity <Text style={[styles.requiredStar, { color: colors.error }]}>*</Text>
-          </Text>
-          <View
-            style={[
-              styles.inputContainer,
-              {
-                borderColor: errors.quantity ? colors.error : colors.cardBorder,
-                backgroundColor: colors.background,
-              },
-            ]}
-          >
-            <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              value={quantity}
-              placeholder="Enter quantity"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="numeric"
-              onChangeText={(text) => {
-                setQuantity(text);
-                if (errors.quantity) {
-                  setErrors((prev) => {
-                    const next = { ...prev };
-                    delete next.quantity;
-                    return next;
-                  });
-                }
-              }}
-            />
-          </View>
-          {errors.quantity ? (
-            <View style={styles.errorContainer}>
-              <MaterialCommunityIcons name="alert-circle" size={14} color={colors.error} />
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.quantity}</Text>
             </View>
           ) : null}
         </View>
@@ -707,6 +740,7 @@ export const IssuanceDetails = forwardRef<IssuanceDetailsRef, IssuanceDetailsPro
         selectedValue={selectedItemCode}
         onSelect={(value) => {
           setSelectedItemCode(value);
+          setSelectedLotQuantities({});
           setErrors((prev) => {
             if (!prev.itemCode) return prev;
             const next = { ...prev };
@@ -1077,5 +1111,38 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  lotSelectContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  lotQtyInput: {
+    width: 72,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    paddingHorizontal: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
+  lotTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+    gap: 8,
+  },
+  lotTotalLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  lotTotalValue: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

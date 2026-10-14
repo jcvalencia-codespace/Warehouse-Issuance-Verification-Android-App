@@ -73,27 +73,27 @@ exports.getItemCode = async (req, res) => {
 exports.getItemDetails = async (req, res) => {
     const { company } = req.query;
     const { itemCode } = req.params;
-    const query = `DECLARE @TEMP TABLE
-                                            (DATERECEIVED SMALLDATETIME,  REFERENCENO  NVARCHAR(31), LINENUMBER INT, LOTNUMBER NVARCHAR(31), ITEMNMBR NVARCHAR(31), QUANTITY DECIMAL(18, 5), AREA NVARCHAR(21))
-
-                                            INSERT INTO @TEMP (DATERECEIVED, REFERENCENO, LINENUMBER, LOTNUMBER, ITEMNMBR, QUANTITY, AREA)
-                                            SELECT DATERECEIVED, REFERENCENO, LINENUMBER, QTM.LOTNUMBER, ITEMNMBR, (QTM.QUANTITY + QUANTITYADJ - QUANTITYISSUANCE)
-                                            - ISNULL((SELECT SUM(QUANTITY) FROM [INVENTORY.WHSEAREA] WA WHERE QTM.LOTNUMBER = WA.LOTNUMBER), 0) AS QUANTITY,
-                                            AREANAME AS 'AREA LOCATION'
-                                            FROM [INVENTORY.QUANTITYMASTER2] AS QTM
-                                            WHERE QTM.LOCNCODE = 'PAWHSP' AND QTM.QUANTITY + QUANTITYADJ - QUANTITYISSUANCE <> 0
-
-                                            INSERT INTO @TEMP (DATERECEIVED, REFERENCENO, LINENUMBER, LOTNUMBER, ITEMNMBR, QUANTITY, AREA)
-                                            SELECT DATERECEIVED, REFERENCENO, LINENUMBER, A.LOTNUMBER, ITEMNMBR, A.QUANTITY, AREA FROM [INVENTORY.WHSEAREA] A
-                                            INNER JOIN [INVENTORY.QUANTITYMASTER2] Q ON A.LOTNUMBER = Q.LOTNUMBER 
-                                            WHERE A.LOTNUMBER IN (SELECT LOTNUMBER FROM @TEMP) AND  Q.QUANTITY + QUANTITYADJ - QUANTITYISSUANCE <> 0 AND Q.LOCNCODE = 'PAWHSP' 
-
-                                            SELECT  AREA, T.DATERECEIVED, T.REFERENCENO, T.LINENUMBER, T.LOTNUMBER, RTRIM(T.ITEMNMBR) 'ITEM CODE', UOFM, SUM(T.QUANTITY) QUANTITY
-                                            FROM @TEMP T INNER JOIN [INVENTORY.QUANTITYMASTER2] Q ON T.REFERENCENO = Q.REFERENCENO AND T.LINENUMBER = Q.LINENUMBER AND T.LOTNUMBER = Q.LOTNUMBER AND T.ITEMNMBR = Q.ITEMNMBR 
-                                            WHERE T.ITEMNMBR = @itemCode
-                                            GROUP BY T.DATERECEIVED, T.REFERENCENO, T.LINENUMBER, T.LOTNUMBER, T.ITEMNMBR, UOFM, AREA
-                                            HAVING SUM(T.QUANTITY) <> 0
-                                            ORDER BY T.DATERECEIVED, T.REFERENCENO, QUANTITY`;
+    const query = ` DECLARE @TEMP TABLE
+                    (DATERECEIVED SMALLDATETIME,  REFERENCENO  NVARCHAR(31), LINENUMBER INT, LOTNUMBER NVARCHAR(31), ITEMNMBR NVARCHAR(31), QUANTITY DECIMAL(18, 5), AREA NVARCHAR(21))
+                    INSERT INTO @TEMP (DATERECEIVED, REFERENCENO, LINENUMBER, LOTNUMBER, ITEMNMBR, QUANTITY, AREA)
+                    SELECT DATERECEIVED, REFERENCENO, LINENUMBER, QTM.LOTNUMBER, ITEMNMBR, (QTM.QUANTITY + QUANTITYADJ - QUANTITYISSUANCE)
+                    - ISNULL((SELECT SUM(QUANTITY) FROM [INVENTORY.WHSEAREA] WA WHERE QTM.LOTNUMBER = WA.LOTNUMBER), 0) AS QUANTITY,
+                    AREANAME AS 'AREA LOCATION'
+                    FROM [INVENTORY.QUANTITYMASTER2] AS QTM
+                    WHERE QTM.LOCNCODE = 'PAWHSP' AND QTM.QUANTITY + QUANTITYADJ - QUANTITYISSUANCE <> 0
+                    INSERT INTO @TEMP (DATERECEIVED, REFERENCENO, LINENUMBER, LOTNUMBER, ITEMNMBR, QUANTITY, AREA)
+                    SELECT DATERECEIVED, REFERENCENO, LINENUMBER, A.LOTNUMBER, ITEMNMBR, A.QUANTITY, AREA FROM [INVENTORY.WHSEAREA] A
+                    INNER JOIN [INVENTORY.QUANTITYMASTER2] Q ON A.LOTNUMBER = Q.LOTNUMBER 
+                    WHERE A.LOTNUMBER IN (SELECT LOTNUMBER FROM @TEMP) AND  Q.QUANTITY + QUANTITYADJ - QUANTITYISSUANCE <> 0 AND Q.LOCNCODE = 'PAWHSP'
+                    SELECT  AREA, T.DATERECEIVED, T.REFERENCENO, T.LINENUMBER, T.LOTNUMBER, RTRIM(T.ITEMNMBR) 'ITEM CODE', UOFM, SUM(T.QUANTITY) QUANTITY
+                     , ISNULL((SELECT TOP 1 REQUESTEDBY FROM POP10500 R 
+                     INNER JOIN [PURCHASE.REQUESTDETAILS] PD ON PD.RID = R.RID 
+                     INNER JOIN [PURCHASE.REQUESTHEADER] PH ON PD.REFERENCENO = PH.REFERENCENO WHERE R.POPRCTNM = T.REFERENCENO AND R.ITEMNMBR = T.ITEMNMBR),'') AS 'PRBY'
+                    FROM @TEMP T INNER JOIN [INVENTORY.QUANTITYMASTER2] Q ON T.REFERENCENO = Q.REFERENCENO AND T.LINENUMBER = Q.LINENUMBER AND T.LOTNUMBER = Q.LOTNUMBER AND T.ITEMNMBR = Q.ITEMNMBR 
+                    WHERE T.ITEMNMBR = @itemCode
+                    GROUP BY T.DATERECEIVED, T.REFERENCENO, T.LINENUMBER, T.LOTNUMBER, T.ITEMNMBR, UOFM, AREA
+                    HAVING SUM(T.QUANTITY) <> 0
+                    ORDER BY T.DATERECEIVED, T.REFERENCENO, QUANTITY`;
     const dbName = getCompanyDbName(company);
     const pool = await getPool(dbName);
     const result = await pool.request()
@@ -367,49 +367,50 @@ exports.postIssuance = async (req, res) => {
         const allocations = [];
 
         for (const line of lineItems) {
-            const requestedQty = line.quantity ?? line.QUANTITY ?? 0;
+            const requestedQty = Number(line.quantity ?? line.QUANTITY ?? 0);
             const itemCode = line.itemCode ?? line.ITEMNMBR ?? 'Unknown';
             const machineNo = line.machineNo ?? line.MACHINENO ?? null;
             const uofm = line.uofm ?? line.UOFM ?? null;
             const refNoRecv = line.refNoRecv ?? line.REFNORECV ?? null;
             const lineNumRecv = line.lineNumRecv ?? line.LINENUMRECV ?? null;
             const remarks = line.remarks ?? line.REMARKS ?? null;
+            const lotNumber = line.lotNumber ?? line.LOTNUMBER ?? null;
 
-            const lotsResult = await (new sql.Request(transaction))
+            if (!lotNumber) {
+                const err = new Error(`Item ${itemCode} has no lot number specified.`);
+                err.statusCode = 400;
+                throw err;
+            }
+
+            const checkLotResult = await (new sql.Request(transaction))
                 .input('itemCode', itemCode)
-                .query(`SELECT Q.LOTNUMBER, (Q.QUANTITY + Q.QUANTITYADJ - Q.QUANTITYISSUANCE) - ISNULL((SELECT SUM(WA.QUANTITY) FROM [INVENTORY.WHSEAREA] WA WHERE WA.LOTNUMBER = Q.LOTNUMBER), 0) AS AVAILABLE FROM [INVENTORY.QUANTITYMASTER2] Q WITH (UPDLOCK, ROWLOCK) WHERE Q.ITEMNMBR = @itemCode AND Q.LOCNCODE = 'PAWHSP' AND (Q.QUANTITY + Q.QUANTITYADJ - Q.QUANTITYISSUANCE) - ISNULL((SELECT SUM(WA.QUANTITY) FROM [INVENTORY.WHSEAREA] WA WHERE WA.LOTNUMBER = Q.LOTNUMBER), 0) > 0 ORDER BY Q.DATERECEIVED ASC, Q.REFERENCENO ASC`);
+                .input('lotNumber', lotNumber)
+                .query(`SELECT Q.LOTNUMBER, (Q.QUANTITY + Q.QUANTITYADJ - Q.QUANTITYISSUANCE) - ISNULL((SELECT SUM(WA.QUANTITY) FROM [INVENTORY.WHSEAREA] WA WHERE WA.LOTNUMBER = Q.LOTNUMBER), 0) AS AVAILABLE FROM [INVENTORY.QUANTITYMASTER2] Q WITH (UPDLOCK, ROWLOCK) WHERE Q.ITEMNMBR = @itemCode AND Q.LOTNUMBER = @lotNumber AND Q.LOCNCODE = 'PAWHSP'`);
 
-            if (lotsResult.recordset.length === 0) {
-                const err = new Error(`Item ${itemCode} has no available stock.`);
+            const available = checkLotResult.recordset.length > 0 ? Number(checkLotResult.recordset[0].AVAILABLE) : 0;
+
+            if (available <= 0) {
+                const err = new Error(`Item ${itemCode} lot ${lotNumber} has no available stock.`);
                 err.statusCode = 400;
                 throw err;
             }
 
-            let remaining = requestedQty;
-            const lineAllocations = [];
-            for (const lot of lotsResult.recordset) {
-                if (remaining <= 0) break;
-                const take = Math.min(remaining, lot.AVAILABLE);
-                lineAllocations.push({
-                    itemCode,
-                    machineNo,
-                    lotNumber: lot.LOTNUMBER,
-                    quantity: take,
-                    uofm,
-                    refNoRecv,
-                    lineNumRecv,
-                    remarks,
-                });
-                remaining -= take;
-            }
-
-            if (remaining > 0) {
-                const err = new Error(`Item ${itemCode} has insufficient stock. Requested: ${requestedQty}, Available: ${requestedQty - remaining}`);
+            if (requestedQty > available) {
+                const err = new Error(`Item ${itemCode} lot ${lotNumber} has insufficient stock. Requested: ${requestedQty}, Available: ${available}`);
                 err.statusCode = 400;
                 throw err;
             }
 
-            allocations.push(...lineAllocations);
+            allocations.push({
+                itemCode,
+                machineNo,
+                lotNumber,
+                quantity: requestedQty,
+                uofm,
+                refNoRecv,
+                lineNumRecv,
+                remarks,
+            });
         }
 
         const headerRequest = new sql.Request(transaction);

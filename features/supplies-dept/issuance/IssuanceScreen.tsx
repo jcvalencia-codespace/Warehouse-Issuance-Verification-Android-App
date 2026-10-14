@@ -132,19 +132,45 @@ export default function IssuanceScreen({ onCancel, onSubmit }: IssuanceScreenPro
       timeIssued.getMilliseconds()
     );
 
-    const details: PostIssuanceDetail[] = items.map((item) => {
-      const firstDetail = item.details[0];
-      return {
-        itemCode: item.itemCode,
-        description: item.description,
-        quantity: item.quantity,
-        machineNo: '',
-        lotNumber: firstDetail?.LOTNUMBER ?? '',
-        uofm: firstDetail?.UOFM ?? '',
-        refNoRecv: firstDetail?.REFERENCENO ?? '',
-        lineNumRecv: firstDetail?.LINENUMBER ?? '',
-        remarks: item.remarks ?? '',
-      };
+    const details: PostIssuanceDetail[] = items.flatMap((item) => {
+      const detailLines: PostIssuanceDetail[] = [];
+      const selectedLots = item.selectedLots || {};
+      const hasSelectedLots = Object.keys(selectedLots).length > 0;
+
+      if (!hasSelectedLots) {
+        const firstDetail = item.details[0];
+        return [
+          {
+            itemCode: item.itemCode,
+            description: item.description,
+            quantity: item.quantity,
+            machineNo: '',
+            lotNumber: firstDetail?.LOTNUMBER ?? '',
+            uofm: firstDetail?.UOFM ?? '',
+            refNoRecv: firstDetail?.REFERENCENO ?? '',
+            lineNumRecv: firstDetail?.LINENUMBER ?? '',
+            remarks: item.remarks ?? '',
+          },
+        ];
+      }
+
+      for (const [lotNumber, lotQty] of Object.entries(selectedLots)) {
+        const detail = item.details.find((d) => d.LOTNUMBER === lotNumber);
+        if (lotQty > 0) {
+          detailLines.push({
+            itemCode: item.itemCode,
+            description: item.description,
+            quantity: String(lotQty),
+            machineNo: '',
+            lotNumber: detail?.LOTNUMBER ?? lotNumber,
+            uofm: detail?.UOFM ?? '',
+            refNoRecv: detail?.REFERENCENO ?? '',
+            lineNumRecv: detail?.LINENUMBER ?? null,
+            remarks: item.remarks ?? '',
+          });
+        }
+      }
+      return detailLines;
     });
 
     return {

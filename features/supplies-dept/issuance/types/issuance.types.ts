@@ -38,12 +38,14 @@ export interface ItemCodeResponse {
 export interface ItemCodeDetails {
   AREA: string;
   DATERECEIVED: string;
+  PRBY: string;
   REFERENCENO: string;
   LINENUMBER: number;
   LOTNUMBER: string;
   'ITEM CODE': string;
   UOFM: string;
   QUANTITY: number;
+  selectedQuantity?: number;
 }
 
 export interface AssignQuantityAllocation {
@@ -90,6 +92,21 @@ export interface PostIssuanceDetail {
   refNoRecv?: string | null;
   lineNumRecv?: number | null;
   remarks?: string | null;
+}
+
+export interface SelectedLotDetail {
+  itemCode: string;
+  description: string;
+  quantity: string;
+  machineNo: string;
+  remarks: string;
+  uofm: string;
+  lotNumber: string;
+  refNoRecv: string;
+  lineNumRecv: number;
+  area: string;
+  dateReceived: string;
+  prBy: string;
 }
 
 export interface PostIssuancePayload {
