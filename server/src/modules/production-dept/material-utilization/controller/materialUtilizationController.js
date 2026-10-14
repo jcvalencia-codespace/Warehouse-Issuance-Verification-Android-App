@@ -1066,6 +1066,16 @@ exports.approveQaReview = async (req, res) => {
 
         await transaction.commit();
 
+        try {
+            const gdbDbName = getCompanyDbName('GDB');
+            const gdbPool = await getPool(gdbDbName);
+            await gdbPool.request()
+                .input('usageNo', sql.NVarChar, usageNo != null ? String(usageNo) : null)
+                .query(`DELETE FROM [SYSTEM.NOTIFICATIONMASTER] WHERE REFERENCENO = CONCAT('PMU-', @usageNo)`);
+        } catch (notificationError) {
+            console.error('Error deleting notification:', notificationError);
+        }
+
         emitMaterialUtilizationUpdate('qa-approved', { usageNo, company });
 
         res.json({ success: true, message: 'QA review approved successfully.' });
@@ -1111,6 +1121,16 @@ exports.rejectQaReview = async (req, res) => {
                     WHERE USAGENO = @usageNo`);
 
         await transaction.commit();
+
+        try {
+            const gdbDbName = getCompanyDbName('GDB');
+            const gdbPool = await getPool(gdbDbName);
+            await gdbPool.request()
+                .input('usageNo', sql.NVarChar, usageNo != null ? String(usageNo) : null)
+                .query(`DELETE FROM [SYSTEM.NOTIFICATIONMASTER] WHERE REFERENCENO = CONCAT('PMU-', @usageNo)`);
+        } catch (notificationError) {
+            console.error('Error deleting notification:', notificationError);
+        }
 
         emitMaterialUtilizationUpdate('qa-rejected', { usageNo, company });
 
